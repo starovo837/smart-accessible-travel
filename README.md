@@ -39,7 +39,7 @@ app_port: 7860
 
 ## 运行与维护
 
-Docker 构建前端，Node.js 24 提供 `0.0.0.0:7860` 的同源界面与 API，Ollama 只监听 `127.0.0.1:11434`。本机管理、规则审核与手机配对端点在线上全部关闭。
+Docker 构建前端，Node.js 24 提供 `0.0.0.0:7860` 的同源界面与 API，Ollama 只监听 `127.0.0.1:11434`。容器按免费 CPU 规格保留 CPU 推理组件，不打包 GPU 后端。本机管理、规则审核与手机配对端点在线上全部关闭。
 
 模型缓存在 `/mnt/workspace/smart-accessible/models`，授权协作资料和规则核验缓存在 `/mnt/workspace/smart-accessible/data`。按魔搭当前持久化约定维护；迁移、改名或平台调整仍可能影响数据，请妥善保留用户导出的管理凭据。
 

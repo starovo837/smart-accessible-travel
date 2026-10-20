@@ -13,14 +13,26 @@ RUN pnpm exec tsc -b
 RUN VITE_DEPLOYMENT=studio pnpm exec vite build
 RUN VITE_DEPLOYMENT=studio node scripts/build-offline.mjs
 
-FROM ollama/ollama:0.40.4
+# CPU/base executables and libraries live at the payload root in this pinned release.
+# GPU backends live in subdirectories and are unnecessary on the verified free CPU tier.
+FROM ollama/ollama:0.40.4@sha256:926d40fd6eeeebd346b5c358a63de2a10ec995371cd93dd22f1843200694b1a6 AS engine
+RUN mkdir -p /cpu-libs && find /usr/lib/ollama -maxdepth 1 \( -type f -o -type l \) -exec cp -a {} /cpu-libs/ \; \
+    && test -x /cpu-libs/llama-server
+
+FROM ubuntu:24.04
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libstdc++6 libgomp1 libopenblas0 \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /usr/local/bin/node /usr/local/bin/node
+COPY --from=engine /usr/bin/ollama /usr/bin/ollama
+COPY --from=engine /cpu-libs/ /usr/lib/ollama/
+RUN node --version && ! ldd /usr/bin/ollama | grep 'not found' \
+    && ! ldd /usr/lib/ollama/llama-server | grep 'not found'
 WORKDIR /app
 ENV NODE_ENV=production SAI_DEPLOYMENT=studio PORT=7860 \
     SAI_DATA_DIR=/mnt/workspace/smart-accessible/data \
     OLLAMA_MODELS=/mnt/workspace/smart-accessible/models \
     OLLAMA_HOST=127.0.0.1:11434 OLLAMA_NO_CLOUD=1 \
-    OLLAMA_NUM_PARALLEL=1 OLLAMA_MAX_LOADED_MODELS=1 \
+    OLLAMA_NUM_PARALLEL=1 OLLAMA_MAX_LOADED_MODELS=1 OLLAMA_VULKAN=0 \
     OLLAMA_CONTEXT_LENGTH=16384
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/src ./src
