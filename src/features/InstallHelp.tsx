@@ -1,0 +1,9 @@
+import { useEffect, useState } from 'react'
+interface InstallEvent extends Event {prompt:()=>Promise<void>;userChoice:Promise<{outcome:string}>}
+let pending:InstallEvent|undefined
+window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();pending=event as InstallEvent;window.dispatchEvent(new Event('app-install-ready'))})
+export function InstallHelp(){
+ const [ready,setReady]=useState(Boolean(pending)),[status,setStatus]=useState(''),[waiting,setWaiting]=useState<ServiceWorker|null>(null)
+ useEffect(()=>{const ready=()=>setReady(Boolean(pending));window.addEventListener('app-install-ready',ready);let alive=true;if('serviceWorker' in navigator)navigator.serviceWorker.getRegistration().then(registration=>{if(!alive||!registration)return;const update=()=>{if(alive)setWaiting(registration.waiting)};update();registration.addEventListener('updatefound',()=>registration.installing?.addEventListener('statechange',update))}).catch(()=>{});return()=>{alive=false;window.removeEventListener('app-install-ready',ready)}},[])
+ return <section className="task-panel"><h2>安装与离线使用</h2><p>电脑运行的局域网HTTP页面无法提供完整安装和手机独立AI环境。下载下方独立应用文件可离线使用基础功能；正式安装和WebGPU AI应从可信HTTPS地址打开。</p>{ready&&<button onClick={async()=>{if(!pending)return;await pending.prompt();setStatus((await pending.userChoice).outcome==='accepted'?'已接受安装，请查看桌面图标。':'未安装，可继续在浏览器使用。');pending=undefined;setReady(false)}}>安装到此设备桌面</button>}<details><summary>浏览器没有出现安装按钮？</summary><p>安卓：在Chrome或Edge菜单中查看“安装应用／添加到主屏幕”。iPhone：在Safari分享菜单中选择“添加到主屏幕”。浏览器和系统支持不同，普通桌面快捷方式仍可能需要联网。</p><p>浏览器可能清理离线缓存，重要资料请另外导出。首次下载需要网络，AI模型缓存与应用代码缓存分别管理。</p></details>{waiting&&<button onClick={()=>{navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload(),{once:true});waiting.postMessage('SKIP_WAITING')}}>已保存／导出资料，更新应用并重新打开</button>}<p role="status">{status}</p></section>
+}
