@@ -23,6 +23,7 @@ deployment/*
 !deployment/modelscope/
 deployment/modelscope/*
 !deployment/modelscope/start.mjs
+!deployment/modelscope/download-model.mjs
 **/.env*
 **/*.log
 **/*.key
