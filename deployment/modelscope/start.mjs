@@ -6,7 +6,7 @@ import { LOCAL_MODEL } from '../../server/local-ai.mjs'
 process.env.SAI_DEPLOYMENT='studio'
 process.env.PORT='7860'
 process.env.SAI_DATA_DIR||='/mnt/workspace/smart-accessible/data'
-process.env.OLLAMA_MODELS||='/mnt/workspace/smart-accessible/models'
+process.env.OLLAMA_MODELS||='/opt/smart-models'
 Object.assign(process.env,{OLLAMA_HOST:'127.0.0.1:11434',OLLAMA_NO_CLOUD:'1',OLLAMA_NUM_PARALLEL:'1',OLLAMA_MAX_LOADED_MODELS:'1',OLLAMA_CONTEXT_LENGTH:'16384',OLLAMA_DEBUG:'0'})
 await Promise.all([mkdir(process.env.SAI_DATA_DIR,{recursive:true}),mkdir(process.env.OLLAMA_MODELS,{recursive:true})])
 const children=new Set()
@@ -30,7 +30,7 @@ function launch(command,args,critical=true){
 process.on('SIGINT',()=>stop())
 process.on('SIGTERM',()=>stop())
 launch('ollama',['serve'])
-// Render basic flows while the model is being prepared; status never pretends AI is ready.
+// The build includes verified weights. Render basic flows while the engine starts.
 launch(process.execPath,['desktop/server.mjs'])
 async function prepareModel(){
   for(let attempt=0;attempt<30&&!stopping;attempt++){
@@ -39,9 +39,7 @@ async function prepareModel(){
       if(response.ok){
         const data=await response.json()
         if(data.models?.some(model=>model.name===LOCAL_MODEL)){console.log('Studio model is installed.');return}
-        console.log('Preparing the open model; this downloads weights, not user data. No model API key is used.')
-        const pull=launch('ollama',['pull',LOCAL_MODEL],false)
-        pull.once('exit',code=>{if(code!==0&&!stopping)console.error('Model download did not finish. Basic features remain available; inspect Studio logs before restarting.')})
+        console.error('The verified model is missing from the image. AI is disabled. Inspect the build; startup does not launch a background download.')
         return
       }
     }catch{/* Wait only for local engine readiness. Never retry user inference. */}
