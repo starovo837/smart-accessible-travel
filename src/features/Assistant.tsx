@@ -5,6 +5,7 @@ import { assistantReply, type AssistantSlots } from '../app/logic'
 import { readText, stopReading } from '../app/accessibility'
 import { isStudio, processingLocation } from '../app/deployment'
 import { service } from '../app/service'
+import { runInference } from '../app/inference'
 import { answerInBrowser, browserAIAvailable, browserAIReady } from '../app/browserAI'
 import { renderAssistantSelection, type AssistantEvidence } from '../app/assistantEvidence'
 import type { AssistantTurn } from '../app/types'
@@ -58,7 +59,8 @@ export function AssistantPage({ readAloud, voiceInput, evidence, preferBrowser, 
         if(useDevice&&!browserAIReady()&&!forceDevice){if(!browserAIAvailable())throw Error('这台设备暂不支持独立AI。问题已保留，可等待服务端AI就绪后重试。');setPendingBrowser(text);setStatus('首次使用需要确认模型下载，尚未发送本次问题。');return}
         if(controller.signal.aborted){controller=new AbortController();request.current=controller}
         setDraft('');setConfirmation(null);setStatus(useDevice?'正在这台设备上回答……':'正在通过'+processingLocation+'回答……');setTurns(current=>[...current,{speaker:'user',text:text.trim()}])
-        const selected=useDevice?await answerInBrowser(text,evidence,setStatus,controller.signal):await service<ReturnType<typeof renderAssistantSelection>>('assistant/answer',{question:text,evidence,consent:true},undefined,controller.signal)
+        const progress=(message:string)=>{if(version===epoch.current)setStatus(message)}
+        const selected=useDevice?await answerInBrowser(text,evidence,progress,controller.signal):await runInference<ReturnType<typeof renderAssistantSelection>>('assistant/answer',{question:text,evidence,consent:true},controller.signal,progress)
         if(version!==epoch.current)return
         const output=renderAssistantSelection({statementIds:selected.statementIds,questionId:selected.questionId},evidence)
         const answer=output.answer+(output.followUp?'\n下一项需要确认：'+output.followUp:'');setTurns(current=>[...current,{speaker:'assistant',text:answer,citations:evidence.filter(item=>output.factIds.includes(item.id))}]);setStatus('回答完成，可展开回答下方的依据核对。');if(readAloud)readText(answer,slow?.75:1)

@@ -99,7 +99,8 @@ export default function App() {
     const version=++requestVersion.current; setProductError('');setAiProgress(''); setProductLoading(true)
     const needs=screen==='product-result'&&product.insight?product.insight.needs:{...initialNeeds(),doorCm:journey.life.home.doorCm,elevatorDoorCm:journey.life.home.elevatorDoorCm,liftKg:journey.living.liftKg,canFold:journey.living.canFold}
     try {
-      const result=mode==='ai'?await analyzeSources(sources,controller.signal):mode==='browser'?await analyzeInBrowser(sources,setAiProgress,controller.signal):localAnalysis(sources,mode,needs)
+      const progress=(message:string)=>{if(version===requestVersion.current)setAiProgress(message)}
+      const result=mode==='ai'?await analyzeSources(sources,controller.signal,progress):mode==='browser'?await analyzeInBrowser(sources,progress,controller.signal):localAnalysis(sources,mode,needs)
       if(version===requestVersion.current) { const next={...result,id:screen==='product-result'?product.id:result.id,insight:result.insight?{...result.insight,needs:screen==='product-result'||['wheelchair','manual-wheelchair','mobility-scooter','walker','rollator'].includes(result.deviceType??'')?needs:initialNeeds()}:undefined}; setProduct(screen==='product-result'?preserveConfirmations(product,next):next); setAssistantContext('product');setAssistantDevice('*');setScreen('product-result'); return true }
     } catch(error) { if(version===requestVersion.current&&(error as Error).name!=='AbortError')setProductError((error as Error).message) }
     finally { if(version===requestVersion.current){setProductLoading(false);setAiProgress('')} }
