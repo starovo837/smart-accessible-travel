@@ -17,7 +17,8 @@ export async function runInference<T>(path:string,input:unknown,signal:AbortSign
     if(response.status!==202)return payload as T
     taskId=payload.taskId
     if(!taskId||!/^([a-f0-9]{48})$/.test(taskId))throw Error('模型任务未能建立，资料仍保留在本页。')
-    onProgress('已提交，正在准备模型。免费CPU处理可能需要数分钟，可随时取消。')
+    onProgress('已提交，正在准备模型。处理可能需要数分钟，可随时取消。')
+    let lastStage='',lastElapsed=-30
     for(;;){
       await pause(signal)
       const poll=await apiFetch('/api/inference-jobs/'+taskId,{signal,cache:'no-store'})
@@ -26,7 +27,11 @@ export async function runInference<T>(path:string,input:unknown,signal:AbortSign
       if(job.state==='completed'&&job.result)return job.result
       if(job.state!=='running')throw Error(job.error??'本次解读已停止，没有生成新结论。')
       const elapsed=job.elapsedSeconds??0
-      onProgress((job.progress??'正在解读')+' · 已等待'+(elapsed<60?elapsed+'秒':Math.floor(elapsed/60)+'分'+elapsed%60+'秒')+'。可取消，资料会保留。')
+      // Avoid repeatedly interrupting screen-reader users with a timer every 3s.
+      if(job.progress!==lastStage||elapsed-lastElapsed>=30){
+        onProgress((job.progress??'正在解读')+' · 已等待'+(elapsed<60?elapsed+'秒':Math.floor(elapsed/60)+'分'+elapsed%60+'秒')+'。可取消，资料会保留。')
+        lastStage=job.progress??'';lastElapsed=elapsed
+      }
     }
   }finally{
     if(taskId){void apiFetch('/api/inference-jobs/'+taskId,{method:'DELETE',keepalive:true}).catch(()=>{})}

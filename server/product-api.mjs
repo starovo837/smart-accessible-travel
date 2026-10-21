@@ -49,6 +49,9 @@ export function createProductApi({ status = localAIStatus, generate = generateLo
     if (!pathname.startsWith('/api/')) return false
     if (!allowedRequest(req,policy)) { send(res, 403, { error: '请从软件本身提交资料。' }); return true }
     try {
+      const deleteAction=req.method==='POST'&&req.headers['x-sai-action']==='delete'
+      if(deleteAction&&!/^\/api\/(?:inference-jobs\/[a-f0-9]{48}|cases\/[a-z0-9-]+|shares\/[a-z0-9-]+\/owner)$/.test(pathname)){send(res,400,{error:'此接口不支持删除操作。'});return true}
+      const method=deleteAction?'DELETE':req.method
       if(policy.enabled&&(pathname.startsWith('/api/review/')||pathname==='/api/pair-code'||pathname==='/api/pair'||pathname==='/api/connection')){send(res,404,{error:'线上体验版不开放本机管理或配对接口。'});return true}
       if(pathname==='/api/connection'&&req.method==='GET'&&isLocal(req)){
         if(!authorized(req))session(res)
@@ -65,7 +68,7 @@ export function createProductApi({ status = localAIStatus, generate = generateLo
       const jobMatch = pathname.match(/^\/api\/inference-jobs\/([a-f0-9]{48})$/)
       if (jobMatch) {
         if (!authorized(req)) { send(res, 403, { error: '当前会话已失效，请重新打开资料页。' }); return true }
-        if (req.method === 'DELETE') { send(res, jobs.cancel(jobMatch[1], sessionId(req)) ? 200 : 404, { cancelled: true }); return true }
+        if (method === 'DELETE') { send(res, jobs.cancel(jobMatch[1], sessionId(req)) ? 200 : 404, { cancelled: true }); return true }
         if (req.method !== 'GET') { send(res, 405, { error: '不支持此操作。' }); return true }
         const job = jobs.read(jobMatch[1], sessionId(req))
         send(res, job ? 200 : 404, job ?? { error: '本次任务已结束或不属于当前会话。请重新提交资料。' }); return true
@@ -75,10 +78,10 @@ export function createProductApi({ status = localAIStatus, generate = generateLo
       if(pathname==='/api/rules/refresh'&&req.method==='POST'){if(!authorized(req)||!hit(req,'rules',3)){send(res,403,{error:'请先授权，并稍后再核验来源。'});return true}send(res,200,{documents:await rules.refresh()});return true}
       if(pathname==='/api/cases'&&req.method==='POST'){if(!authorized(req)||!hit(req,'case-create',5)){send(res,403,{error:'请先授权当前设备或稍后再提交。'});return true}send(res,201,await workspace.createCase(await body(req)));return true}
       const caseMatch=pathname.match(/^\/api\/cases\/([a-z0-9-]+)(\/reply)?$/)
-      if(caseMatch){if(req.method==='GET')send(res,200,await workspace.getCase(caseMatch[1],secret));else if(req.method==='DELETE')send(res,200,await workspace.deleteCase(caseMatch[1],secret));else if(req.method==='POST'&&caseMatch[2])send(res,200,await workspace.replyCase(caseMatch[1],secret,await body(req)));else send(res,405,{error:'不支持此操作。'});return true}
+      if(caseMatch){if(method==='GET')send(res,200,await workspace.getCase(caseMatch[1],secret));else if(method==='DELETE')send(res,200,await workspace.deleteCase(caseMatch[1],secret));else if(method==='POST'&&caseMatch[2])send(res,200,await workspace.replyCase(caseMatch[1],secret,await body(req)));else send(res,405,{error:'不支持此操作。'});return true}
       if(pathname==='/api/shares'&&req.method==='POST'){if(!authorized(req)||!hit(req,'share-create',5)){send(res,403,{error:'请先授权当前设备或稍后再创建分享。'});return true}send(res,201,await workspace.createShare(await body(req)));return true}
       const shareMatch=pathname.match(/^\/api\/shares\/([a-z0-9-]+)(\/(owner|suggest))?$/)
-      if(shareMatch){const key=shareMatch[1],owner=shareMatch[3]==='owner';if(req.method==='GET')send(res,200,await workspace.getShare(key,secret,owner));else if(req.method==='DELETE'&&owner)send(res,200,await workspace.deleteShare(key,secret));else if(req.method==='POST'&&owner)send(res,200,await workspace.updateShare(key,secret,await body(req)));else if(req.method==='POST'&&shareMatch[3]==='suggest')send(res,200,await workspace.suggest(key,secret,await body(req)));else send(res,405,{error:'不支持此操作。'});return true}
+      if(shareMatch){const key=shareMatch[1],owner=shareMatch[3]==='owner';if(method==='GET')send(res,200,await workspace.getShare(key,secret,owner));else if(method==='DELETE'&&owner)send(res,200,await workspace.deleteShare(key,secret));else if(method==='POST'&&owner)send(res,200,await workspace.updateShare(key,secret,await body(req)));else if(method==='POST'&&shareMatch[3]==='suggest')send(res,200,await workspace.suggest(key,secret,await body(req)));else send(res,405,{error:'不支持此操作。'});return true}
       if(pathname.startsWith('/api/review/')){
         if(!isLocal(req)||!authorized(req)){send(res,403,{error:'处理工作台只允许在运行服务的电脑本机打开。'});return true}
         if(pathname==='/api/review/cases'&&req.method==='GET'){send(res,200,{cases:await workspace.reviewCases()});return true}
