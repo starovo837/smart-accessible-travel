@@ -80,9 +80,10 @@ export function compareCandidate(draft:FittingDraft,candidate:FitCandidate) {
   checks.push(!trusted||weight===undefined||load===undefined?{label:'标称承重资料',state:'unknown',detail:'需要体重及已核对的厂家标称承重；不得从外观推断。'}:{label:'标称承重资料',state:load<weight?'mismatch':'pass',detail:`填写体重${weight}kg，厂家标称${load}kg${load<weight?'，低于填写体重，应排除这个候选':'；仅作数值筛查，还需确认使用条件、随身物品与余量'}。`})
   const mismatch=checks.filter(c=>c.state==='mismatch').length,known=checks.filter(c=>c.state!=='unknown').length
   const excluded=candidate.aid!==primary||Boolean(trusted&&weight!==undefined&&load!==undefined&&load<weight)
-  return {candidate,checks,mismatch,known,excluded,label:excluded?'排除本次推荐：类别或标称承重不符':!trusted?'待核对资料':mismatch?'存在参数差异':known<checks.length?'资料不足，尚不能排序':'已知参数更接近目标（不等于最适合）'}
+  const distance=trusted&&primary==='wheelchair'?(['seatWidth','seatDepth'] as const).reduce((sum,key)=>{const value=number(candidate[key]);return sum+(value===undefined?0:Math.abs(value-draft.parameters[key]))},0):0
+  return {candidate,checks,mismatch,known,excluded,distance,label:excluded?'排除本次推荐：类别或标称承重不符':!trusted?'待核对资料':mismatch?'存在参数差异':known<checks.length?'资料不足，尚不能排序':'已知参数更接近目标（不等于最适合）'}
 }
-export function rankedCandidates(draft:FittingDraft) { return draft.aids.length?draft.candidates.map(c=>compareCandidate(draft,c)).sort((a,b)=>Number(a.excluded)-Number(b.excluded)||a.mismatch-b.mismatch||b.known-a.known):[] }
+export function rankedCandidates(draft:FittingDraft) { return draft.aids.length?draft.candidates.map(c=>compareCandidate(draft,c)).sort((a,b)=>Number(a.excluded)-Number(b.excluded)||Number(b.known===b.checks.length)-Number(a.known===a.checks.length)||b.known-a.known||a.mismatch-b.mismatch||a.distance-b.distance):[] }
 export function candidateFromAnalysis(product:ProductAnalysis):FitCandidate|undefined {
   const aid=aidOptions.find(a=>a.type===product.deviceType)
   if(!product.insight||product.insight.mode==='sample'||!aid)return
