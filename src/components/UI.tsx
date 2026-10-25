@@ -4,10 +4,11 @@ import { Icon } from './Icons'
 
 export function AppMark() { return <div className="app-mark" aria-hidden="true"><Icon name="wheelchair" size={22} /></div> }
 
-export function PageHeader({ title, subtitle, onBack, right }: { title: string; subtitle?: string; onBack?: () => void; right?: ReactNode }) {
+export function PageHeader({ title, subtitle, onBack, right, level=1 }: { title: string; subtitle?: string; onBack?: () => void; right?: ReactNode; level?:1|2 }) {
   const heading = useRef<HTMLHeadingElement>(null)
+  const Heading=level===2?'h2':'h1'
   useLayoutEffect(() => { heading.current?.focus() }, [title])
-  return <header className="page-header">{onBack ? <button className="icon-button" onClick={onBack} aria-label="返回"><Icon name="back" /></button> : <AppMark />}<div className="page-heading"><h1 tabIndex={-1} ref={heading}>{title}</h1>{subtitle && <p>{subtitle}</p>}</div>{right || <span className="header-spacer" />}</header>
+  return <header className="page-header">{onBack ? <button className="icon-button" onClick={onBack} aria-label="返回"><Icon name="back" /></button> : <AppMark />}<div className="page-heading"><Heading tabIndex={-1} ref={heading}>{title}</Heading>{subtitle && <p>{subtitle}</p>}</div>{right || <span className="header-spacer" />}</header>
 }
 
 export function PrimaryButton({ children, onClick, icon, variant = 'primary', disabled = false, type = 'button' }: { children: ReactNode; onClick?: () => void; icon?: Parameters<typeof Icon>[0]['name']; variant?: 'primary' | 'secondary' | 'ghost' | 'danger'; disabled?: boolean; type?: 'button' | 'submit' }) {

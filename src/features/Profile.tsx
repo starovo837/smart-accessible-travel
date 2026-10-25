@@ -43,7 +43,7 @@ export function ProfilePage(props: Props) {
       <PrivacyOptions value={props.privacy} onChange={props.onPrivacy} />
       <p>最近保存：{props.savedAt ? new Date(props.savedAt).toLocaleString('zh-CN') : '未保存'}</p>
       <p>本地保存适合个人演示使用。当前没有账号隔离或端到端加密，公共设备上请使用基础模式。</p>
-      <div className="profile-menu"><button onClick={() => { setView(null); setConfirm('profile') }}>只删除版块信息</button><button onClick={() => { setView(null); setConfirm('devices') }}>删除设备和商品设备卡</button><button onClick={() => { setView(null); setConfirm('life') }}>删除生活资料、联系人、分享和纠错记录</button><button className="danger-link" onClick={() => { setView(null); setConfirm('all') }}>一键删除全部数据</button></div>
+      <p>三维身体尺寸与方案使用独立的本地保存开关。下方删除版块与三维方案，或删除全部数据时，也会清除此浏览器中的三维尺寸、视角和候选款式；已导出的文件需自行删除。</p><div className="profile-menu"><button onClick={() => { setView(null); setConfirm('profile') }}>删除版块信息与三维尺寸、方案</button><button onClick={() => { setView(null); setConfirm('devices') }}>删除设备和商品设备卡</button><button onClick={() => { setView(null); setConfirm('life') }}>删除生活资料、联系人、分享和纠错记录</button><button className="danger-link" onClick={() => { setView(null); setConfirm('all') }}>一键删除全部数据</button></div>
       <p className="prototype-note">已下载或交给他人的离线文件需要自行删除，浏览器内删除不会撤回那些副本。</p>
     </Modal>}
     {view==='feedback'&&<Modal title="纠错记录与处理进度" onClose={()=>setView(null)}><CaseTracking items={props.feedback}/><ManagementBackup cases={props.feedback} shares={props.journey.shares} onImport={props.onImportManagement}/><p>导出文件包含追踪凭据，请妥善保管，不要发给家属查看。</p><PrimaryButton disabled={!props.feedback.length} onClick={()=>downloadText(JSON.stringify(props.feedback,null,2),'智能无碍行-纠错管理凭据.json','application/json')}>导出纠错记录（仅供查看）</PrimaryButton></Modal>}

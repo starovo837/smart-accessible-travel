@@ -15,6 +15,7 @@ export function travelOptions(devices: Device[], custom: CustomTravelDevice[]) {
 }
 
 interface Props {
+  embedded?:boolean;
   coverage?:ReactNode; initialStep?:1|2|3;
   mode: TravelMode; setMode: (mode: TravelMode) => void; devices: Device[];
   customModes: CustomTravelMode[]; setCustomModes: (modes: CustomTravelMode[]) => void;
@@ -63,7 +64,7 @@ export function TravelQuery(props: Props) {
   const invalid = chosen.some(item => Object.values(specs[item.id] ?? {}).some(value => typeof value === 'number' && (!Number.isFinite(value) || value <= 0))) || Object.entries(context).some(([key,value]) => ['availableLengthCm','availableWidthCm','availableHeightCm','doorWidthCm','availableWeightKg'].includes(key) && value !== undefined && (typeof value !== 'number' || !Number.isFinite(value) || value <= 0))
   const show = (n: number) => step === n
   return <section className="screen travel-query">
-    <PageHeader title="出行查询" subtitle="选方式、选设备，再逐项补充" onBack={()=>step>1?setStep(step-1):props.onBack()} />
+    <PageHeader level={props.embedded?2:1} title="出行查询" subtitle="选方式、选设备，再逐项补充" onBack={()=>step>1?setStep(step-1):props.onBack()} />
     <details><summary>本次规则范围与更新时间</summary>{props.coverage}</details>
     {<div className="guided-progress" aria-live="polite"><h2 ref={heading} tabIndex={-1}>第 {step} 步 / 3：{['选择出行方式', '选择所带设备', '核对设备参数'][step-1]}</h2><p>{step === 1 ? '先选择一种交通方式。' : step === 2 ? '选择本次要带的设备，可以多选。' : '复用已保存参数，只补影响本次判断的缺项。不知道可以跳过。'}</p></div>}
     {show(1) && <section className="query-section" aria-label="出行方式"><h2>1 · 怎么出行？</h2>

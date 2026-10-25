@@ -1,5 +1,5 @@
 export type ModuleId = 'vision' | 'hearing' | 'mobility' | 'speech' | 'cognitive' | 'chronic'
-export type Screen = 'welcome' | 'select' | 'consent' | 'devices' | 'home' | 'product-input' | 'product-result' | 'travel-input' | 'travel-result' | 'assistant' | 'profile' | 'switch-modules' | 'privacy' | 'device-cards' | 'offline-pack' | 'life-tools'
+export type Screen = 'welcome' | 'select' | 'consent' | 'devices' | 'home' | 'fitting-workspace' | 'product-input' | 'product-result' | 'travel-input' | 'travel-result' | 'assistant' | 'profile' | 'switch-modules' | 'privacy' | 'device-cards' | 'offline-pack' | 'life-tools'
 export type ConsentState = 'undecided' | 'granted' | 'skipped'
 export type DeviceType = string
 export type TravelMode = string
