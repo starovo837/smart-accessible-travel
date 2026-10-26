@@ -1,0 +1,10 @@
+{
+  "title": "Sit down and stand up - Sam 3D Person, Animated",
+  "author": "Innerscene, adapted from MakeHuman / MPFB CC0 assets",
+  "license": "CC0-1.0",
+  "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "source": "https://www.innerscene.com/tools/library/3d-parts/sit-down-and-stand-up-sam-3d-person-animated-66ca6c29",
+  "download": "https://www.innerscene.com/api/library/sit-down-and-stand-up-sam-3d-person-animated-66ca6c29/download",
+  "retrieved": "2026-10-26",
+  "changes": "Embedded textures resized to at most 1024px. Application removes held prop and approximates body proportions and poses using the original skeleton. This is a generic visualization, not a scan or medical fitting."
+}

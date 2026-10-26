@@ -1,5 +1,5 @@
 export type ModuleId = 'vision' | 'hearing' | 'mobility' | 'speech' | 'cognitive' | 'chronic'
-export type Screen = 'welcome' | 'select' | 'consent' | 'devices' | 'home' | 'fitting-workspace' | 'product-input' | 'product-result' | 'travel-input' | 'travel-result' | 'assistant' | 'profile' | 'switch-modules' | 'privacy' | 'device-cards' | 'offline-pack' | 'life-tools'
+export type Screen = 'welcome' | 'select' | 'consent' | 'devices' | 'home' | 'fitting-workspace' | 'fit-shopping' | 'product-input' | 'product-result' | 'travel-input' | 'travel-result' | 'assistant' | 'profile' | 'switch-modules' | 'privacy' | 'device-cards' | 'offline-pack' | 'life-tools' | 'support' | 'support-tool' | 'living-hub' | 'living-service' | 'living-scene'
 export type ConsentState = 'undecided' | 'granted' | 'skipped'
 export type DeviceType = string
 export type TravelMode = string
@@ -34,7 +34,7 @@ export interface DailyStatus { energy: 'good' | 'limited' | 'rest'; pain: 'none'
 export interface RoutePlan { id?: string; from: string; to: string; mode: TravelMode; accessible: boolean; updatedAt: string; steps: string[]; alternatives: string[]; restroom: string; restStops: string; step?: number; paused?: boolean; facilities?: { id: string; label: string; status: 'unknown' | 'confirmed' | 'unavailable'; note: string; checkedAt?: string }[] }
 export interface CareRecord { id: string; deviceId: string; kind: 'maintenance' | 'repair' | 'subsidy' | 'rental' | 'warranty' | 'consumable'; title: string; dueDate?: string; note: string; status: 'todo' | 'done'; provider?: string; phone?: string; cost?: string; region?: string }
 export interface EmergencyProfile { helpText: string; caregiver: string; phone: string; showMedical: boolean; offlineReady: boolean; medicalIds?: string[]; location?: string; staffReply?: string }
-export interface LifeData { home: HomeProfile; daily: DailyStatus; routes: RoutePlan[]; care: CareRecord[]; emergency: EmergencyProfile; caregiverHelp: boolean }
+export interface LifeData { home: HomeProfile; daily: DailyStatus; routes: RoutePlan[]; care: CareRecord[]; emergency: EmergencyProfile; caregiverHelp: boolean; services?:import('./livingServices').LivingServicesData; helpSessions?:import('./liveHelp').HelpSessionRecord[]; sceneProgress?:Partial<Record<import('./livingCatalog').SceneId,string[]>>; assistance?: {reminders?:import('./supportCatalog').DailyReminder[];phrases?:string[];gesturePhrases?:Record<string,string>;tasks:{id:string;title:string;steps:string[]}[];progress:Record<string,number>} }
 export interface JourneyData { cards: DeviceCard[]; living: LivingProfile; comparisons: ProductAnalysis[]; records: CarrierRecord[]; packet: OfflinePacket | null; shares: LocalShare[]; life: LifeData }
 export interface ProductAnalysis {
   deviceType?: string; insight?: import('./product').ProductInsight;
@@ -55,7 +55,7 @@ export interface TravelCheckResult {
 export interface ChecklistItem { id: string; label: string; detail: string; checked: boolean }
 export interface AppointmentScript { subject: string; body: string }
 export interface AssistantTurn { speaker: 'assistant' | 'user'; text: string; confidence?: 'high' | 'low'; citations?:import('./assistantEvidence').AssistantEvidence[] }
-export interface AppSettings { elderMode: boolean; stepMode: boolean; readAloud: boolean; largeText?: boolean; textOnly?: boolean; voiceInput?: boolean; reducedMotion?: boolean }
+export interface AppSettings { elderMode: boolean; stepMode: boolean; readAloud: boolean; largeText?: boolean; textOnly?: boolean; voiceInput?: boolean; reducedMotion?: boolean; encouragement?: boolean }
 export interface Feedback { id: string; subject: string; text: string; createdAt?: string; status?: 'local-pending' | 'submitted'; serverId?:string; accessToken?:string }
 export interface PrivacyPreferences { profile: boolean; devices: boolean; life: boolean; retainDays: 7 | 30 | 0 }
 export interface AppData {

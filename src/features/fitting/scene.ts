@@ -11,7 +11,7 @@ export function disposeModel(root:THREE.Object3D){
 export function createFittingModel(draft:FittingDraft){
   const root=new THREE.Group(),body=sceneBody(draft.body),p=draft.parameters
   root.name='智能无碍行-人体与辅具示意';root.userData={units:'metres',purpose:'visual-concept-only; not a scan, medical fitting or manufacturing file',enteredBodyFields:Object.keys(draft.body).filter(k=>draft.body[k as keyof typeof draft.body]),parametersCm:p}
-  const skin=new THREE.MeshStandardMaterial({color:0xd9dee1,roughness:.83}),joint=new THREE.MeshStandardMaterial({color:0xc8d0d6,roughness:.9}),blue=new THREE.MeshStandardMaterial({color:0x19618a,roughness:.38,metalness:.48}),dark=new THREE.MeshStandardMaterial({color:0x283b49,roughness:.85}),rubber=new THREE.MeshStandardMaterial({color:0x26343e,roughness:1}),silver=new THREE.MeshStandardMaterial({color:0xa6b6bf,roughness:.4,metalness:.7}),orange=new THREE.MeshStandardMaterial({color:0xdf963b,roughness:.7}),red=new THREE.MeshStandardMaterial({color:0xd8584a,roughness:.7}),white=new THREE.MeshStandardMaterial({color:0xf6f5e9,roughness:.7})
+  const skin=new THREE.MeshStandardMaterial({color:0xcda78a,roughness:.83}),joint=new THREE.MeshStandardMaterial({color:0xc4a18a,roughness:.9}),blue=new THREE.MeshStandardMaterial({color:0x39564b,roughness:.38,metalness:.48}),dark=new THREE.MeshStandardMaterial({color:0x283831,roughness:.85}),rubber=new THREE.MeshStandardMaterial({color:0x26342e,roughness:1}),silver=new THREE.MeshStandardMaterial({color:0xaeb6ac,roughness:.4,metalness:.7}),orange=new THREE.MeshStandardMaterial({color:0xb78d4a,roughness:.7}),red=new THREE.MeshStandardMaterial({color:0xd8584a,roughness:.7}),white=new THREE.MeshStandardMaterial({color:0xf6f5e9,roughness:.7})
   const mesh=(geometry:THREE.BufferGeometry,material:THREE.Material,point:Point,name:string)=>{const object=new THREE.Mesh(geometry,material);object.position.set(...point);object.castShadow=true;object.receiveShadow=true;object.name=name;root.add(object);return object}
   const ball=(point:Point,r:number,material=skin,name='关节')=>mesh(new THREE.SphereGeometry(r,20,16),material,point,name)
   const ellipsoid=(point:Point,size:Point,material=skin,name='人体')=>{const object=ball(point,1,material,name);object.scale.set(...size);return object}
@@ -21,7 +21,7 @@ export function createFittingModel(draft:FittingDraft){
   const ring=(point:Point,r:number,tube:number,material:THREE.Material,name:string)=>mesh(new THREE.TorusGeometry(r,tube,10,48),material,point,name)
   const seated=draft.pose==='seated'||draft.pose==='auto'&&draft.aids.includes('wheelchair'),h=body.heightCm/100,hip=body.hipWidthCm/100,shoulder=body.shoulderWidthCm/100,thigh=body.thighLengthCm/100,shin=body.lowerLegCm/100,seatY=p.seatHeight/100
   const pelvisY=seated?seatY+.09:thigh+shin+.16,bodyZ=seated?-.05: draft.aids.includes('wheelchair')?.46:0
-  const torso=Math.max(.20,h-(thigh+shin+.16)-.314),shoulderY=pelvisY+torso,headY=shoulderY+.16
+  const torso=Math.max(.20,h-(thigh+shin+.16)-.23),shoulderY=pelvisY+torso,headY=shoulderY+.16
   ellipsoid([0,pelvisY+.025,bodyZ],[hip*.51,.14,.135],skin,'骨盆示意')
   // A smooth lathed torso gives the mannequin a readable silhouette.
   const torsoPoints=[new THREE.Vector2(.105,0),new THREE.Vector2(.135,.10),new THREE.Vector2(.17,torso*.65),new THREE.Vector2(.17,torso*.85),new THREE.Vector2(.075,torso)]
@@ -30,15 +30,16 @@ export function createFittingModel(draft:FittingDraft){
   ellipsoid([0,headY+.035,bodyZ],[.086,.119,.097],skin,'头部')
   ellipsoid([0,headY+.018,bodyZ+.096],[.016,.025,.024],skin,'鼻部朝向')
   for(const side of [-1,1]){ellipsoid([side*.087,headY+.025,bodyZ],[.016,.031,.022],joint,'耳部');ball([side*.032,headY+.044,bodyZ+.087],.004,dark,'朝向标记')}
-  const wrists:Point[]=[],elbows:Point[]=[],ankles:Point[]=[]
+  const wrists:Point[]=[],elbows:Point[]=[],ankles:Point[]=[],shoulders:Point[]=[],hips:Point[]=[],knees:Point[]=[]
   for(const side of [-1,1]){
     const x=side*hip*.29,hipPoint:Point=[x,pelvisY-.035,bodyZ],knee:Point=seated?[x,pelvisY-.06,bodyZ+thigh]:[x*.93,pelvisY-thigh,bodyZ+.015],ankle:Point=seated?[x,pelvisY-.06-shin,bodyZ+thigh+.015]:[x*.94,.10,bodyZ]
-    const legRadius=Math.min(.085,Math.max(.045,hip*.19));limb(hipPoint,knee,legRadius,'大腿');limb(knee,ankle,legRadius*.67,'小腿');ankles.push(ankle)
+    const legRadius=Math.min(.085,Math.max(.045,hip*.19));limb(hipPoint,knee,legRadius,'大腿');limb(knee,ankle,legRadius*.67,'小腿');ankles.push(ankle);hips.push(hipPoint);knees.push(knee)
     ellipsoid([ankle[0],ankle[1]-.04,ankle[2]+.075],[.047,.047,body.footLengthCm/200],joint,'足部')
     const armStart:Point=[side*shoulder*.47,shoulderY-.05,bodyZ],wrist:Point=seated?[side*(hip/2+.068),seatY+.235,bodyZ+.26]:[side*(shoulder/2+.025),pelvisY+.02,bodyZ+.08]
     const forearm=body.forearmLengthCm/100,elbow:Point=seated?[wrist[0],wrist[1]+.025,wrist[2]-forearm]:[side*(shoulder/2+.055),wrist[1]+forearm,bodyZ+.035]
-    limb(armStart,elbow,.048,'上臂');limb(elbow,wrist,.036,'前臂');ellipsoid([wrist[0],wrist[1]-.025,wrist[2]+.035],[.036,.058,.026],skin,'手部');wrists.push(wrist);elbows.push(elbow)
+    limb(armStart,elbow,.048,'上臂');limb(elbow,wrist,.036,'前臂');ellipsoid([wrist[0],wrist[1]-.025,wrist[2]+.035],[.036,.058,.026],skin,'手部');wrists.push(wrist);elbows.push(elbow);shoulders.push(armStart)
   }
+  const placeholder=new THREE.Group();placeholder.name='基础人体预览';for(const child of [...root.children])placeholder.add(child);root.add(placeholder)
   if(draft.aids.includes('wheelchair')){
     const w=p.seatWidth/100,d=p.seatDepth/100,z=seated?0:-.7,y=seatY
     box([0,y,z],[w,.065,d],dark,'可调示意座面');box([0,y+p.backHeight/200,z-d/2],[w*.98,p.backHeight/100,.055],dark,'可调靠背')
@@ -73,5 +74,5 @@ export function createFittingModel(draft:FittingDraft){
   if(draft.aids.includes('hearing'))for(const side of selectedSides){const aid=ring([side*.102,headY+.035,bodyZ-.006],.031,.010,orange,'耳背式助听器示意');aid.rotation.y=Math.PI/2;ellipsoid([side*.111,headY+.014,bodyZ-.027],[.013,.028,.013],orange,'助听器机身')}
   if(draft.showDimensions){const points=[new THREE.Vector3(-hip/2,pelvisY+.16,bodyZ+.2),new THREE.Vector3(hip/2,pelvisY+.16,bodyZ+.2)],line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),new THREE.LineBasicMaterial({color:0x167d73}));root.add(line);for(const side of [-1,1])rod([side*hip/2,pelvisY+.14,bodyZ+.2],[side*hip/2,pelvisY+.18,bodyZ+.2],.003,blue,'臀宽示意测线')}
   const bounds=new THREE.Box3().setFromObject(root),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3())
-  return {root,center,size,seated,body}
+  return {root,center,size,seated,body,placeholder,anchors:{pelvis:[0,pelvisY,bodyZ] as Point,head:[0,headY-.07,bodyZ] as Point,shoulders,elbows,wrists,hips,knees,ankles}}
 }

@@ -1,16 +1,24 @@
-import { StrictMode } from 'react'
+import { StrictMode,useEffect,useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import { FamilyViewer } from './features/LiveSharing'
+import {LiveHelpViewer} from './features/living/LiveHelp'
 import './styles.css'
 import './accessibility.css'
 import './product.css'
+import './nature.css'
+import './support.css'
+import './living-services.css'
+import './living-hub.css'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    {location.hash.match(/^#family\/([a-z0-9-]+)\/([A-Za-z0-9_-]+)$/)?<FamilyViewer id={location.hash.split('/')[1]} token={location.hash.split('/')[2]}/>:<App />}
-  </StrictMode>,
-)
+function RootView(){
+ const [hash,setHash]=useState(location.hash)
+ useEffect(()=>{const change=()=>setHash(location.hash);window.addEventListener('hashchange',change);return()=>window.removeEventListener('hashchange',change)},[])
+ if(hash.match(/^#help\/(help-[a-f0-9]{24})\/([A-Za-z0-9_-]+)$/))return <LiveHelpViewer id={hash.split('/')[1]} token={hash.split('/')[2]}/>
+ if(hash.match(/^#family\/([a-z0-9-]+)\/([A-Za-z0-9_-]+)$/))return <FamilyViewer id={hash.split('/')[1]} token={hash.split('/')[2]}/>
+ return <App/>
+}
+createRoot(document.getElementById('root')!).render(<StrictMode><RootView/></StrictMode>)
 
 // Cache the application shell only. User records remain governed by category consent.
 if (import.meta.env.PROD && window.isSecureContext && 'serviceWorker' in navigator) {

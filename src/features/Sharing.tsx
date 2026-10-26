@@ -2,7 +2,7 @@ import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
 import { LiveFamilyPanel } from './LiveSharing'
 import { RuntimeReadiness } from './RuntimeReadiness'
 import { InstallHelp } from './InstallHelp'
-import { embedPortable, portableSnapshot } from '../app/portable'
+import { embedPortable, exportableLife, portableSnapshot } from '../app/portable'
 import { PrimaryButton } from '../components/UI'
 import { downloadText, localTime } from '../app/accessibility'
 import { deviceCard, fieldLabels, formatCardValue, packetHtml, sharePayload, shareStatus } from '../app/journey'
@@ -44,8 +44,8 @@ export function OfflineWorkspace({ journey, devices, onBack }: { journey: Journe
   return <section className="screen"><button className="back-link" onClick={onBack}>返回我的</button><h1>离线随身包</h1><p className="prototype-note" role="status">{offlineState}</p><p>选择要下载的资料。HTML 文件可以在手机文件管理器中离线打开，无需连接这台电脑。</p>
     <label className="switch-line"><input type="checkbox" checked={includeDevices} onChange={event => setIncludeDevices(event.target.checked)} />设备资料（{devices.length} 台）</label>
     <label className="switch-line"><input type="checkbox" checked={includeTrip} onChange={event => setIncludeTrip(event.target.checked)} />最近出行结果、清单与承运方回复</label>
-    <label className="switch-line"><input type="checkbox" checked={includeLife} onChange={event => setIncludeLife(event.target.checked)} />生活资料和求助卡（包括已填写的联系人）</label>
-    <PrimaryButton disabled={!includeDevices && !includeLife && !includeTrip} onClick={() => { const content: OfflinePacket = { ...packet, savedAt: localTime(), cards: includeDevices ? makePacket(journey, devices).cards : [], results: includeTrip ? packet.results : [], records: includeTrip ? journey.records : [], checklist: includeTrip ? packet.checklist : [], communication: includeLife ? journey.life.emergency.helpText : '', life: includeLife ? journey.life : undefined }; downloadText(packetHtml(content), '智能无碍行-离线随身包.html', 'text/html;charset=utf-8'); setStatus('已请求下载，请确认文件保存成功后再离线使用。') }}>下载可独立打开的文件</PrimaryButton>
+    <label className="switch-line"><input type="checkbox" checked={includeLife} onChange={event => setIncludeLife(event.target.checked)} />生活、办事资料和求助卡（含已填联系人，不含限时链接管理凭据）</label>
+    <PrimaryButton disabled={!includeDevices && !includeLife && !includeTrip} onClick={() => { const content: OfflinePacket = { ...packet, savedAt: localTime(), cards: includeDevices ? makePacket(journey, devices).cards : [], results: includeTrip ? packet.results : [], records: includeTrip ? journey.records : [], checklist: includeTrip ? packet.checklist : [], communication: includeLife ? journey.life.emergency.helpText : '', life: includeLife ? exportableLife(journey.life) : undefined }; downloadText(packetHtml(content), '智能无碍行-离线随身包.html', 'text/html;charset=utf-8'); setStatus('已请求下载，请确认文件保存成功后再离线使用。') }}>下载可独立打开的文件</PrimaryButton>
     <PrimaryButton disabled={!includeDevices&&!includeLife&&!includeTrip} onClick={async()=>{try{const response=await fetch('/offline-app.html');if(!response.ok)throw Error('独立应用文件尚未生成，请先构建并运行桌面版。');const template=await response.text();if(!template.includes('独立离线应用'))throw Error('请从已构建的桌面版导出独立应用。');const snapshot=portableSnapshot(journey,devices,{devices:includeDevices,life:includeLife,trip:includeTrip});downloadText(embedPortable(template,snapshot),'智能无碍行-独立应用.html','text/html;charset=utf-8');setStatus('已请求下载完整独立应用。可在手机文件管理器用浏览器打开，基础查询、设备卡和清单不需连接电脑；实时核验、协作仍需服务，AI另有硬件要求。')}catch(error){setStatus((error as Error).message)}}}>下载完整独立应用（含所选资料）</PrimaryButton>
     <RuntimeReadiness/><InstallHelp/><p role="status">{status}</p><p className="prototype-note">导出文件无法撤销或实时更新。手机访问电脑的 HTTP 地址仍依赖电脑运行，不等于安装独立 App。</p>
   </section>

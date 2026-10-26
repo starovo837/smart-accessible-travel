@@ -4,7 +4,7 @@ import type { DeviceCard, ProductAnalysis } from './types'
 export const FITTING_KEY = 'smart-accessible-fitting-v1'
 export const bodyFields = [
   {key:'heightCm',label:'身高',unit:'cm',min:60,max:240,example:170,help:'直立身高；无法站立时可填已有可靠记录，未知留空。'},
-  {key:'weightKg',label:'体重',unit:'kg',min:5,max:350,example:65,help:'用于商品承重资料比较，不据此推断体型。'},
+  {key:'weightKg',label:'体重',unit:'kg',min:5,max:350,example:65,help:'用于承重比较，也让预览体型近似变化；不能由体重还原真实围度，实测尺寸优先。'},
   {key:'hipWidthCm',label:'坐姿臀部最宽处',unit:'cm',min:15,max:90,example:38,help:'坐姿下两侧最宽处的水平距离，不是腰围。'},
   {key:'thighLengthCm',label:'臀后至膝窝长度',unit:'cm',min:15,max:80,example:44,help:'沿大腿水平测量；不把它直接当作最终座深。'},
   {key:'lowerLegCm',label:'膝窝至足底高度',unit:'cm',min:10,max:80,example:43,help:'穿日常鞋测量；足踏板和坐垫需要另行复核。'},
@@ -44,6 +44,12 @@ export function initialFitting():FittingDraft { return {version:1,allowSave:fals
 export function validBodyValue(body:BodyDraft,key:BodyKey):number|undefined { const field=bodyFields.find(f=>f.key===key)!,raw=body[key];if(!raw?.trim())return;const n=Number(raw);return Number.isFinite(n)&&n>=field.min&&n<=field.max?n:undefined }
 export function bodyErrors(body:BodyDraft) { return bodyFields.filter(f=>body[f.key]?.trim()&&validBodyValue(body,f.key)===undefined).map(f=>({key:f.key,message:`${f.label}请输入${f.min}至${f.max}${f.unit}；不确定时请留空。`})) }
 export function sceneBody(body:BodyDraft) { return Object.fromEntries(bodyFields.map(field=>[field.key,validBodyValue(body,field.key)??field.example])) as Record<BodyKey,number> }
+export function bodyAppearance(body:BodyDraft){
+  const weight=validBodyValue(body,'weightKg'),height=validBodyValue(body,'heightCm')??170
+  // A bounded illustration control, not a prediction of a person's body shape.
+  const volume=weight===undefined?1:1+.62*Math.tanh((Math.sqrt(weight/(22.5*(height/100)**2))-1)/.65)
+  return {volume,approximate:weight!==undefined,hipMeasured:validBodyValue(body,'hipWidthCm')!==undefined,shoulderMeasured:validBodyValue(body,'shoulderWidthCm')!==undefined,wristMeasured:validBodyValue(body,'wristCircCm')!==undefined,ankleMeasured:validBodyValue(body,'ankleCircCm')!==undefined}
+}
 export function filledMeasurements(body:BodyDraft) { return bodyFields.filter(f=>validBodyValue(body,f.key)!==undefined).length }
 export function draftFromMeasurements(draft:FittingDraft){
   const parameters={...draft.parameters},used:string[]=[],notes:string[]=[]

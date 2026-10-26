@@ -1,9 +1,13 @@
 import { initialJourney } from './journey'
 import { scopeSnapshot, type Snapshot } from './storage'
-import type { Device, JourneyData } from './types'
+import type { Device, JourneyData, LifeData } from './types'
+export function exportableLife(life:LifeData):LifeData{
+ const {helpSessions,...safe}=life
+ return safe
+}
 export function portableSnapshot(journey:JourneyData,devices:Device[],selection:{devices:boolean;life:boolean;trip:boolean}):Snapshot{
  const base=initialJourney(),privacy={profile:false,devices:selection.devices||selection.trip,life:selection.life||selection.trip,retainDays:0 as const}
- const snapshot=scopeSnapshot({modules:[],devices:selection.devices?devices:[],consent:'granted',privacy,settings:{elderMode:false,stepMode:false,readAloud:false},feedback:[],customModes:[],customDevices:[],journey:{...base,cards:selection.devices?journey.cards:[],life:selection.life?journey.life:base.life,living:selection.life?journey.living:base.living,records:selection.trip?journey.records:[],shares:[],packet:null}})
+ const snapshot=scopeSnapshot({modules:[],devices:selection.devices?devices:[],consent:'granted',privacy,settings:{elderMode:false,stepMode:false,readAloud:false},feedback:[],customModes:[],customDevices:[],journey:{...base,cards:selection.devices?journey.cards:[],life:selection.life?exportableLife(journey.life):base.life,living:selection.life?journey.living:base.living,records:selection.trip?journey.records:[],shares:[],packet:null}})
  snapshot.journey.packet=selection.trip&&journey.packet?{...journey.packet,cards:selection.devices?journey.packet.cards:[],life:undefined,communication:'',records:journey.records}:null
  return snapshot
 }

@@ -1,0 +1,10 @@
+{
+  "package": "@mediapipe/tasks-vision",
+  "version": "1.1.1",
+  "license": "Apache-2.0",
+  "licenseFile": "LICENSE.txt",
+  "repository": "https://github.com/google-ai-edge/mediapipe",
+  "documentation": "https://developers.google.com/edge/mediapipe/solutions/vision/gesture_recognizer/web_js",
+  "model": "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task",
+  "purpose": "On-device recognition of seven common static gestures. Not a full sign language interpreter. Images and video frames are never uploaded by this tool."
+}

@@ -1,4 +1,7 @@
 import { initialJourney } from './journey.ts'
+import { sanitizeLivingServices } from './livingServices.ts'
+import { sanitizeHelpSessions } from './liveHelp.ts'
+import { sceneSteps, type SceneId } from './livingCatalog.ts'
 import type { AppSettings, ConsentState, CustomTravelDevice, CustomTravelMode, Device, Feedback, JourneyData, ModuleId, PrivacyPreferences } from './types'
 
 export const STORAGE_KEY = 'smart-accessible-travel'
@@ -29,6 +32,19 @@ export function readSnapshot(raw: string | null, now = Date.now()): Snapshot | n
     if (!saved || saved.version !== 2 || saved.consent !== 'granted' || !saved.privacy || saved.expiresAt !== null && saved.expiresAt <= now) return null
     if (!Array.isArray(saved.modules) || !Array.isArray(saved.devices) || !saved.journey?.life || !saved.settings) return null
     const restored=scopeSnapshot(saved,saved.savedAt)
+    if(restored.privacy.life){
+      const life=restored.journey.life
+      if(life.services!==undefined)life.services=sanitizeLivingServices(life.services)
+      if(life.helpSessions!==undefined)life.helpSessions=sanitizeHelpSessions(life.helpSessions)
+      if(life.sceneProgress!==undefined){
+        const source=life.sceneProgress
+        life.sceneProgress={}
+        for(const scene of Object.keys(sceneSteps) as SceneId[]){
+          const ids=source&&typeof source==='object'?source[scene]:undefined
+          if(Array.isArray(ids))life.sceneProgress[scene]=sceneSteps[scene].filter(step=>ids.includes(step.id)).map(step=>step.id)
+        }
+      }
+    }
     if(saved.journey.packet&&Array.isArray(saved.journey.packet.checklist)&&Array.isArray(saved.journey.packet.results)&&restored.privacy.life){restored.journey.packet={...saved.journey.packet,cards:restored.privacy.devices&&Array.isArray(saved.journey.packet.cards)?saved.journey.packet.cards:[],records:restored.privacy.devices&&Array.isArray(saved.journey.packet.records)?saved.journey.packet.records:[],life:undefined}}
     return restored
   } catch { return null }

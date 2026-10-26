@@ -1,0 +1,52 @@
+.encouragement {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 18px 0;
+  padding: 13px 14px 5px;
+  border: 1px solid #d3dcc9;
+  border-radius: 12px;
+  color: #2b4a38;
+  background: #f5f4e8;
+}
+
+.encouragement .encouragement-leaf {
+  flex: 0 0 24px;
+  margin-top: 1px;
+  color: #426143;
+}
+
+.encouragement-content { flex: 1; min-width: 0; }
+.encouragement-content p { margin: 0; font-size: .9rem; line-height: 1.75; overflow-wrap: anywhere; }
+.encouragement-content p[hidden] { display: none; }
+.encouragement-actions { display: flex; flex-wrap: wrap; gap: 0 12px; }
+
+.encouragement .encouragement-actions button {
+  min-width: 48px;
+  min-height: 48px;
+  padding: 8px 2px;
+  border: 0;
+  border-radius: 4px;
+  color: #3c593f;
+  background: transparent;
+  font: inherit;
+  font-size: .82rem;
+  line-height: 1.5;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.encouragement .encouragement-actions button:hover { color: #183c2d; background: #e7ebdc; }
+.encouragement .encouragement-actions button:focus-visible { outline: 3px solid #8c5410; outline-offset: 2px; }
+.encouragement-collapsed { align-items: center; padding-block: 4px; background: transparent; border-color: transparent; }
+.encouragement-collapsed .encouragement-leaf { width: 18px; height: 18px; flex-basis: 18px; margin: 0; }
+
+.large-text .encouragement-content p,
+.large-text .encouragement .encouragement-actions button { font-size: 1rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .encouragement,
+  .encouragement * { animation: none; transition: none; }
+}
+
+.page-encouragement{margin:0 22px 110px}.page-encouragement:empty{display:none}
