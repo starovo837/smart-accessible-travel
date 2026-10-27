@@ -57,7 +57,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid #e29c3f; outline-
 .elder-mode .catalog-add button, .elder-mode .catalog-add input { min-height: 56px; font-size: .92rem; }
 .elder-mode .evidence-toggle, .elder-mode .source-links a { min-height: 48px; font-size: .9rem; }
 
-.app-mark, .profile-avatar, .privacy-symbol, .device-round, .preview-icon, .voice-icon { display: grid; place-items: center; flex: 0 0 auto; }
+.app-mark, .profile-avatar, .privacy-symbol, .device-round, .preview-icon { display: grid; place-items: center; flex: 0 0 auto; }
 .app-mark { width: 43px; height: 43px; color: white; background: var(--navy); border-radius: 14px; box-shadow: 0 8px 20px rgba(18,59,99,.18); }
 .brand-name { font-size: 1.05rem; font-weight: 700; letter-spacing: .06em; }
 .welcome-top { display: flex; align-items: center; gap: 11px; }
@@ -95,11 +95,6 @@ button:focus-visible, input:focus-visible { outline: 3px solid #e29c3f; outline-
 .bottom-sticky { margin-top: auto; padding-top: 24px; }
 .bottom-sticky p { margin: 0 0 10px; color: var(--muted); text-align: center; font-size: .82rem; }
 
-.voice-confirm { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; padding: 14px; margin-bottom: 18px; color: var(--navy); background: var(--blue-soft); border: 1px solid #c7dfef; border-radius: 17px; }
-.voice-confirm strong { font-size: .93rem; }
-.voice-confirm p { margin: 4px 0 0; color: var(--muted); font-size: .78rem; }
-.voice-confirm .inline-actions { grid-column: 2; }
-.voice-icon { width: 42px; height: 42px; color: white; background: var(--teal); border-radius: 14px; }
 .inline-actions { display: flex; gap: 8px; }
 .mini-button { min-width: 58px; min-height: 38px; color: white; background: var(--navy); border: 0; border-radius: 10px; font-weight: 700; }
 .mini-button.muted { color: var(--navy); background: white; border: 1px solid var(--line); }

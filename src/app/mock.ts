@@ -4,9 +4,9 @@ import { buildTravelResults as buildRuleResults } from './travelRules'
 
 export const moduleMeta: Record<ModuleId, { label: string; icon: IconName; detail: string; support: string }> = {
   vision: { label: '视障', icon: 'eye', detail: '看图读字、放大与朗读', support: '结果提供朗读，按钮具有读屏标签' },
-  hearing: { label: '听障', icon: 'ear', detail: '实时字幕、基础手势与沟通卡', support: '所有语音都有文字，可出示沟通卡' },
-  mobility: { label: '肢体', icon: 'wheelchair', detail: '语音操作、设备与居家适配', support: '加大触控区域，优先核对通行尺寸' },
-  speech: { label: '言语', icon: 'message', detail: '打字朗读、常用话语与沟通卡', support: '可全程文字输入，无需语音表达' },
+  hearing: { label: '听障', icon: 'ear', detail: '文字沟通、基础手势与沟通卡', support: '重要状态显示文字，可出示沟通卡' },
+  mobility: { label: '肢体', icon: 'wheelchair', detail: '设备、通行与居家适配', support: '加大触控区域，优先核对通行尺寸' },
+  speech: { label: '言语', icon: 'message', detail: '打字朗读、常用话语与沟通卡', support: '可全程打字，按需朗读或展示文字' },
   cognitive: { label: '认知', icon: 'steps', detail: '逐步任务、时钟与自设提醒', support: '减少干扰，出行清单可逐步跟随' },
   chronic: { label: '慢病', icon: 'heart', detail: '自设提醒、设备照护与随行准备', support: '清单补充医疗设备资料提醒' },
 }

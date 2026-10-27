@@ -18,5 +18,3 @@ export const dailyTemplates=[
  {id:'rest',title:'休息一下',steps:['选择适合自己的安全位置休息，不必为了任务勉强转移。','按平时的方式放松，确认需要的物品在手边。','准备好了再继续；不舒服时可以暂停并寻求帮助。']},
  {id:'appointment',title:'准备预约',steps:['找到要联系的机构和预约方式。','写下需要的协助、问题和可用时间。','联系后核对时间、地点、无障碍设施与回复记录。']}
 ]
-export type DailyDestination='home'|'fitting'|'shop'|'travel'|'support'|'vision'|'captions'|'communication'|'reminders'|'steps'
-export function voiceDestination(raw:string):DailyDestination|'stop'|null{const value=raw.replace(/[\s，。！？]/g,'');return /停止朗读|别读了/.test(value)?'stop':/三维|试配/.test(value)?'fitting':/买辅具|购物|商品/.test(value)?'shop':/出行|交通/.test(value)?'travel':/首页|主页/.test(value)?'home':/读字|看图/.test(value)?'vision':/字幕/.test(value)?'captions':/打字沟通/.test(value)?'communication':/日常提醒/.test(value)?'reminders':/一步一步/.test(value)?'steps':/辅助中心|全部功能/.test(value)?'support':null}

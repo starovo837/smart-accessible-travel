@@ -1,15 +1,13 @@
 import type { ModuleId } from './types'
 import type { IconName } from '../components/Icons'
-export type SupportToolId=import('./livingCatalog').ServiceToolId|'vision'|'magnifier'|'color'|'captions'|'communication'|'gestures'|'voice'|'steps'|'reminders'|'help'|'life'|'needs'
+export type SupportToolId=import('./livingCatalog').ServiceToolId|'vision'|'magnifier'|'color'|'communication'|'gestures'|'steps'|'reminders'|'help'|'life'|'needs'
 export interface SupportTool {id:SupportToolId;title:string;detail:string;icon:IconName;modules:ModuleId[]}
 export const supportTools:SupportTool[]=[
  {id:'vision',title:'看图读字',detail:'拍照读文字，了解画面中的物品与场景',icon:'camera',modules:['vision','cognitive']},
  {id:'magnifier',title:'放大镜',detail:'放大细节，调整对比与明暗',icon:'search',modules:['vision']},
  {id:'color',title:'颜色与明暗',detail:'辨认画面中央颜色与整体亮度',icon:'eye',modules:['vision']},
- {id:'captions',title:'实时字幕',detail:'将对方说的话转成可核对的文字',icon:'ear',modules:['hearing']},
  {id:'communication',title:'打字沟通',detail:'常用话语、朗读与大字沟通卡',icon:'message',modules:['speech','hearing']},
  {id:'gestures',title:'基础手势沟通',detail:'7种手势识别、练习与自设短语',icon:'hand',modules:['speech','hearing','mobility']},
- {id:'voice',title:'语音操作',detail:'说出功能名称，确认后前往',icon:'mic',modules:['mobility','vision']},
  {id:'steps',title:'一步一步做',detail:'生活任务拆成小步骤，可以暂停续做',icon:'steps',modules:['cognitive','chronic']},
  {id:'reminders',title:'日常提醒',detail:'按你自己的安排记下重要事项',icon:'clock',modules:['chronic','cognitive']},
  {id:'help',title:'求助沟通卡',detail:'把需要的协助清楚展示给对方',icon:'heart',modules:['speech','hearing','mobility','vision']},
@@ -27,8 +25,8 @@ export const supportTools:SupportTool[]=[
 export function recommendedTools(modules:ModuleId[]){
  const ids=[...new Set(modules)].filter(id=>['vision','hearing','mobility','speech','cognitive','chronic'].includes(id))
  if(!ids.length)return supportTools.filter(tool=>['communication','steps','help'].includes(tool.id))
- const primary:Record<ModuleId,SupportToolId>={vision:'vision',hearing:'captions',mobility:'voice',speech:'communication',cognitive:'steps',chronic:'reminders'}
- const first=ids.map(id=>supportTools.find(tool=>tool.id===primary[id])!),rest=supportTools.map((tool,order)=>({tool,score:tool.modules.filter(id=>ids.includes(id)).length,order})).filter(row=>row.score>0&&!first.some(tool=>tool.id===row.tool.id)).sort((a,b)=>b.score-a.score||a.order-b.order).map(row=>row.tool)
+ const primary:Record<ModuleId,SupportToolId>={vision:'vision',hearing:'communication',mobility:'equipment-service',speech:'communication',cognitive:'steps',chronic:'reminders'}
+ const first=[...new Set(ids.map(id=>primary[id]))].map(id=>supportTools.find(tool=>tool.id===id)!),rest=supportTools.map((tool,order)=>({tool,score:tool.modules.filter(id=>ids.includes(id)).length,order})).filter(row=>row.score>0&&!first.some(tool=>tool.id===row.tool.id)).sort((a,b)=>b.score-a.score||a.order-b.order).map(row=>row.tool)
  return [...first,...rest]
 }
 export const gestureOptions=[

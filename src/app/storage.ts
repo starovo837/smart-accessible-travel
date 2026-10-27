@@ -12,7 +12,9 @@ export interface Snapshot {
 }
 export function scopeSnapshot(data: Omit<Snapshot, 'version' | 'savedAt' | 'expiresAt'>, now = Date.now()): Snapshot {
   const base = initialJourney(), { privacy } = data
-  return { ...data, version: 2, savedAt: now, expiresAt: privacy.retainDays ? now + privacy.retainDays * 86400000 : null,
+  const settings = { ...data.settings }
+  Reflect.deleteProperty(settings, 'voiceInput')
+  return { ...data, settings, version: 2, savedAt: now, expiresAt: privacy.retainDays ? now + privacy.retainDays * 86400000 : null,
     modules: privacy.profile ? data.modules : [], devices: privacy.devices ? data.devices : [],
     customModes: privacy.life ? data.customModes : [], customDevices: privacy.devices ? data.customDevices : [],
     feedback: privacy.life ? data.feedback : [],
