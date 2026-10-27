@@ -7,7 +7,7 @@ import { handleProductApi } from '../server/product-api.mjs'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist')
 const port=Number(process.env.PORT||5173)
 if(!Number.isInteger(port)||port<1||port>65535)throw Error('PORT必须为有效端口。')
-const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs':'text/javascript; charset=utf-8', '.wasm':'application/wasm', '.glb':'model/gltf-binary', '.webp':'image/webp', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json' }
+const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs':'text/javascript; charset=utf-8', '.wasm':'application/wasm', '.glb':'model/gltf-binary', '.webp':'image/webp', '.jpg':'image/jpeg', '.jpeg':'image/jpeg', '.txt':'text/plain; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json' }
 await stat(path.join(root, 'index.html'))
 const server = http.createServer(async (req, res) => {
   if (await handleProductApi(req, res)) return

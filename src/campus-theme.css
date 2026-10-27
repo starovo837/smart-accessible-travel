@@ -1,0 +1,107 @@
+/* Shared campus scenery stays behind content; never reduce text opacity. */
+:root {
+  font-family: 'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', sans-serif;
+  --campus-image: url('/images/seu-sipailou-fountain.jpg');
+  --campus-wash: .88;
+  --campus-paper: 248 251 246;
+  --campus-card: rgb(255 255 251 / .96);
+  --campus-ink: #173f30;
+  --campus-muted: #3e5748;
+  --paper: #f8fbf6;
+  --muted: #3e5748;
+}
+
+html, body { background-color: #edf2e9; }
+
+.app-shell {
+  background-color: #edf2e9;
+  background-image: linear-gradient(rgb(var(--campus-paper) / .82), rgb(var(--campus-paper) / .82)), var(--campus-image);
+  background-position: center top;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: scroll;
+}
+
+.app-shell .app-frame,
+.app-shell.fit-wide-shell .app-frame {
+  background-color: #f8fbf6;
+  background-image: linear-gradient(rgb(var(--campus-paper) / var(--campus-wash)), rgb(var(--campus-paper) / var(--campus-wash))), var(--campus-image);
+  background-position: center top;
+  background-size: auto, auto max(800px, 100svh);
+  background-repeat: no-repeat, repeat-y;
+  background-attachment: scroll;
+  border-color: rgb(255 255 251 / .85);
+}
+
+.app-shell .app-frame :is(.screen, .home-screen, .living-hub, .fit-shopping-page, .fitting-workspace, .shopping-page),
+.app-shell.fit-wide-shell .fitting-workspace {
+  background: transparent;
+}
+
+.app-shell .home-header,
+.app-shell .living-hub > .page-header {
+  background: transparent;
+}
+
+/* Forms and dense content remain solid enough to read over the photograph. */
+.app-shell .app-frame :is(.home-personal, .living-entry-list, .living-form, .task-panel, .record-row, .facility-row, .parameter-edit, .result-section, .fit-inspector, .fit-workflow-content, .fit-candidate-form, .fit-scene-details, .fit-platforms a, .fact-card, .question-card, .assistant-settings, .source-text, .vision-lines, .nearby-hospital-card) {
+  background-color: var(--campus-card);
+}
+
+.app-shell .app-frame :is(input:not([type='checkbox']):not([type='range']), textarea, select),
+.modal :is(input:not([type='checkbox']):not([type='range']), textarea, select) {
+  background-color: #fffffc;
+}
+
+.app-shell .app-frame :is(.page-heading h1, .page-heading h2, .welcome-hero h1, .home-header h1) {
+  color: var(--campus-ink);
+}
+
+.app-shell .app-frame :is(.page-heading p, .home-header p, .welcome-hero p) {
+  color: var(--campus-muted);
+}
+
+.app-shell .feature-header,
+.support-bottom-nav,
+.modal,
+.modal .modal-header {
+  background-color: rgb(255 255 251 / .98);
+}
+
+.app-shell.fit-wide-shell .fitting-workspace .page-header,
+.app-shell .fit-topline {
+  background-color: rgb(255 255 251 / .91);
+}
+
+/* Keep the person and assistive device on their existing neutral 3D stage. */
+.app-shell .fit-stage,
+.app-shell .fit-loading,
+.app-shell .fit-render-fallback {
+  background-color: #e9e5dc;
+}
+
+@media (max-width: 650px) {
+  .app-shell {
+    background-color: #edf2e9;
+    background-image: linear-gradient(rgb(var(--campus-paper) / .82), rgb(var(--campus-paper) / .82)), var(--campus-image);
+    background-attachment: scroll;
+  }
+  .app-shell .app-frame,
+  .app-shell.fit-wide-shell .app-frame {
+    background-size: auto, auto max(760px, 100svh);
+    background-attachment: scroll;
+  }
+}
+
+@media (forced-colors: active) {
+  .app-shell,
+  .app-shell .app-frame,
+  .app-shell.fit-wide-shell .app-frame {
+    background-image: none;
+    background-color: Canvas;
+  }
+}
+
+.campus-credit { margin-top:24px; color:var(--campus-muted); font-size:.85rem; line-height:1.75; }
+.campus-credit summary { padding-block:12px; min-height:48px; cursor:pointer; }
+.campus-credit a { color:#225f47; text-decoration:underline; text-underline-offset:3px; }

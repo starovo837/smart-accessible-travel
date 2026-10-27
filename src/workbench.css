@@ -1,0 +1,187 @@
+.screen.workbench-screen {
+  padding: 0 12px 112px;
+  color: #123f32;
+  background: transparent;
+  overflow: visible;
+}
+
+.workbench-heading {
+  padding: 28px 8px 30px;
+  min-width: 0;
+}
+
+.workbench-heading h1 {
+  margin: 0 0 10px;
+  color: #103e30;
+  font-size: 2.15rem;
+  font-weight: 750;
+  letter-spacing: -.035em;
+  line-height: 1.25;
+}
+
+.workbench-heading p {
+  margin: 0;
+  color: #315e4d;
+  font-size: .96rem;
+  line-height: 1.7;
+}
+
+.workbench-groups {
+  display: grid;
+  gap: 14px;
+}
+
+.workbench-group {
+  min-width: 0;
+  border: 1px solid rgba(198, 216, 199, .8);
+  border-radius: 18px;
+  background: rgba(255, 255, 252, .95);
+  box-shadow: 0 5px 18px rgba(35, 70, 46, .045);
+  overflow: hidden;
+}
+
+.workbench-group h2 {
+  margin: 0;
+  padding: 11px 15px 10px;
+  color: #173f31;
+  background: linear-gradient(90deg, rgba(233, 244, 234, .92), rgba(248, 251, 246, .7));
+  font-size: 1.02rem;
+  line-height: 1.45;
+  font-weight: 700;
+}
+
+.workbench-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(max(min(100%, 4.3rem), calc((100% - 18px) / 4)), 1fr));
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 7px 10px 12px;
+}
+
+.workbench-grid > li {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.workbench-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 7px;
+  width: 100%;
+  min-width: 48px;
+  min-height: 100px;
+  height: 100%;
+  padding: 7px 1px 6px;
+  border: 0;
+  border-radius: 12px;
+  color: #204b3b;
+  background: transparent;
+  text-align: center;
+  font: inherit;
+  touch-action: manipulation;
+}
+
+.workbench-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 17px 19px 16px 18px;
+  color: #1a5540;
+  background: #e9f2e7;
+  transition: background-color .15s ease;
+}
+
+.workbench-icon-accent {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #d6a524;
+  box-shadow: 0 0 0 1.5px #e9f2e7;
+  pointer-events: none;
+}
+
+.workbench-item-label {
+  display: block;
+  max-width: 100%;
+  min-height: 2.8em;
+  color: #244a3b;
+  font-size: .875rem;
+  font-weight: 550;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.workbench-action:hover {
+  background: rgba(233, 243, 229, .65);
+}
+
+.workbench-action:hover .workbench-icon {
+  background: #dfeeda;
+}
+
+.workbench-action:focus-visible {
+  outline: 3px solid #a87316;
+  outline-offset: -3px;
+  background: #f4f6e9;
+}
+
+.workbench-screen[data-large-text="true"] .workbench-grid,
+.large-text .workbench-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.workbench-screen[data-large-text="true"] .workbench-action,
+.large-text .workbench-action {
+  min-height: 118px;
+  padding-block: 10px;
+}
+
+.workbench-screen[data-large-text="true"] .workbench-item-label,
+.large-text .workbench-item-label {
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.reduce-motion .workbench-icon {
+  transition: none;
+}
+
+@media (max-width: 360px) {
+  .screen.workbench-screen { padding-inline: 8px; }
+  .workbench-grid { padding-inline: 8px; }
+  .workbench-group h2 { padding-inline: 13px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workbench-icon { transition: none; }
+}
+
+/* The first-open header shows the real campus scene at a readable crop. */
+.workbench-heading {
+  margin: 0 -12px 14px;
+  padding: 24px 24px 30px;
+  min-height: 202px;
+  background-image: linear-gradient(90deg, rgba(251,253,248,.92), rgba(251,253,248,.48) 62%, rgba(251,253,248,.22)), var(--campus-image);
+  background-size: cover;
+  background-position: center 56%;
+}
+.workbench-brand { display:flex; align-items:center; gap:9px; margin-bottom:19px; color:#164532; font-size:1.05rem; font-weight:700; }
+.workbench-brand .app-mark { width:32px; height:34px; border-radius:10px; box-shadow:none; }
+.workbench-brand .app-mark svg { width:21px; height:21px; }
+.workbench-heading h1 { letter-spacing:normal; font-size:2.05rem; }
+.workbench-item-label { font-size:.9rem; }
+@media(max-width:360px){.workbench-heading{margin-inline:-8px;padding-inline:21px;}}
+@media(forced-colors:active){.workbench-heading{background-image:none;}}
+
+.workbench-item-label { text-wrap: balance; }

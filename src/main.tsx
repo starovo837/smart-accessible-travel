@@ -10,6 +10,7 @@ import './nature.css'
 import './support.css'
 import './living-services.css'
 import './living-hub.css'
+import './campus-theme.css'
 
 function RootView(){
  const [hash,setHash]=useState(location.hash)
