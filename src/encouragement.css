@@ -19,7 +19,7 @@
 .encouragement-content { flex: 1; min-width: 0; }
 .encouragement-content p { margin: 0; font-size: .9rem; line-height: 1.75; overflow-wrap: anywhere; }
 .encouragement-content p[hidden] { display: none; }
-.encouragement-actions { display: flex; flex-wrap: wrap; gap: 0 12px; }
+.encouragement-actions { display: flex; flex-wrap: wrap; gap: 0 16px; }
 
 .encouragement .encouragement-actions button {
   min-width: 48px;

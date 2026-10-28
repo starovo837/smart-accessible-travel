@@ -1,3 +1,4 @@
+import { CampusEmblem } from '../components/CampusEmblem'
 import { useState } from 'react'
 import { Icon } from '../components/Icons'
 import { AppMark, PageHeader, PrimaryButton, ProgressDots } from '../components/UI'
@@ -10,7 +11,7 @@ import type {WorkbenchTarget} from '../app/workbench'
 import type { AppSettings, ModuleId, PrivacyPreferences } from '../app/types'
 const allModules: ModuleId[] = ['vision','hearing','mobility','speech','cognitive','chronic']
 export function Welcome({ onSelect }: { onSelect: () => void }) {
-  return <section className="screen welcome-screen"><div className="welcome-top"><AppMark /><span className="brand-name">智能无碍行</span></div><div className="welcome-hero"><div className="hero-orbit orbit-one" /><div className="hero-orbit orbit-two" /><div className="hero-illustration"><Icon name="wheelchair" size={74} /><Icon name="train" size={42} /></div><h1>让日常生活，<br /><strong>少一点阻碍</strong></h1><p>沟通、阅读、辅具与出行，从你需要的开始。</p></div><div className="welcome-actions"><PrimaryButton icon="list" onClick={onSelect}>选择我的情况<Icon name="chevron" size={20} /></PrimaryButton></div><p className="support-note"><Icon name="lock" size={16} />你的信息由你决定，随时可以删除</p></section>
+  return <section className="screen welcome-screen"><div className="welcome-top"><AppMark /><span className="brand-name">智能无碍行</span><CampusEmblem/></div><div className="welcome-hero"><div className="hero-orbit orbit-one" /><div className="hero-orbit orbit-two" /><div className="hero-illustration"><Icon name="wheelchair" size={74} /><Icon name="train" size={42} /></div><h1>让日常生活，<br /><strong>少一点阻碍</strong></h1><p>沟通、阅读、辅具与出行，从你需要的开始。</p></div><div className="welcome-actions"><PrimaryButton icon="list" onClick={onSelect}>选择我的情况<Icon name="chevron" size={20} /></PrimaryButton></div><p className="support-note"><Icon name="lock" size={16} />你的信息由你决定，随时可以删除</p></section>
 }
 
 export function SelectSituation({ modules, toggleModule, onNext, onBack, title = '选择我的情况', subtitle = '可以多选，之后也能随时调整' }: { modules: ModuleId[]; toggleModule: (id: ModuleId) => void; onNext: () => void; onBack: () => void; title?: string; subtitle?: string }) {
@@ -23,11 +24,12 @@ export function Consent({ modules, onConsent, onSkip, onBack, privacy, setPrivac
 
 interface HomeProps {
  modules:ModuleId[]; settings:AppSettings;
+ encouragement?:import('react').ReactNode;
  onFitting:()=>void; onProduct:()=>void; onTravel:()=>void; onAssistant:()=>void;
  onProfile:()=>void; onDevices:()=>void; onOffline:()=>void; onChoose:()=>void;
  onTool:(id:SupportToolId)=>void;
 }
-export function Home({modules,settings,onFitting,onProduct,onTravel,onAssistant,onProfile,onDevices,onOffline,onChoose,onTool}:HomeProps){
+export function Home({modules,settings,encouragement,onFitting,onProduct,onTravel,onAssistant,onProfile,onDevices,onOffline,onChoose,onTool}:HomeProps){
  const onAction=(target:WorkbenchTarget)=>{
   switch(target){
    case 'fitting':onFitting();break;
@@ -41,7 +43,7 @@ export function Home({modules,settings,onFitting,onProduct,onTravel,onAssistant,
    default:onTool(target);
   }
  }
- return <Workbench modules={modules} settings={settings} onAction={onAction}/>;
+ return <Workbench modules={modules} settings={settings} encouragement={encouragement} onAction={onAction}/>;
 }
 
 export function ProductInput({ input, setInput, value, setValue, error, loading, onStart, onBack, initialQuery }: { input: 'link' | 'image'; setInput: (type: 'link' | 'image') => void; value: string; setValue: (value: string) => void; error?: string; loading: boolean; onStart: () => void; onBack: () => void; initialQuery?: string }) {

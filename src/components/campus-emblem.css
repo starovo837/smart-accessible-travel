@@ -1,0 +1,25 @@
+.campus-emblem {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 60px;
+  height: 60px;
+  padding: 6px;
+  border-radius: 50%;
+  background: #fffffc;
+  text-decoration: none;
+}
+.campus-emblem img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.campus-emblem:focus-visible { outline: 3px solid #835d1c; outline-offset: 3px; }
+.workbench-brand > .campus-emblem, .welcome-top > .campus-emblem { margin-left: auto; }
+.workbench-brand > span { min-width: 0; overflow-wrap: anywhere; }
+.feature-identity { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-width: 0; }
+.feature-identity .feature-brand { min-width: 0; white-space: normal; }
+.feature-identity .campus-emblem { width: 52px; height: 52px; }
+@media (max-width: 650px) {
+  .feature-identity { width: 100%; }
+}
+@media (forced-colors: active) {
+  .campus-emblem { background: Canvas; outline: 1px solid CanvasText; }
+}

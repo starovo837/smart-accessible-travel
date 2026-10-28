@@ -17,7 +17,7 @@ export function PrivacyOptions({ value, onChange, disabled=false }: { value: Pri
 export function NeedsDialog({ settings, setSettings, onClose }: { settings: AppSettings; setSettings: (value: AppSettings) => void; onClose: () => void }) {
   return <Modal title="按我的操作需要调整" onClose={onClose}>
     <p>可以自由组合，不必填写诊断或证明。</p>
-    {([['elderMode', '老年模式（大字、大按钮与简化步骤）'], ['largeText', '放大文字和触控区'], ['textOnly', '优先显示文字（不影响朗读）'], ['stepMode', '一次只做一步'], ['reducedMotion', '减少动画与滚动效果'], ['readAloud', '自动朗读页面标题与助手回复'], ['encouragement', '偶尔显示温和的鼓励短句']] as const).map(([key, label]) => <label className="switch-line" key={key}><input type="checkbox" checked={key==='encouragement'?settings.encouragement!==false:Boolean(settings[key])} onChange={event => setSettings({ ...settings, [key]: event.target.checked, ...(key==='elderMode'?{largeText:event.target.checked,stepMode:event.target.checked,reducedMotion:event.target.checked}:{}) })} />{label}</label>)}
+    {([['elderMode', '老年模式（大字、大按钮与简化步骤）'], ['largeText', '放大文字和触控区'], ['textOnly', '优先显示文字（不影响朗读）'], ['stepMode', '一次只做一步'], ['reducedMotion', '减少动画与滚动效果'], ['readAloud', '自动朗读页面标题与助手回复'], ['encouragement', '显示温和的鼓励短句']] as const).map(([key, label]) => <label className="switch-line" key={key}><input type="checkbox" checked={key==='encouragement'?settings.encouragement!==false:Boolean(settings[key])} onChange={event => setSettings({ ...settings, [key]: event.target.checked, ...(key==='elderMode'?{largeText:event.target.checked,stepMode:event.target.checked,reducedMotion:event.target.checked}:{}) })} />{label}</label>)}
     <p className="prototype-note">所有操作都可以单次点击。支持键盘，不要求长按或拖动。</p>
     <PrimaryButton onClick={onClose}>完成</PrimaryButton>
   </Modal>

@@ -41,7 +41,7 @@ export function OfflineWorkspace({ journey, devices, onBack }: { journey: Journe
     navigator.serviceWorker.getRegistration().then(registration => { if (active) setOfflineState(registration?.active ? '应用代码已在当前浏览器缓存。个人资料只有授权后才会保存；文件导出仍需单独选择。' : '应用缓存尚未就绪，请保持联网使用，或下载独立文件。') }).catch(() => { if (active) setOfflineState('未能确认离线应用缓存，请使用下方文件导出。') })
     return () => { active = false }
   }, [])
-  return <section className="screen"><button className="back-link" onClick={onBack}>返回我的</button><h1>离线随身包</h1><p className="prototype-note" role="status">{offlineState}</p><p>选择要下载的资料。HTML 文件可以在手机文件管理器中离线打开，无需连接这台电脑。</p>
+  return <section className="screen"><button className="back-link" onClick={onBack}>返回首页</button><h1>离线随身包</h1><p className="prototype-note" role="status">{offlineState}</p><p>选择要下载的资料。HTML 文件可以在手机文件管理器中离线打开，无需连接这台电脑。</p>
     <label className="switch-line"><input type="checkbox" checked={includeDevices} onChange={event => setIncludeDevices(event.target.checked)} />设备资料（{devices.length} 台）</label>
     <label className="switch-line"><input type="checkbox" checked={includeTrip} onChange={event => setIncludeTrip(event.target.checked)} />最近出行结果、清单与承运方回复</label>
     <label className="switch-line"><input type="checkbox" checked={includeLife} onChange={event => setIncludeLife(event.target.checked)} />生活、办事资料和求助卡（含已填联系人，不含限时链接管理凭据）</label>

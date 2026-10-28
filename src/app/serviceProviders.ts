@@ -5,6 +5,8 @@ export interface ServiceProvider {
   category: 'map' | 'healthcare' | 'benefits' | 'equipment' | 'home' | 'participation'
   url: string
   scope: string
+  /** Omitted for nationwide information / a multi-region service network. */
+  regions?: string[]
   channel: 'official-site' | 'platform-search' | 'phone'
   phone?: string
   description: string
@@ -14,6 +16,7 @@ export interface ServiceProvider {
 }
 
 const checked = '2026-10-26'
+const expanded = '2026-10-27'
 
 export const serviceProviders: ServiceProvider[] = [
   {
@@ -60,7 +63,7 @@ export const serviceProviders: ServiceProvider[] = [
   },
   {
     id: 'crrc-engineering', name: '中国康复研究中心康复工程', category: 'equipment', url: 'https://www.crrc.com.cn/Html/News/Articles/18273.html',
-    scope: '北京；个体评估及相关服务是否受理需先联系机构', channel: 'official-site',
+    scope: '北京；个体评估及相关服务是否受理需先联系机构', regions: ['北京'], channel: 'official-site',
     description: '了解假肢矫形与辅具等专业范围，再从医院正规渠道咨询评估、适配和训练；不保证承接任意品牌维修或租赁。',
     verifiedAt: checked, sourceUrl: 'https://www.crrc.com.cn/Html/News/Articles/18273.html', booking: 'external-only',
   },
@@ -69,6 +72,48 @@ export const serviceProviders: ServiceProvider[] = [
     scope: '鱼跃品牌适用产品；按具体型号、保修和地区核实', channel: 'phone', phone: '400-828-7768',
     description: '官方提供使用指南、售后维修与配件等渠道。联系前准备型号和购买凭据；不承诺保修、上门、费用或到场时间。',
     verifiedAt: checked, sourceUrl: 'https://ai.yuyue.com.cn/yuwellScan/%E9%B1%BC%E8%B7%83%E5%81%A5%E5%BA%B7_%E9%9A%90%E7%A7%81%E6%94%BF%E7%AD%96.html', booking: 'external-only',
+  },
+  {
+    id: 'cadtc', name: '中国残疾人辅助器具中心', category: 'equipment', url: 'https://www.cadtc.org.cn/index.html',
+    scope: '全国辅具信息与服务资源入口；线下适配需联系当地机构', channel: 'official-site',
+    description: '查看辅具分类、科普知识、政策及服务资源，了解轮椅、助听、助视等辅具的适配途径。具体服务地点与受理条件须向机构确认。',
+    verifiedAt: expanded, sourceUrl: 'https://www.cadtc.org.cn/index.html', booking: 'not-booking',
+  },
+  {
+    id: 'equipment-local-service', name: '本地辅具补贴与适配办事入口', category: 'equipment', url: 'https://gjzwfw.www.gov.cn/col/col881/',
+    scope: '全国入口；在官方平台切换实际办理地区', channel: 'official-site',
+    description: '从国家政务服务平台查找当地残疾人辅具适配、康复救助等事项，核对定点服务机构、申请材料和补贴条件。',
+    verifiedAt: expanded, sourceUrl: 'https://gjzwfw.www.gov.cn/col/col881/', booking: 'external-only',
+  },
+  {
+    id: 'equipment-hotline', name: '12385 · 询问本地辅具服务', category: 'equipment', url: 'https://www.cdpf.org.cn/',
+    scope: '当地残联服务咨询；接听与转介安排以当地实际为准', channel: 'phone', phone: '12385',
+    description: '可询问所在市县的辅具评估、适配、补贴和服务机构渠道；联系前准备所在地区、辅具类别和想解决的问题。',
+    verifiedAt: expanded, sourceUrl: 'https://www.cdpf.org.cn/', booking: 'not-booking',
+  },
+  {
+    id: 'ottobock', name: '奥托博克康复体验与咨询', category: 'equipment', url: 'https://www.ottobock.com/zh-cn/company/aboutus',
+    scope: '北京、上海、武汉、济南、广州等官方机构；服务内容按具体网点确认', channel: 'official-site', phone: '400-860-0306',
+    description: '查询官方各地机构和体验咨询渠道，了解假肢、矫形及行动辅具。请先确认网点是否提供所需评估、试用或售后，按品牌及产品范围办理。',
+    verifiedAt: expanded, sourceUrl: 'https://www.ottobock.com/zh-cn/company/aboutus', booking: 'external-only',
+  },
+  {
+    id: 'jiangsu-equipment', name: '江苏省残疾人服务网 · 辅具服务', category: 'equipment', url: 'https://service.jscl.gov.cn/',
+    scope: '江苏；资格、补贴和办理机构以当地正式要求为准', regions: ['江苏'], channel: 'official-site',
+    description: '从省级残疾人服务网查询辅具适配补贴政策和服务渠道，也可了解服务专员及在线咨询入口。',
+    verifiedAt: expanded, sourceUrl: 'https://service.jscl.gov.cn/', booking: 'external-only',
+  },
+  {
+    id: 'shanghai-equipment', name: '上海市残联 · 辅助器具服务', category: 'equipment', url: 'https://www.shdpf.org.cn/',
+    scope: '上海；按现行辅具目录及申请条件办理', regions: ['上海'], channel: 'official-site',
+    description: '从市残联官网的“辅助器具”入口查政策和办理渠道；需要线下帮助时可询问所在街镇残联。',
+    verifiedAt: expanded, sourceUrl: 'https://www.shdpf.org.cn/', booking: 'external-only',
+  },
+  {
+    id: 'sichuan-equipment', name: '四川省康复辅具技术服务中心', category: 'equipment', url: 'https://www.scmzkf.cn/',
+    scope: '四川成都；外地用户需先确认接待、评估与到访安排', regions: ['四川'], channel: 'official-site', phone: '028-85433201',
+    description: '从中心官网了解假肢矫形器定制、成品辅具和就医指南，再向机构确认适配评估、服务时间和费用。',
+    verifiedAt: expanded, sourceUrl: 'https://www.scmzkf.cn/', booking: 'external-only',
   },
   {
     id: 'home-adaptation', name: '家庭无障碍改造办事入口', category: 'home', url: 'https://gjzwfw.www.gov.cn/col/col881/',
@@ -81,6 +126,36 @@ export const serviceProviders: ServiceProvider[] = [
     scope: '仅米家实际支持的设备、网关、地区及账号', channel: 'official-site',
     description: '在米家APP按官方说明绑定设备、设置提醒与场景。本应用没有取得米家账号或设备控制权限；具体门铃、报警器等需逐款确认兼容。',
     verifiedAt: checked, sourceUrl: 'https://ics-resources.xiaomi.com/ics-resources/articles/60bf175420a523e5ed34b3f3.html', booking: 'not-booking',
+  },
+  {
+    id: 'huawei-home', name: '华为智慧生活', category: 'home', url: 'https://consumer.huawei.com/cn/support/content/zh-cn00752582/',
+    scope: '仅智慧生活APP实际支持的型号、地区和账号', channel: 'official-site',
+    description: '查看智慧生活支持的设备类型，在官方APP中核对完整型号并配置设备或场景。能否发出文字、声音或其他提醒取决于设备与系统设置。',
+    verifiedAt: expanded, sourceUrl: 'https://consumer.huawei.com/cn/support/content/zh-cn00752582/', booking: 'not-booking',
+  },
+  {
+    id: 'aqara-home', name: 'Aqara Home · 门铃与传感器', category: 'home', url: 'https://www.aqara.cn/cn/smart-video-doorbell_g4_support',
+    scope: '按Aqara具体产品、网关和APP支持情况配置', channel: 'official-site',
+    description: '从官方产品支持页查看门铃及联动条件，再按说明在Aqara Home中配置。不同产品与Apple家庭等平台的兼容范围需逐款核对。',
+    verifiedAt: expanded, sourceUrl: 'https://www.aqara.cn/cn/smart-video-doorbell_g4_support', booking: 'not-booking',
+  },
+  {
+    id: 'tuya-home', name: '涂鸦／智能生活官方APP', category: 'home', url: 'https://developer.tuya.com/cn/docs/iot/public-app?id=Karuhr4f5eki8',
+    scope: '仅设备说明明确支持的APP、型号和服务地区', channel: 'official-site',
+    description: '从官方说明获取对应地区的APP，按设备说明绑定并配置自动化。涂鸦与智能生活的账号和自动化数据不能直接互传。',
+    verifiedAt: expanded, sourceUrl: 'https://developer.tuya.com/cn/docs/iot/public-app?id=Karuhr4f5eki8', booking: 'not-booking',
+  },
+  {
+    id: 'apple-home', name: 'Apple家庭', category: 'home', url: 'https://www.apple.com.cn/home-app/',
+    scope: '兼容Apple家庭的配件；部分功能需要家庭中枢和相应系统版本', channel: 'official-site',
+    description: '从Apple官方页面了解兼容配件、家庭管理与自动化。先核对配件和通知设置，再在Apple设备的家庭APP中操作。',
+    verifiedAt: expanded, sourceUrl: 'https://www.apple.com.cn/home-app/', booking: 'not-booking',
+  },
+  {
+    id: 'ezviz-home', name: '萤石云视频 · 官方下载与支持', category: 'home', url: 'https://www.ys7.com/portal/app.html',
+    scope: '仅萤石平台实际支持的门铃、摄像机及其他设备', channel: 'official-site',
+    description: '通过官方客户端下载与支持页获取APP，按完整型号说明配置消息提醒、门铃等功能。通知权限、网络和服务套餐按厂商说明核对。',
+    verifiedAt: expanded, sourceUrl: 'https://www.ys7.com/portal/app.html', booking: 'not-booking',
   },
   {
     id: 'cdpee', name: '中国残疾人就业创业网络服务平台', category: 'participation', url: 'https://www.cdpee.org.cn/',
@@ -111,6 +186,8 @@ const allowedHosts = new Set([
   'home.mi.com', 'ics-resources.xiaomi.com', 'www.yuwell.com', 'ai.yuyue.com.cn',
   'english.bjchy.gov.cn', 'www.btch.edu.cn', 'www.bdpf.org.cn', 'lbs.amap.com',
   'lbsyun.baidu.com',
+  'www.cadtc.org.cn', 'www.ottobock.com', 'service.jscl.gov.cn', 'www.shdpf.org.cn', 'www.scmzkf.cn',
+  'consumer.huawei.com', 'www.aqara.cn', 'developer.tuya.com', 'support.tuya.com', 'www.apple.com.cn', 'www.ys7.com',
 ])
 export function safeServiceUrl(raw: string): string {
   try {
@@ -132,3 +209,19 @@ export function platformMapUrl(query: string, platform: MapPlatform = 'amap'): s
   }
   return safeServiceUrl(url.toString())
 }
+
+export const equipmentServiceNeeds = ['辅具适配评估', '轮椅坐姿评估', '假肢矫形器适配', '助听器验配', '助视器验配', '辅具试用', '辅具租赁', '辅具维修'] as const
+/** Send only the city and service term explicitly supplied for this search. */
+export function equipmentServiceMapLinks(region: string, need: string) {
+  const city = region.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 80)
+  if (!city) return []
+  const service = equipmentServiceNeeds.find(item => item === need) ?? equipmentServiceNeeds[0]
+  const query = `${city} ${service}`
+  return (['amap', 'baidu'] as const).map(platform => ({ platform, label: platform === 'amap' ? '在高德找当地服务' : '在百度找当地服务', url: platformMapUrl(query, platform) }))
+}
+
+export function equipmentProvidersForRegion(region = '') {
+  return serviceProviders.filter(provider => provider.category === 'equipment' && (!region || !provider.regions || provider.regions.includes(region)))
+}
+
+export const homeDevicePlatforms = serviceProviders.filter(provider => provider.category === 'home' && provider.id !== 'home-adaptation')

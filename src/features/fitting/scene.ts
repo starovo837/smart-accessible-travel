@@ -30,11 +30,17 @@ export function createFittingModel(draft:FittingDraft){
   ellipsoid([0,headY+.035,bodyZ],[.086,.119,.097],skin,'头部')
   ellipsoid([0,headY+.018,bodyZ+.096],[.016,.025,.024],skin,'鼻部朝向')
   for(const side of [-1,1]){ellipsoid([side*.087,headY+.025,bodyZ],[.016,.031,.022],joint,'耳部');ball([side*.032,headY+.044,bodyZ+.087],.004,dark,'朝向标记')}
-  const wrists:Point[]=[],elbows:Point[]=[],ankles:Point[]=[],shoulders:Point[]=[],hips:Point[]=[],knees:Point[]=[]
+  const wrists:Point[]=[],elbows:Point[]=[],ankles:Point[]=[],shoulders:Point[]=[],hips:Point[]=[],knees:Point[]=[],footSupports:{center:Point;size:Point}[]=[]
   for(const side of [-1,1]){
-    const x=side*hip*.29,hipPoint:Point=[x,pelvisY-.035,bodyZ],knee:Point=seated?[x,pelvisY-.06,bodyZ+thigh]:[x*.93,pelvisY-thigh,bodyZ+.015],ankle:Point=seated?[x,pelvisY-.06-shin,bodyZ+thigh+.015]:[x*.94,.10,bodyZ]
+    const x=side*hip*.29,hipPoint:Point=[x,pelvisY-.035,bodyZ],knee:Point=seated?[x,pelvisY-.06,bodyZ+thigh]:[x*.93,pelvisY-thigh,bodyZ+.015]
+    // lowerLegCm is measured from the knee crease to the sole, not to the
+    // ankle. Share that sole plane with the footrest rather than fixing the
+    // footrest at a height unrelated to the seated person's measurements.
+    const ankleAboveSole=.071,soleY=Math.max(.055,knee[1]-shin),ankleY=soleY+ankleAboveSole,calfLength=Math.max(.025,shin-ankleAboveSole)
+    const ankle:Point=seated?[x,ankleY,knee[2]+Math.sqrt(Math.max(0,calfLength**2-(knee[1]-ankleY)**2))]:[x*.94,.10,bodyZ]
     const legRadius=Math.min(.085,Math.max(.045,hip*.19));limb(hipPoint,knee,legRadius,'大腿');limb(knee,ankle,legRadius*.67,'小腿');ankles.push(ankle);hips.push(hipPoint);knees.push(knee)
-    ellipsoid([ankle[0],ankle[1]-.04,ankle[2]+.075],[.047,.047,body.footLengthCm/200],joint,'足部')
+    ellipsoid([ankle[0],ankle[1]-ankleAboveSole/2,ankle[2]+.075],[.047,ankleAboveSole/2,body.footLengthCm/200],joint,'足部')
+    if(seated&&draft.aids.includes('wheelchair'))footSupports.push({center:[x,soleY-.0125,ankle[2]+.075],size:[Math.max(.14,body.footLengthCm/100*.48),.025,Math.max(.30,body.footLengthCm/100+.03)]})
     const armStart:Point=[side*shoulder*.47,shoulderY-.05,bodyZ],wrist:Point=seated?[side*(hip/2+.068),seatY+.235,bodyZ+.26]:[side*(shoulder/2+.025),pelvisY+.02,bodyZ+.08]
     const forearm=body.forearmLengthCm/100,elbow:Point=seated?[wrist[0],wrist[1]+.025,wrist[2]-forearm]:[side*(shoulder/2+.055),wrist[1]+forearm,bodyZ+.035]
     limb(armStart,elbow,.048,'上臂');limb(elbow,wrist,.036,'前臂');ellipsoid([wrist[0],wrist[1]-.025,wrist[2]+.035],[.036,.058,.026],skin,'手部');wrists.push(wrist);elbows.push(elbow);shoulders.push(armStart)
@@ -54,7 +60,8 @@ export function createFittingModel(draft:FittingDraft){
       rod([x,y-.03,z-d/2],[x,y+p.backHeight/100+.055,z-d/2],.017,blue,'靠背支架');rod([x,y+p.backHeight/100+.055,z-d/2],[x,y+p.backHeight/100+.055,z-d/2-.11],.02,dark,'推把')
       rod([x,y-.02,z+d/2-.04],[x,y+.22,z+d/2-.04],.014,blue,'扶手支架');box([x,y+.235,z+.025],[.065,.035,d*.85],dark,'扶手')
       rod([x,y-.03,z+d/2],[x,.11,z+d/2+.16],.015,blue,'前架');const caster=ring([x,.075,z+d/2+.16],.06,.017,rubber,'前脚轮');caster.rotation.y=Math.PI/2
-      rod([side*w*.30,y-.04,z+d/2],[side*w*.30,.09,z+d/2+.27],.013,silver,'足踏支架');box([side*w*.27,.075,z+d/2+.32],[w*.43,.025,.16],dark,'足踏板')
+      const support=footSupports[side===-1?0:1]??{center:[side*w*.27,.075,z+d/2+.32] as Point,size:[w*.43,.025,.16] as Point}
+      rod([side*w*.30,y-.04,z+d/2],[support.center[0],support.center[1]+.0125,support.center[2]-.055],.013,silver,'足踏支架');box(support.center,support.size,dark,'足踏板')
     }
     rod([-w/2-.06,y-.08,z+.1],[w/2+.06,y-.08,z-.17],.013,silver,'交叉架');rod([w/2+.06,y-.08,z+.1],[-w/2-.06,y-.08,z-.17],.013,silver,'交叉架')
   }
@@ -74,5 +81,5 @@ export function createFittingModel(draft:FittingDraft){
   if(draft.aids.includes('hearing'))for(const side of selectedSides){const aid=ring([side*.102,headY+.035,bodyZ-.006],.031,.010,orange,'耳背式助听器示意');aid.rotation.y=Math.PI/2;ellipsoid([side*.111,headY+.014,bodyZ-.027],[.013,.028,.013],orange,'助听器机身')}
   if(draft.showDimensions){const points=[new THREE.Vector3(-hip/2,pelvisY+.16,bodyZ+.2),new THREE.Vector3(hip/2,pelvisY+.16,bodyZ+.2)],line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),new THREE.LineBasicMaterial({color:0x167d73}));root.add(line);for(const side of [-1,1])rod([side*hip/2,pelvisY+.14,bodyZ+.2],[side*hip/2,pelvisY+.18,bodyZ+.2],.003,blue,'臀宽示意测线')}
   const bounds=new THREE.Box3().setFromObject(root),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3())
-  return {root,center,size,seated,body,placeholder,anchors:{pelvis:[0,pelvisY,bodyZ] as Point,head:[0,headY-.07,bodyZ] as Point,shoulders,elbows,wrists,hips,knees,ankles}}
+  return {root,center,size,seated,body,placeholder,anchors:{pelvis:[0,pelvisY,bodyZ] as Point,head:[0,headY-.07,bodyZ] as Point,shoulders,elbows,wrists,hips,knees,ankles,footSupports}}
 }

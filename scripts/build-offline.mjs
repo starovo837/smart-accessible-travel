@@ -6,12 +6,13 @@ const outputDirectory=path.resolve(process.env.SAI_BUILD_OUT_DIR||'dist')
 // A separate single-file bundle lets basic flows run without a PC or web server.
 const portable=await build({configFile:false,base:'./',build:{write:false,cssCodeSplit:false,chunkSizeWarningLimit:20000,rolldownOptions:{output:{codeSplitting:false}}}})
 const output=Array.isArray(portable)?portable[0].output:portable.output
-const code=output.filter(item=>item.type==='chunk').map(item=>item.code).join('\n').replace(/<\/script/gi,'<\\/script')
+const campusEmblem=(await readFile(new URL('../public/images/seu-emblem.png',import.meta.url))).toString('base64')
+const code=output.filter(item=>item.type==='chunk').map(item=>item.code).join('\n').replaceAll('/images/seu-emblem.png','data:image/png;base64,'+campusEmblem).replace(/<\/script/gi,'<\\/script')
 const campusPhoto=(await readFile(new URL('../public/images/seu-sipailou-fountain.jpg',import.meta.url))).toString('base64')
 const css=output.filter(item=>item.type==='asset'&&item.fileName.endsWith('.css')).map(item=>String(item.source)).join('\n').replace(/(?:\.\/|\/)images\/seu-sipailou-fountain\.jpg/g,'data:image/jpeg;base64,'+campusPhoto).replace(/<\/style/gi,'<\\/style')
 await writeFile(path.join(outputDirectory,'offline-app.html'),'<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>智能无碍行 · 独立离线应用</title><style>'+css+'</style></head><body><div id="root"></div><script type="module">'+code+'</script></body></html>')
 const assets = (await readdir(path.join(outputDirectory,'assets'))).map(name => '/assets/' + name)
-const files = ['/', '/index.html', '/manifest.webmanifest', '/app-icon.svg', '/images/seu-sipailou-fountain.jpg','/models/person.glb', ...assets]
+const files = ['/', '/index.html', '/manifest.webmanifest', '/app-icon.svg', '/images/seu-sipailou-fountain.jpg','/images/seu-emblem.png','/models/person.glb', ...assets]
 const gestureAssets=['gesture_recognizer.task','vision_wasm_internal.js','vision_wasm_internal.wasm','vision_wasm_module_internal.js','vision_wasm_module_internal.wasm','vision_wasm_nosimd_internal.js','vision_wasm_nosimd_internal.wasm'].map(name=>'/mediapipe/'+name)
 const content = await Promise.all(files.filter(name => name !== '/').map(name => readFile(path.join(outputDirectory,name))))
 const version = createHash('sha256').update(Buffer.concat(content)).digest('hex').slice(0, 12)

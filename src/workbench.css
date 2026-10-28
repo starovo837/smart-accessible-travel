@@ -185,3 +185,5 @@
 @media(forced-colors:active){.workbench-heading{background-image:none;}}
 
 .workbench-item-label { text-wrap: balance; }
+
+.workbench-encouragement{margin:0 0 18px}.workbench-encouragement:empty{display:none}.profile-screen{padding-bottom:110px}

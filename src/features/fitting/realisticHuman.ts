@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { clone } from 'three/addons/utils/SkeletonUtils.js'
-import {bodyAppearance,type FittingDraft} from '../../app/fitting'
+import {bodyAppearance,type FittingDraft} from '../../app/fitting.ts'
 
 let source: Promise<{scene:THREE.Group;animations:THREE.AnimationClip[]}>|undefined
 export function loadHuman(){
@@ -10,12 +10,15 @@ export function loadHuman(){
 }
 
 type Point=[number,number,number]
-export interface HumanAnchors {pelvis:Point;head:Point;shoulders:Point[];elbows:Point[];wrists:Point[];hips:Point[];knees:Point[];ankles:Point[]}
+export interface HumanAnchors {pelvis:Point;head:Point;shoulders:Point[];elbows:Point[];wrists:Point[];hips:Point[];knees:Point[];ankles:Point[];footSupports?:{center:Point;size:Point}[]}
 
 // Pose a generic, licensed rig. Measurements guide proportions; no body scan or
 // inferred medical data is produced. Bake the skin so ordinary GLB export works.
 export async function realisticHuman(draft:FittingDraft,anchors:HumanAnchors,seated:boolean){
- const asset=await loadHuman(),rig=clone(asset.scene)
+ return poseRealisticHuman(await loadHuman(),draft,anchors,seated)
+}
+export function poseRealisticHuman(asset:{scene:THREE.Group;animations:THREE.AnimationClip[]},draft:FittingDraft,anchors:HumanAnchors,seated:boolean){
+ const rig=clone(asset.scene)
  const mixer=new THREE.AnimationMixer(rig)
  if(asset.animations[0]){mixer.clipAction(asset.animations[0]).play();mixer.setTime(seated?3:0)}
  rig.updateMatrixWorld(true)
@@ -33,10 +36,28 @@ export async function realisticHuman(draft:FittingDraft,anchors:HumanAnchors,sea
  move('pelvis',anchors.pelvis)
  for(const {name,point} of torsoTargets)move(name,point.toArray() as Point)
  for(const [index,side] of ['r','l'].entries()){
-  move('thigh_'+side,anchors.hips[index]);if(!seated)aim('thigh_'+side,'calf_'+side,anchors.knees[index]);move('calf_'+side,anchors.knees[index]);if(!seated)aim('calf_'+side,'foot_'+side,anchors.ankles[index]);move('foot_'+side,anchors.ankles[index])
+  move('thigh_'+side,anchors.hips[index]);aim('thigh_'+side,'calf_'+side,anchors.knees[index]);move('calf_'+side,anchors.knees[index]);aim('calf_'+side,'foot_'+side,anchors.ankles[index]);move('foot_'+side,anchors.ankles[index])
   move('upperarm_'+side,anchors.shoulders[index]);aim('upperarm_'+side,'lowerarm_'+side,anchors.elbows[index]);move('lowerarm_'+side,anchors.elbows[index]);aim('lowerarm_'+side,'hand_'+side,anchors.wrists[index]);move('hand_'+side,anchors.wrists[index])
  }
  for(const {side,rotation} of feet){const node=bone('foot_'+side)!;node.quaternion.copy(node.parent!.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(rotation))}rig.updateMatrixWorld(true)
+ // Calibrate against the actual shoe mesh after retargeting. Its sole is not
+ // the foot bone's origin; otherwise a changed seat height makes shoes hover
+ // above, or penetrate, the plate even when the joint anchors look correct.
+ if(seated&&anchors.footSupports?.length===2){
+  const soleHeights=[Infinity,Infinity]
+  rig.traverse(object=>{
+   if(!(object instanceof THREE.SkinnedMesh)||!object.name.toLowerCase().includes('shoe'))return
+   object.skeleton.update()
+   const positions=object.geometry.getAttribute('position'),indices=object.geometry.getAttribute('skinIndex'),weights=object.geometry.getAttribute('skinWeight'),vertex=new THREE.Vector3()
+   for(let i=0;i<positions.count;i++){
+    const sideWeights=[0,0]
+    for(let j=0;j<4;j++){const name=object.skeleton.bones[indices.getComponent(i,j)]?.name??'';if(/^(foot|ball)_/.test(name))sideWeights[name.endsWith('_r')?0:1]+=weights.getComponent(i,j)}
+    const index=sideWeights[0]>=.7?0:sideWeights[1]>=.7?1:-1;if(index<0)continue
+    vertex.fromBufferAttribute(positions,i);object.applyBoneTransform(i,vertex);vertex.applyMatrix4(object.matrixWorld);soleHeights[index]=Math.min(soleHeights[index],vertex.y)
+   }
+  })
+  for(const [index,side]of ['r','l'].entries())if(Number.isFinite(soleHeights[index])){const support=anchors.footSupports[index],node=bone('foot_'+side)!,target=node.getWorldPosition(new THREE.Vector3());target.y+=support.center[1]+support.size[1]/2-soleHeights[index];move('foot_'+side,target.toArray() as Point)}
+ }
  const result=new THREE.Group(),appearance=bodyAppearance(draft.body);result.name='自然人物-通用比例预览'
  const shape=(vertex:THREE.Vector3,name:string)=>{
   if(!appearance.approximate)return
