@@ -1,147 +1,122 @@
-import type { Device, TravelContext, TravelDeviceSpecs } from './types'
+import { extraEquipment, getTravelMeta } from './catalog.ts'
 import { rulesFor, ruleCurrent } from './ruleCatalog.ts'
 import { travelPlanSources, safeOfficialTravelUrl, sourceEvidence, type TravelPlanSource } from './travelPlanSources.ts'
-import type { TravelActionEvidence, TravelPlanAction, TravelPlanInput, TravelTaskPlan } from './travelTaskTypes'
+import { canonicalTripKey, normalizeTripContext, normalizeTripSpecs, safeTripText } from './travelTripIdentity.ts'
+import type { TravelActionEvidence, TravelPlanAction, TravelPlanInput, TravelTaskPlan, TravelStageId } from './travelTaskTypes'
 
-const largeTypes = new Set(['wheelchair', 'manual-wheelchair', 'mobility-scooter', 'walker', 'rollator', 'transfer-board'])
-const poweredTypes = new Set(['wheelchair', 'mobility-scooter', 'oxygen', 'pump', 'cpap', 'hearing-aid', 'aac-device', 'electronic-cane', 'magnifier', 'cochlear-processor'])
-const text = (value: unknown, max = 120) => typeof value === 'string' ? value.trim().slice(0, max) : ''
-const positive = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined
+export { normalizeTripSpecs as taskDeviceSpecs } from './travelTripIdentity.ts'
+const largeTypes = new Set(['wheelchair','manual-wheelchair','mobility-scooter','walker','rollator','transfer-board'])
+const stageTitles: [TravelStageId,string][] = [['before','A 出发前'],['station','B 进站与站内'],['onboard','C 乘车中'],['arrival','D 到达与接驳'],['fallback','E 兜底']]
+const batteryLabels = {none:'无电池',lithium:'锂电池',other:'其他类型电池',unknown:'电池类型需读取铭牌'}
+const hash = (value: string) => {let n=2166136261; for(let i=0;i<value.length;i++)n=Math.imul(n^value.charCodeAt(i),16777619);return(n>>>0).toString(16)}
 
-/** Only normalize actual supplied measurements; unknown is never interpreted as zero or no battery. */
-export function taskDeviceSpecs(device: Device, supplied: TravelDeviceSpecs = {}): TravelDeviceSpecs {
-  const result: TravelDeviceSpecs = {}
-  for (const key of ['lengthCm', 'widthCm', 'heightCm', 'weightKg', 'batteryWh'] as const) {
-    const value = positive(supplied[key]); if (value !== undefined) result[key] = value
-  }
-  if (['yes', 'no', 'unknown'].includes(supplied.folded ?? '')) result.folded = supplied.folded
-  if (['none', 'lithium', 'other', 'unknown'].includes(supplied.batteryType ?? '')) result.batteryType = supplied.batteryType
-  if (['yes', 'no', 'unknown'].includes(supplied.removable ?? '')) result.removable = supplied.removable
-  if (supplied.batteryCount === 1 || supplied.batteryCount === 2) result.batteryCount = supplied.batteryCount
-  // Legacy manual device descriptions are shown as supplied information, not validated limits.
-  if (!result.batteryType && device.battery.trim() === '无') result.batteryType = 'none'
-  return result
-}
-
-function primaryContact(mode: string, context: TravelContext) {
-  if (mode === 'rail' || mode === 'train') return { name: '中国铁路12306 / 出发站重点旅客服务', phone: '12306', source: travelPlanSources.railAssistance }
-  if (mode === 'plane') {
-    if (context.carrier === 'airchina') return { name: '中国国际航空特殊旅客服务', phone: '95583', source: travelPlanSources.airchina }
-    if (context.carrier === 'ceair') return { name: '中国东方航空特殊旅客服务', phone: '95530', source: travelPlanSources.ceair }
-    if (context.carrier === 'csair') return { name: '中国南方航空特殊旅客服务', phone: '95539', source: travelPlanSources.csair }
-    return { name: '民航服务质量监督（查询／投诉，不代办航司预约）', phone: '12326', source: travelPlanSources.civilAviation }
-  }
-  const place = [context.city, context.from, context.to].join(' ')
-  if (mode === 'metro' && /上海|虹桥/.test(place)) return { name: '上海地铁服务', phone: '021-64370000', source: travelPlanSources.shanghaiMetro }
-  if (mode === 'metro' && /杭州/.test(place)) return { name: '杭州地铁爱心预约', phone: '0571-96600', source: travelPlanSources.hangzhouMetro }
-  return { name: '当地运营方（可向12328询问所属线路或服务单位）', phone: '12328', source: travelPlanSources.transport }
-}
-
-function planIdentity(input: unknown) {
-  const serialized = JSON.stringify(input); let hash = 2166136261
-  for (let i = 0; i < serialized.length; i++) hash = Math.imul(hash ^ serialized.charCodeAt(i), 16777619)
-  return 'travel-task-' + (hash >>> 0).toString(16)
-}
-
-/** Always builds a usable task route, even without measurements or a currently verified rule. */
+/** Pure trip compiler. Unknown endpoints produce preparation, never invented station details. */
 export function buildTravelTaskPlan(input: TravelPlanInput): TravelTaskPlan {
-  const now = Number.isFinite(input.now) ? input.now! : Date.now(), generatedAt = new Date(now).toISOString()
-  const mode = text(input.mode, 80) || 'rail', context = input.context ?? { carrier: 'unspecified' }
-  const rail = mode === 'rail' || mode === 'train', plane = mode === 'plane'
-  const unknownAirline = plane && !['airchina', 'ceair', 'csair'].includes(context.carrier)
-  const from = text(context.from) || text(context.city) || '出发站点待填写', to = text(context.to) || '到达站点待填写'
-  const route = { from, to, date: text(context.journeyDate, 32) || '出发日期待填写' }
-  const devices = input.devices.map(device => ({ id: device.id, name: text(device.name) || '随行辅具', type: device.type, specs: taskDeviceSpecs(device, input.specs?.[device.id]) }))
-  const names = devices.length ? devices.map(device => device.name).join('、') : '随行辅具（暂未选择）'
-  const large = input.devices.some(device => largeTypes.has(device.type)), powered = input.devices.some(device => poweredTypes.has(device.type)) || devices.some(device => device.specs.batteryType && !['none', 'unknown'].includes(device.specs.batteryType))
-  const contact = primaryContact(mode, context), verify = (question: string) => ({ contact: contact.name, phone: contact.phone, question })
-  const indirectContact = !rail && !plane && contact.phone === '12328'
-  const official = (source: TravelPlanSource = contact.source) => sourceEvidence(source, now)
-  const inferred = (): TravelActionEvidence => ({ level: 'inference', status: 'unverified', updatedAt: '编排建议生成：' + generatedAt, officialUrl: contact.source.url, officialLabel: contact.source.title, sourceTitle: '本地任务编排建议，不代表实时模型或承运许可' })
-  const action = (id: string, title: string, detail: string, evidence = inferred(), question?: string): TravelPlanAction => ({ id, title, detail, evidence, ...(question || evidence.status !== 'current' ? { verification: verify(question || '这项安排当前是否适用于我的行程？请说明办理地点、条件和下一步。') } : {}) })
-  const summary = unknownAirline
-    ? '先从机票订单找到实际承运航司的官方客服，申请辅助设备运输与机场协助，再逐项落实托运、电池和乘降安排；12326用于民航服务质量咨询或投诉，不代办预约。'
-    : indirectContact
-    ? `先与${mode === 'private-car' ? '驾驶员或车辆服务方' : '本次实际运营方'}落实${large ? '大型辅具装载、固定与乘降' : '辅具携带与存放'}安排；不知道联系渠道时可拨12328咨询公共交通服务渠道，12328不代办车辆预约。按下方五段清单逐项完成。`
-    : large
-    ? `按大型辅具准备：联系${contact.phone}落实携带与乘降协助，${rail ? '建议提前60分钟到站' : plane ? '按航司要求预留托运与特殊协助时间' : '出发前确认车辆、坡道及固定位置'}；尺寸可以稍后逐项补充，先按下方清单行动。`
-    : `清单已就绪：先联系${contact.phone}说明${names}与行程，落实安检、存放和所需协助，再按五段清单逐项完成。`
-  const before: TravelPlanAction[] = [
-    action('before-carry', large ? '按大型辅具办理本次携带与协助' : '先向运营方说明所带辅具', plane && large
-      ? `将${names}按辅助设备运输申请办理，询问是否需要托运、机型货舱装载空间与归还位置；不要按普通随身小件直接进客舱。待核实。`
-      : `说明携带${names}，${large ? '按大型行动辅具说明用途，不把普通行李限额直接套用到轮椅' : '说明是否佩戴使用、随身存放或需要辅助搬运'}。长宽高未知时先出示设备照片，申请人员核对乘降空间。待核实。`, inferred(), `我从${from}到${to}，携带${names}。请确认本次能如何携带、应在哪个服务点办理，并告知不符合时的替代安排。`),
-    action('before-pack', '按设备说明书整理、拍照与打包', '出发前拍摄设备完整外观和电池铭牌；把容易脱落的坐垫、附件分装并标注。只按制造商说明收折或拆解，不熟悉的电池不要自行强拆；向运营方询问是否需防短路或专用包装。待核实。', inferred(), '这台设备哪些部件要拆下或单独包装？电池是否保持安装、需要怎样防短路？请按我的具体型号说明。'),
-    action('before-documents', '随身带好证件、订单和设备资料', '准备购票使用的有效身份证件、车次或航班订单、设备说明书或铭牌照片。申请特殊协助时向服务方核对具体证明材料；不预设所有旅客必须提供残疾证，也不要在本应用上传证件。', rail ? official(travelPlanSources.railAssistance) : inferred(), '申请我所需的协助具体要带哪些证明？电子照片是否可用？哪些材料并非必需？'),
-    action('before-arrival-time', rail ? '建议提前60分钟到站，预约不足6小时改走现场受理' : plane ? '先确认值机截止时间，再预留设备托运时间' : '出发前留出协助和候车余量', rail
-      ? '编排建议：为大型辅具安检、核对和协助预留时间，建议提前60分钟到站。12306页面另列：线上重点旅客申请须乘车前6小时提交；不足6小时到站现场申请，受理时限不晚于开车前60分钟。先电话确认是否需要更早到达。'
-      : plane ? '编排建议：提前联系实际承运航司确认本机场值机、特殊协助与设备交运各自截止时间，再安排到达时间；没有统一适用所有机场和设备的提前时长。待核实。'
-      : '编排建议：先向运营方约定接应地点和时间，给坡道操作、等候适用车型及设备固定留出余量；未得到接应确认前安排备用接驳。待核实。', inferred(), rail ? '我这趟车携带大型辅具，是否应早于开车前60分钟到站？不足6小时预约应到哪个现场服务点？' : '本次需提前多久到、最迟何时交运或报到？请给出具体时限和接应地点。'),
-    action('before-assistance', rail ? '联系12306申请重点旅客服务' : '联系实际运营方约定协助', rail
-      ? `现在拨12306说明${route.date}、${from}→${to}、车次及${names}，申请便利进出站、乘降协助和到达交接。可从12306温馨服务进入预约；外部平台可能需登录，电话和现场渠道也可办理。记录回复与受理编号。`
-      : unknownAirline ? `先在机票订单查明实际承运公司及其官网电话，向航司报出日期、航班和${names}，申请辅助设备运输与机场协助。找不到官方联系渠道时可向12326咨询；12326不代为预约。记录航司回复与受理编号。`
-      : indirectContact ? `先与${mode === 'private-car' ? '驾驶员或车辆服务方' : '本次实际公交、客运、船运或车辆服务方'}确认日期、线路、设备和上下车需要。查不到公开联系渠道时可拨12328询问所属运营单位或适用公共接驳；12328不代办车辆预约，也不确认本次车辆可用。记录实际服务方回复。`
-      : `向${contact.name}报出日期、线路或航班、${names}及上下车需要，核实受理条件、对接人员和到达交接。记录联系人、回复及受理编号，不把打开页面当作预约成功。`, indirectContact ? inferred() : official(), rail ? '请帮我预约这趟车的重点旅客协助，并确认出发站接应点、乘降安排及到达站交接方式。' : unknownAirline ? '请告知如何查找我这张机票实际承运公司的官方客服渠道，我需要直接向航司申请辅助设备运输。' : indirectContact ? '请告知本地这条线路或适用无障碍接驳的实际运营单位及其官方联系方式，我需要直接确认车辆和协助。' : '请确认本次协助申请是否已受理，在哪里、什么时间与谁对接？'),
-  ]
-  if (devices.length) {
-    const dimensions = devices.map(device => `${device.name}：${[device.specs.lengthCm, device.specs.widthCm, device.specs.heightCm].map(value => value === undefined ? '未填写' : value).join(' × ')} cm；${device.specs.weightKg === undefined ? '重量未填写' : device.specs.weightKg + ' kg'}`).join('；')
-    before.push(action('before-device-record', '核对已从我的设备带出的参数', dimensions + '。已知参数保留，缺项可逐项补；补充后清单即时更新。待核实的尺寸不阻止先申请协助。', { ...inferred(), level: 'user', updatedAt: '本次用户资料整理：' + generatedAt, originalText: dimensions, sourceTitle: '本人填写或设备档案，未经承运方核验' }, '以上是我现有的设备参数。缺失参数能否到站核量？办理前还需要补哪一项？'))
+  const context=normalizeTripContext(input.context), mode=safeTripText(input.mode), label=safeTripText(getTravelMeta(mode).label,'出行')
+  const hasClock=typeof input.now==='number'&&Number.isFinite(input.now)
+  const generatedAt=hasClock?new Date(input.now!).toISOString():'生成时间未记录'
+  // Without a caller clock, evidence uses a stable reference; departure is not a generation timestamp.
+  const reference=hasClock?input.now!:Date.parse(context.journeyDate||'2026-11-07T00:00:00Z')
+  const now=Number.isFinite(reference)?reference:Date.parse('2026-11-07T00:00:00Z')
+  const devices=(input.devices??[]).map(device=>({id:device.id,name:safeTripText(device.name,'随行辅具'),type:safeTripText(device.type,'other'),specs:normalizeTripSpecs(device,input.specs?.[device.id])})).sort((a,b)=>JSON.stringify([a.name,a.type,a.specs]).localeCompare(JSON.stringify([b.name,b.type,b.specs]),'zh-CN'))
+  const route={from:context.from,to:context.to,date:context.journeyDate},from=route.from,to=route.to
+  const completeRoute=Boolean(mode&&from&&to)
+  const readiness:TravelTaskPlan['readiness']=!completeRoute?'preparation':devices.length&&route.date?'complete':'station-only'
+  const missingFields=[...(!mode?['mode']:[]),...(!from?['from']:[]),...(!to?['to']:[]),...(!route.date?['journeyDate']:[]),...(!devices.length?['devices']:[])]
+  const rail=mode==='rail'||mode==='train',plane=mode==='plane',metro=mode==='metro',bus=mode==='bus',road=['taxi','ride-hailing','accessible-car','private-car'].includes(mode)
+  const names=devices.map(device=>device.name).join('、'),large=devices.some(device=>largeTypes.has(device.type)),dog=devices.some(device=>device.type==='guide-dog')
+  const powered=devices.some(device=>device.type!=='guide-dog'&&(device.specs.batteryType!=='none')&&(device.specs.batteryType||['wheelchair','mobility-scooter','oxygen','pump','cpap','hearing-aid','aac-device','electronic-cane','magnifier','cochlear-processor'].includes(device.type)))
+  const manualUnfolded=devices.some(device=>device.type==='manual-wheelchair'&&device.specs.folded==='no')
+  const contact=rail?{name:'中国铁路12306 / 出发站重点旅客服务',phone:'12306',source:travelPlanSources.railAssistance}
+    :plane&&context.carrier==='airchina'?{name:'中国国际航空特殊旅客服务',phone:'95583',source:travelPlanSources.airchina}
+    :plane&&context.carrier==='ceair'?{name:'中国东方航空特殊旅客服务',phone:'95530',source:travelPlanSources.ceair}
+    :plane&&context.carrier==='csair'?{name:'中国南方航空特殊旅客服务',phone:'95539',source:travelPlanSources.csair}
+    :plane?{name:'民航服务质量监督（查询／投诉，不代办航司预约）',phone:'12326',source:travelPlanSources.civilAviation}
+    :metro&&/上海|虹桥/.test([context.city,from,to].join(' '))?{name:'上海地铁服务',phone:'021-64370000',source:travelPlanSources.shanghaiMetro}
+    :metro&&/杭州/.test([context.city,from,to].join(' '))?{name:'杭州地铁爱心预约',phone:'0571-96600',source:travelPlanSources.hangzhouMetro}
+    :{name:'当地实际运营方（可向12328查询所属单位）',phone:'12328',source:travelPlanSources.transport}
+  const complaint=rail?{name:'中国铁路12306服务投诉',phone:'12306',source:travelPlanSources.railComplaint}:plane?{name:'民航服务质量监督',phone:'12326',source:travelPlanSources.civilAviation}:{name:'当地交通运输服务监督',phone:'12328',source:travelPlanSources.transportScope}
+  const time=route.date?`${route.date}出发`:'计划出发时'
+  const party=context.companionCount?`同行${context.companionCount}人（不含本人）`:'本人独自出行'
+  const airline=plane?({airchina:'中国国际航空',ceair:'中国东方航空',csair:'中国南方航空',other:'订单实际承运航司',unspecified:''} as const)[context.carrier]:''
+  const trip=completeRoute?`${label} ${from}→${to}${context.city?'，填写城市'+context.city:''}${context.line?'，线路'+context.line:''}${airline?'，'+airline:''}，${time}，${party}`:`${label}${context.city?' · '+context.city:''}`
+  const equipmentPacket=devices.map(device=>{
+    if(device.type==='guide-dog')return `${device.name}（服务犬，通行手续另向运营方核实）`
+    const s=device.specs,dimensions=[s.lengthCm?`长${s.lengthCm}`:'长度需测量',s.widthCm?`宽${s.widthCm}`:'宽度需测量',s.heightCm?`高${s.heightCm}`:'高度需测量'].join('/')
+    const category=extraEquipment.find(item=>item.id===device.type)?.label??({wheelchair:'电动轮椅',cane:'盲杖','hearing-aid':'助听器',oxygen:'便携制氧机',pump:'胰岛素泵'} as Record<string,string>)[device.type]??safeTripText(device.type.replace(/^custom:/u,''),'其他辅具')
+    return `${device.name}（类别：${category}）：${dimensions} cm${s.weightKg?`，${s.weightKg} kg`:''}，${batteryLabels[s.batteryType??'unknown']}${s.batteryWh?` ${s.batteryWh} Wh`:''}${s.batteryCount?` ${s.batteryCount}块`:''}${s.removable?`，电池${s.removable==='yes'?'可拆卸':s.removable==='no'?'不可拆卸':'拆卸方式需核对'}`:''}${s.folded?`，${s.folded==='yes'?'可折叠':s.folded==='no'?'不可折叠':'折叠方式需核对'}`:''}`
+  }).join('；')
+  const available=[...(['availableLengthCm','availableWidthCm','availableHeightCm','doorWidthCm','availableWeightKg'] as const).flatMap((key)=>context[key]?[`${({availableLengthCm:'已填可用长度',availableWidthCm:'已填可用宽度',availableHeightCm:'已填可用高度',doorWidthCm:'已填门净宽',availableWeightKg:'已填承重'} as const)[key]}${context[key]}${key==='availableWeightKg'?' kg':' cm'}`]:[])].join('、')
+  const conflicts=devices.flatMap(device=>([['lengthCm','availableLengthCm','长度'],['widthCm','availableWidthCm','宽度'],['heightCm','availableHeightCm','高度'],['widthCm','doorWidthCm','门净宽'],['weightKg','availableWeightKg','承重']] as const).flatMap(([field,limit,description])=>device.specs[field]&&context[limit]&&device.specs[field]!>Number(context[limit])?[`${device.name}${description}超出本人填写的可用值，需服务方实测并安排替代设备交运或接驳，不能直接判定适配`]:[])).join('；')
+  const packet=[equipmentPacket,available,conflicts].filter(Boolean).join('；')
+  const inferred=():TravelActionEvidence=>({level:'inference',status:'unverified',updatedAt:generatedAt,officialUrl:contact.source.url,officialLabel:contact.source.title,sourceTitle:'本地规则编排建议；非实时承运许可'})
+  const official=(source:TravelPlanSource=contact.source)=>sourceEvidence(source,now)
+  const stages=stageTitles.map(([id,title])=>({id,title,actions:[] as TravelPlanAction[],emptyReason:''})),generalActions:TravelPlanAction[]=[]
+  const add=(stage:TravelStageId|'general',id:string,title:string,detail:string,question:string,evidence:TravelActionEvidence=inferred(),anchors:TravelPlanAction['anchors']=[])=>{
+    if(readiness==='station-only'&&devices.length&&['request','timing','entrance'].includes(id)){
+      detail+=` 日期确定前，先凭设备资料预核对受理与通行条件：${packet}。`
+      question+=` 设备资料为${packet}，日期确定前可以先核对哪些空间、接应与办理要求？`
+    }
+    const visible=title+' '+detail+' '+question
+    const inferredAnchors:TravelPlanAction['anchors']=[...(from&&visible.includes(from)?[{kind:'from' as const,value:from}]:[]),...(to&&visible.includes(to)?[{kind:'to' as const,value:to}]:[]),...devices.filter(device=>visible.includes(device.name)).map(device=>({kind:'device' as const,value:device.name})),...(route.date&&visible.includes(route.date)?[{kind:'date' as const,value:route.date}]:[])]
+    const action:TravelPlanAction={id:`${mode||'prepare'}-${id}`,title,detail,evidence,verification:{contact:contact.name,phone:contact.phone,question},anchors:[...anchors,...inferredAnchors]}
+    // A transport label or inferred city alone is not station-specific evidence.
+    if(stage==='general'||!action.anchors.length)generalActions.push(action)
+    else stages.find(row=>row.id===stage)!.actions.push(action)
+    return action
   }
-  const applicable = rulesFor(mode, context, input.documents ?? [])
-  const travelTime = Math.max(now, Date.parse(context.journeyDate ?? '') || 0)
-  for (const rule of applicable) {
-    const url = safeOfficialTravelUrl(rule.url)
-    if (!url) continue
-    const current = ruleCurrent(rule, travelTime)
-    const historical = !current && (rule.status === 'verified' || Boolean(rule.checkedAt))
-    before.push(action('before-source-' + rule.id, current ? '核对适用于本次行程的官方条款' : historical ? '历史条款，可能已变更：打开官方页面核验' : '打开官方页面核对尚未核验的条款', current
-      ? `已保留${rule.title}对应版本。请结合本人使用的辅具类别，逐条核对携带、包装及办理要求；条款存在不代表本次已获运输许可。`
-      : `${rule.title}作为${historical ? '历史' : '待核验'}材料保留，不以其中旧阈值作本次许可结论。打开官方页面核对最新版本，并向${contact.name}确认适用条件；清单其余动作继续可用。`, {
-        level: 'official-rule', status: current ? 'current' : historical ? 'historical' : 'unverified',
-        updatedAt: rule.publishedAt ? '原文发布日期：' + rule.publishedAt : rule.checkedAt ? '上次来源核验：' + rule.checkedAt : '原文更新时间与核验时间未提供',
-        officialUrl: url, officialLabel: rule.title, sourceTitle: rule.title, effectiveDate: rule.effectiveAt, expiresAt: rule.expiresAt,
-        originalText: rule.excerpts.map(excerpt => `${excerpt.label}：${excerpt.text}`).join('\n'),
-      }, '这份条款当前是否仍有效、是否适用我的辅具和本次线路？如已变更，请告知新条款入口及可办理的替代方式。'))
+  const dateSentence=route.date?`办理时说明出发日期${route.date}。`:'先核对计划出发日期。'
+  if(readiness==='preparation'){
+    const known=[from?'出发地点'+from:'',to?'到达地点'+to:'',route.date?'出发日期'+route.date:'',context.city?'城市'+context.city:'',context.line?'线路'+context.line:'',airline,party].filter(Boolean).join('，')
+    add('general','prepare-route','补齐出发与到达地点',`填写出发到达后，为你生成站内与接驳的专属行动。${context.city?'已有城市'+context.city+'的信息，仍需具体起终点，不能据此指定入口或站台。':''}`,'我需要安排一次无障碍出行，应该先向哪家实际运营单位确认服务？')
+    add('general','prepare-contact',rail?'先咨询12306协助渠道':plane?'从订单查明实际承运航司':metro?'先问地铁运营方接应方式':bus?'先查公交线路与低地板车辆':road?'先问车辆装载与接送条件':'先找到本次运营单位',plane?'先在机票订单查找实际承运航司与官方客服；12326用于咨询或投诉，不代办预约。':metro?`可联系${contact.name}（${contact.phone}），询问本市无障碍入口、渡板与接应申请渠道，站名补齐后再核对路线。`:rail?'拨12306询问重点旅客预约；长宽高未知时先按大型辅具准备，建议提前60分钟到站，并问是否需要更早。':`拨${contact.phone}查询线路实际运营方，再向服务方确认适用车型及协助；12328不代办车辆预约。`,'请告知本次出行所需无障碍服务应向谁申请，需提供哪些行程资料？',official())
+    if(devices.length)add('general','prepare-equipment',dog?'整理盲杖与导盲犬资料':'保存设备照片和实际外廓',`${packet}。${dog?'请运营方核对导盲犬所需证件、通行与停留位置，不能把服务犬按普通行李处理。':'拍摄设备及铭牌；尺寸未知时准备现场核量，不自行拆除不熟悉的结构。'}`,'我携带'+names+'，请说明办理前需补充哪项设备资料。')
+    if(plane&&manualUnfolded)add('general','prepare-hold','不可折叠轮椅先问货舱装载',`携带${names}，先问航司机型货舱门和装载空间、交运及归还地点；不要按普通随身小件直接进客舱。`,'我的手动轮椅不可折叠，应如何申请交运与机场代用轮椅？')
+    if(metro&&dog)add('general','prepare-dog','确认服务犬通行材料',`向${contact.name}询问导盲犬相关证件如何出示、安检配合方式与候车位置；实际要求待核实。`,'我使用盲杖并有导盲犬随行，需要出示什么材料、到哪个服务点接应？')
+    // Partial facts still change the preparation task and the actual inquiry.
+    const routeTask=generalActions[0],contactTask=generalActions[1]
+    routeTask.detail=`已记录${known}。${routeTask.detail}`
+    contactTask.detail=`咨询时说明${known}${names?'，携带'+names:''}。${contactTask.detail}`
+    if(contactTask.verification)contactTask.verification.question=`我的出行资料为：${known}${packet?'，携带资料为'+packet:''}。${contactTask.verification.question}`
+  } else {
+    const deviceAsk=devices.length?`我携带${names}。`:'我需要无障碍乘降协助。'
+    add('before','request',rail?'申请出发及到达接力服务':plane?'向实际航司申请机场协助':metro?'预约站点引导与渡板':bus?'确认本线路低地板车辆':road?'约定适用车型和接送点':'落实本次乘降协助',`${trip}。${deviceAsk}${rail?'拨12306分别确认'+from+'接应与'+to+'交接；线上预约须提前6小时，不足时咨询现场受理。':plane?'向实际承运航司确认'+from+'值机协助与'+to+'到达服务，记录受理编号；12326不代办预约。':metro?'联系运营方确认'+from+'到'+to+'所涉车站接应，不把网上设施标记当作当天可用。':bus?'向实际线路运营方查询'+from+'到'+to+'对应班次的无障碍车辆、站台和坡道。':'向服务方确认从'+from+'到'+to+'的装载空间、上车点和可提供协助。'}`,`${trip}，${deviceAsk}请确认接应地点、时间和到达交接，是否已受理？`,official())
+    add('before','timing',rail?'安排到站及受理时间':plane?'核对值机与交运截止时刻':metro?'避开接应尚未落实的时段':bus?'确认可乘班次再到站':'预留接送和装载时间',`${time}从${from}出发，${party}。${rail?'大型辅具建议提前60分钟到站，再向12306确认是否需更早；不足6小时预约时询问现场申请点及受理时限。':plane?'向航司询问本航班的值机、设备交运与特殊协助截止时间，按最早的办理要求安排到机场。':metro?'向站方核对当日服务时段与电梯检修情况，未确认接应前保留备用交通。':'向服务方约定本次接应和装载所需时间，不把普通步行导航时长当作无障碍通行时间。'}`,`关于${from}本次出发，我${party}，应提前多久到、在哪里报到？`)
+    add('station','entrance',plane?'确认机场无台阶值机路线':bus?'核实站台高度与候车位置':'询问出发点无台阶入口',`${trip}。向工作人员核实${from}当天可用的入口、坡道、垂直电梯及从入口至${plane?'值机柜台和安检区':'候乘点'}的连续路径；不预设具体入口编号。`,`${from}哪处入口能全程避开台阶？电梯停用时请安排可通行替代路线。`)
+    add('station','facilities','到场先找受理点与卫生间',`到${from}后出示预约回复，确认问询处／协助受理点、无障碍卫生间位置与开门方式。${dateSentence}请站方核对当天开放情况。`,`${from}协助受理点和当前可用的无障碍卫生间在哪里？能否安排引导？`)
+    if(context.companionCount)add('station','companion','核对同行者通行凭证',`${trip}。${from}出发时请确认${context.companionCount}名同行者各自是否持票、能陪同到哪里，不能预设可免票进站。`,`${from}有${context.companionCount}人陪同我，需要什么票证，可以陪到哪个区域？`)
+    else add('station','solo','独行时约定接力人员',`${trip}。我独自出行，请${from}工作人员给出接应人员和联络方式，并落实到${to}的交接，不能把陪护责任默认交给陌生乘客。`,`${from}出发我没有同行者，谁负责引导至乘车处、怎样通知${to}接力？`)
+    if(readiness==='complete'){
+      add('before','device-record','复核档案中的设备运输参数',`${trip}。我的设备已自动带出：${packet}。这些是本人填写或设备档案数据，未经过承运方核验；只补充尚需测量的一项，不能把空值当零。`,`${packet}。办理前请确认最先要补充哪项数据，是否可以现场核量？`,{...inferred(),level:'user',sourceTitle:'本人填写或设备档案，未经承运方核验',originalText:packet})
+      add('before','carry',plane?'核实辅助设备交运方式':metro?'说明随行设备与站台协助':'按实际设备确认携带安排',`${trip}。${packet}。${plane&&large?'先按辅助设备运输申请，核实机型货舱门与装载空间；大型轮椅不得被当作普通随身小件带入客舱。':rail&&large?'按大型辅具准备，缺尺寸先用照片申请协助，再逐项测量；不把普通行李限额直接套用到轮椅。':'说明设备是否佩戴使用、随身存放，以及所需空间，要求运营方明确本次适用条件。'}待核实。`,`${trip}。${packet}。这台设备应随身、交运还是按特殊设备办理？请给出可执行方案。`)
+      if(devices.some(device=>device.type!=='guide-dog'))add('before','pack',manualUnfolded?'保留整椅结构安排交接':'按说明书准备包装与附件',`${trip}。设备资料：${packet}。${manualUnfolded?'不可折叠轮椅不强行折叠，先请航司确认整椅保护、装卸及到达归还。':'依据实际外廓选包装，对易脱落附件单独收纳并标注；仅按制造商说明收折或拆解。'}拍照记录外观，电池不熟悉时不要强拆。`,`${packet}。请确认${from}办理前哪些部件需分装、如何保护及防短路？`)
+      add('before','documents',dog?'准备设备资料及服务犬文件':'随身保存订单和设备铭牌',`${trip}。带购票有效证件、订单及${names}说明书／铭牌照片；${dog?'向运营方核实导盲犬需出示的证件和安检配合方式。':'特殊协助所需证明逐项向运营方核对，不默认每人必须出示残疾证。'}`,`${from}办理${names}协助具体要哪些材料，电子照片能否使用？`,rail?official(travelPlanSources.railAssistance):inferred())
+      add('station','screening',plane?'在安检与设备交接处核量':metro?'向站务说明设备安检需要':'向安检展示设备信息',`${trip}。向${from}安检人员展示：${packet}。${dog?'由工作人员说明导盲犬检查及通行方式。':'缺少数据先请求现场核量；不能安全通过时请安排人工检查或替代通道。'}不自行搬抬载人轮椅。`,`${packet}。在${from}应怎样配合安检，是否需要人工检查及协助？`)
+      add('onboard','position',plane?'确认客舱座位与整椅归还':metro?'在指定位置等候并避开门缝':bus?'核对轮椅区和固定装置':'按实际空间停放并固定',`${trip}。设备资料：${packet}。${plane?'由机组确认适用座位及转移协助，交运轮椅与旅客在客舱的座位分开安排，不能假定可直接坐自带轮椅乘机。':dog?'向工作人员确认导盲犬停留及盲杖收纳位置，避免占用车门与疏散路径。':'由工作人员确认轮椅区／座位、刹车与固定带适用位置；空间不合适时先调整方案，不凭尺寸自行判定可安全固定。'}待核实。`,`${packet}。本次应安排在哪里，如何安全存放或固定，到${to}如何归还与接应？`)
+      if(powered)add('onboard','battery','主动申报电池及途中使用',`${trip}。${packet}。向工作人员展示铭牌，核对电池是否保持安装、是否要隔离端子及途中可否使用；不把航空电池限值套用到高铁或地铁。待核实。`,`${packet}。请确认本次电池申报、拆卸、包装与途中使用要求。`)
+      else if(plane)add('onboard','nonpowered','确认非电动轮椅装卸交接',`${trip}。${packet}。向航司说明无驱动电池，核对装载与到达交接；不因无电池而省去外廓和货舱门核对。`,`${packet}。到${to}是在舱门口还是行李处归还轮椅，谁负责交接？`)
+      if(metro&&dog)add('onboard','dog','请站务协助导盲犬通行',`在${from}上车前说明盲杖与导盲犬随行，向站务核对候车、上车及${to}下车引导；相关通行材料与位置要求以运营方当前说明核实。`,`${from}到${to}有导盲犬随行，请确认接应、候车及停留位置。`)
+      add('onboard','assistance','上车后约定途中求助方式',`${trip}。向乘务员／工作人员说明${names}相关需要，确认途中联络、如厕或转移协助范围及${to}交接；不默认工作人员提供持续个人护理。`,`${trip}。途中需要帮助时如何联系，能否在到达${to}前对接接力人员？`,rail?official(travelPlanSources.railAssistance):inferred())
+    }
+    add('arrival','exit',plane?'到达前落实机场轮椅交接':'下车前确认无台阶出口',`${trip}。到${to}前确认下车位置、接应人、电梯和地面出口；具体编号与设施当天可用性向现场核实。${party}，如无人接应先在安全区域等待。`,`${to}从下车处到出口怎样全程无台阶，电梯停运时由谁安排替代？`)
+    add('arrival','transfer',metro?'逐段核实地铁换乘路径':'确认到达后的接驳条件',`${trip}。从${to}换乘前，分别确认下一段站点、连续无台阶路线和接应。${devices.length?'接驳时出示：'+packet+'。':'如需携带辅具，请选择后再核对车辆装载与固定要求。'}${rail?'多段列车分别申请协助。':plane?'给设备归还、行李领取与下一程留出余量。':'设施不可用时请工作人员给出备用路线。'}`,`${to}接驳怎样通行？${devices.length?packet+'。':''}应联系哪个实际运营方？`)
+    const local=/杭州/.test(to)?{name:'杭州地铁爱心预约',phone:'0571-96600',source:travelPlanSources.hangzhouMetro}:/上海|虹桥/.test(to)?{name:'上海地铁服务',phone:'021-64370000',source:travelPlanSources.shanghaiMetro}:null
+    if(local&&!metro){const row=add('arrival','local',`询问${local.name}接应`,`${time}抵达${to}后如需地铁接驳，拨${local.phone}核对无台阶入口、渡板与换乘接应；当天是否可用须落实，不把电话咨询当作预约成功。`,`${to}到达后需要地铁接驳，请确认接应地点和受理方式。`,official(local.source));row.verification={contact:local.name,phone:local.phone,question:row.verification!.question}}
+    add('fallback','refusal','受阻时请值班负责人协调',`可出示：“我本次从${from}到${to}，${time}，${devices.length?'携带'+names:'需要无障碍协助'}。请说明当前拒绝的具体原因、现行条款、可补正材料，并请值班负责人给出可执行替代安排。”先留在安全区域，记录工单号。`,`${trip}，请说明拒绝依据、可补正事项及今天可执行的替代方案。`)
+    const escalation=add('fallback','contact',`需进一步协调时拨${complaint.phone}`,`${trip}。先找现场负责人，仍未解决联系${complaint.name}。${rail?'12328不代替铁路客服。':plane?'先找实际航司，12326不代办预约。':'12328可受理或转办城市客运等服务问题，不代办车辆预约。'}提供具体时间、地点和诉求，保存受理编号。`,`${trip}发生无障碍服务问题，请记录诉求并告知现场解决途径和受理编号。`,official(complaint.source));escalation.verification={contact:complaint.name,phone:complaint.phone,question:escalation.verification!.question}
+    if(rail||plane||mode==='coach'||mode==='ferry')add('fallback','ticket','核对本票种退改条件',`${trip}。打开原购票渠道订单或到${from}服务柜台，先核对退改时限、费用及证明；因设备安排未能成行时先保存客运记录，不默认可免费退改。`,`${from}本次因协助安排不能成行，如何改签退票、需保留什么证明？`,rail?official(travelPlanSources.railEntry):inferred())
+    else add('fallback','backup','原线路受阻时安排备用接驳',`${trip}。请${from}工作人员确认安全等候处，再询问到${to}的下一班适用车辆或无障碍接驳。${devices.length?'说明'+packet+'，核实装载与固定。':''}先落实再变更路线。`,`${from}到${to}原方案无法落实，请提供可行备用接驳及实际服务方电话。`)
+    for(const rule of rulesFor(mode,context,input.documents??[])){
+      const url=safeOfficialTravelUrl(rule.url);if(!url)continue
+      const current=ruleCurrent(rule,Math.max(now,Date.parse(route.date)||0)),historical=!current&&(rule.status==='verified'||Boolean(rule.checkedAt))
+      const topic=/battery|电池/.test(rule.id+' '+rule.title)?'核验电池运输条件':/assistance|辅助/.test(rule.id+' '+rule.title)?'核验辅助设备交运要求':safeTripText(rule.title,'核验本次携带规则')
+      add('before','source-'+rule.id,(historical?'历史条款，可能已变更：':'')+topic,`${trip}。保留${safeTripText(rule.title,'相关官方条款')}原文。${current?'结合实际辅具逐条核对；有条款不等于本次已获运输许可。':'不以其中旧阈值作本次许可；打开官方页面核验新版本，并落实替代方式。'}`,`${trip}，这份条款是否仍有效并适用？若有变更请说明新入口与可办方案。`,{level:'official-rule',status:current?'current':historical?'historical':'unverified',updatedAt:rule.publishedAt?'原文发布日期：'+rule.publishedAt:rule.checkedAt?'上次来源核验：'+rule.checkedAt:'原文更新时间与核验时间未提供',officialUrl:url,officialLabel:safeTripText(rule.title,'官方规则'),sourceTitle:safeTripText(rule.title,'官方规则'),effectiveDate:rule.effectiveAt,expiresAt:rule.expiresAt,originalText:rule.excerpts.map(excerpt=>safeTripText(excerpt.label)+'：'+safeTripText(excerpt.text)).join('\n')})
+    }
   }
-  const station = [
-    action('station-entrance', '确认可通行入口、坡道与电梯', `到${from}前，向接应点询问能到站厅或候车处的无台阶入口编号、坡道和垂直电梯是否运行。到站先找工作人员，不用楼梯或普通扶梯搬运载人轮椅。具体入口待核实。`, inferred(), `从${from}哪个入口能全程避开台阶？坡道与电梯今天是否开放？若停运请提供替代入口并安排引导。`),
-    action('station-service-point', '先到问询处、协助受理点确认接应', '到达后出示本清单与预约回复，寻找问询处、重点旅客服务台或综合服务中心，确认负责人员、候车区及到检票口的引导方式。受理点准确位置待核实。', rail ? official(travelPlanSources.railAssistance) : inferred(), '请问协助受理点在哪里？能否由工作人员接应，并告知我到候车区和检票口的路线？'),
-    action('station-restroom', '核对无障碍卫生间与站内设施', '候车前询问最近的无障碍卫生间、门是否可开、是否需钥匙，以及沿途电梯是否能到达。若关闭或无法通行，请工作人员给出可实际使用的替代设施；不把地图标记当作当天可用。待核实。', inferred(), '最近可用的无障碍卫生间在哪一层、怎么走？是否需要开门协助？这条路的电梯现在可用吗？'),
-    action('station-companion', '确认陪同人员的进站和乘车规则', '有陪同者时先说明其是否持本次车票；核对能否陪至候车区、站台或车厢，以及是否需额外通行凭证。不要预设陪同者可免费进站或乘车。待核实。', inferred(), '我的陪同者持票／不持票，可以陪到哪里？需要办理哪种凭证，在哪个服务台办理？'),
-  ]
-  const batteryLabels = { none: '无电池', lithium: '锂电池', other: '其他类型电池', unknown: '电池类型待读取铭牌' }
-  const batteryText = devices.length ? devices.map(device => `${device.name}：${batteryLabels[device.specs.batteryType ?? 'unknown']}${device.specs.batteryWh ? '，每块' + device.specs.batteryWh + ' Wh' : ''}${device.specs.batteryCount ? '，' + device.specs.batteryCount + '块' : ''}`).join('；') : '设备与电池情况尚未填写'
-  const onboard = [
-    action('onboard-position', '由工作人员确认轮椅区、座位与设备固定', '按工作人员指引到本车实际可用的轮椅位置或座位，确认设备停放、刹车、断电及固定方式；不要占用车门和疏散通道，不自行把固定带系在不适用部件上。不能安全固定时先让工作人员调整方案。待核实。', inferred(), '这趟车的轮椅区或合适座位在哪里？我的设备应如何固定、是否需要转移到座椅，若无法固定有什么替代安排？'),
-    action('onboard-battery', powered || devices.some(device => device.specs.batteryType !== 'none') ? '主动说明电池信息及使用需要' : '按已填无电池信息配合安检', `${batteryText}。主动向安检及工作人员展示铭牌，核对电池是否保持安装、是否需申报和途中能否使用。电池未知时先提供照片，请其明确下一项核对要求；不自动套用航空电池限值到其他交通方式。待核实。`, inferred(), '我的设备电池信息如上。应怎样申报和存放？途中能否使用？如需拆卸，请说明适用要求和安全操作方式。'),
-    action('onboard-help', rail ? '向乘务员确认途中协助和到站交接' : '向工作人员确认途中可申请的协助', '上车后告知工作人员自己的具体需要，确认途中如何联络、可提供哪些协助，以及到达前如何联系目的地接应人员。需要如厕、转移或使用设备时先沟通；不假定工作人员提供持续个人护理。', rail ? official(travelPlanSources.railAssistance) : inferred(), '途中需要帮助时如何联系您？下车前能否帮我对接目的地工作人员，并确认渡板或乘降辅助？'),
-  ]
-  const arrival = [
-    action('arrival-exit', '下车前确认出口与接力人员', `到${to}前请工作人员确认下车车门、接应人、垂直电梯与无台阶出口。电梯停用或无人接应时，先在安全位置等待并请求站方安排替代路线；不虚构具体出口编号。待核实。`, inferred(), `请确认${to}从我的下车位置到地面哪个出口能全程无台阶？接应人员在哪里，电梯若停用走哪条替代路？`),
-    action('arrival-transfer', '需要换乘时逐段落实无障碍路径', rail ? '如还有下一段列车，请分别提交每段重点旅客协助申请，并向接应人员核对换乘通道、电梯、安检与接力时间；不只依靠普通步行导航给出的换乘分钟数。' : '换乘地铁、公交或其他车辆前，分别确认上下车点、无台阶路径、坡道／电梯和下一段接应；设施无法使用时改到经工作人员确认的备用路径。待核实。', rail ? official(travelPlanSources.railAssistance) : inferred(), '下一段换乘是否需要重新预约协助、安检或出站？请给出可通行路径和接力地点，时间不足如何调整？'),
-  ]
-  const destination = to + ' ' + text(context.city)
-  const local = /杭州/.test(destination) ? { name: '杭州地铁爱心预约', phone: '0571-96600', source: travelPlanSources.hangzhouMetro } : /上海|虹桥/.test(destination) ? { name: '上海地铁服务', phone: '021-64370000', source: travelPlanSources.shanghaiMetro } : null
-  arrival.push(action('arrival-connection', local ? `提前联系${local.name}落实接驳` : '确认接驳车辆和上车点', local
-    ? `若到达后乘坐地铁，可拨${local.phone}询问爱心预约、无台阶出入口、换乘与渡板协助。若改坐出租车／网约车，应先向服务方确认能容纳设备的车型、坡道、固定点和实际接送地点。当天可用性待核实。`
-    : '向接驳公交、出租车、网约车或无障碍车服务方说明设备外廓及能否转移，确认车型、车门、坡道承重、轮椅固定点和无台阶上车点。普通车型不合适时改约明确提供所需设施的车辆。待核实。', local ? official(local.source) : inferred(), local ? `我将到达${to}，携带${names}，需接驳地铁。请确认可用的无障碍入口、渡板、接应地点与预约方式。` : '请确认这台设备是否能装入本次车辆、能否保持坐轮椅乘坐、如何固定，以及上车点是否无台阶。'))
-  if (local) arrival[arrival.length - 1].verification = { contact: local.name, phone: local.phone, question: arrival[arrival.length - 1].verification!.question }
-  const complaint = rail ? { name: '中国铁路12306服务投诉', phone: '12306', source: travelPlanSources.railComplaint } : plane ? { name: '民航服务质量监督', phone: '12326', source: travelPlanSources.civilAviation } : { name: '当地交通运输服务监督', phone: '12328', source: travelPlanSources.transportScope }
-  const fallback = [
-    action('fallback-refusal', '被拒时先向现场负责人说明并记录', `可直接出示：“我携带${names}，需要按本次设备情况核对。请说明拒绝原因、适用的现行条款，并请值班负责人协助；如当前车辆或入口不适用，请提供可执行的替代办理方式。”记录时间、地点、工作人员答复及受理编号，先留在安全区域，不强行通行。`, inferred(), '请联系值班负责人，明确拒绝所依据的现行条款、可补正材料，以及今天还能采用哪种替代方案。'),
-    action('fallback-contact', `需要进一步协调时拨${complaint.phone}`, `${rail ? '铁路行程先找站方负责人，再通过12306咨询或投诉；12328不代替铁路客服。' : plane ? `先联系${contact.name}，仍未解决可通过12326反映民航服务质量问题。` : '先联系本次运营单位；涉及公路、水路、道路运输或城市客运的咨询、投诉可拨12328，由当地渠道受理或转办。'} 提供车次／航班／线路、时间、设备情况与具体诉求，保存工单号。`, official(complaint.source), '请记录本次设备乘降或无障碍服务问题，告知受理编号、后续联系对象，以及现在可行的解决方式。'),
-    action('fallback-ticket', '先查看退改条件，再办理改签或退票', rail ? '打开12306或原购票渠道的订单，先查看当前退改条件与费用；临近发车或线上不能办理时，到车站售票服务台询问。若因站车安排未能成行，先请求保存客运记录并确认适用处理方式，不默认可免费退改。' : '打开原购票渠道的订单或到运营方服务柜台，先查看本票种的变更、取消、退款条件与费用；如因设备运输安排无法出行，说明原因并索取受理记录，再决定改期、换车型或退票。', rail ? official(travelPlanSources.railEntry) : inferred(), '本次因辅具或协助安排不能按计划出行，当前车票可如何改签或退票？费用、最迟办理时间及应保留的证明分别是什么？'),
-    action('fallback-backup', '落实替代路线后再出发', '若原方案当场无法落实，先到工作人员确认的安全等候区，请其协助联系下一班适用交通或备用无障碍接驳，并核对设备空间、坡道与固定条件。身体不适或需要休息时先暂停行程；不仓促让陌生人搬抬载人设备。待核实。', inferred(), '原安排暂时不可行，请提供安全等候地点，以及下一班可提供所需协助或其他无障碍接驳的具体联系方式。'),
-  ]
-  fallback[1].verification = { contact: complaint.name, phone: complaint.phone, question: fallback[1].verification!.question }
-  const contacts = [{ name: contact.name, phone: contact.phone, url: contact.source.url }, { name: complaint.name, phone: complaint.phone, url: complaint.source.url }, ...(local ? [{ name: local.name, phone: local.phone, url: local.source.url }] : [])].filter((item, index, rows) => rows.findIndex(row => row.phone === item.phone && row.name === item.name) === index)
-  return {
-    version: 1, id: planIdentity({ mode, route, devices, carrier: context.carrier }), generatedAt, mode, summary, route, devices, contacts,
-    stages: [
-      { id: 'before', title: 'A 出发前', actions: before },
-      { id: 'station', title: 'B 进站与站内', actions: station },
-      { id: 'onboard', title: 'C 乘车中', actions: onboard },
-      { id: 'arrival', title: 'D 到达与接驳', actions: arrival },
-      { id: 'fallback', title: 'E 兜底', actions: fallback },
-    ],
-  }
+  for(const stage of stages)if(!stage.actions.length)stage.emptyReason=readiness==='preparation'?'出行方式或出发与到达地点尚不完整，请先完成通用预备。':readiness==='station-only'?(!devices.length?'选择本次设备后，再安排设备使用与乘车协助。':'补齐出发日期后，再安排设备使用与乘车协助。'):'当前交通方式及设备无需该环节。'
+  const count=stages.reduce((sum,stage)=>sum+stage.actions.length,0)
+  const summary=`本次为 ${[label,completeRoute?`${from} → ${to}`:context.city,route.date,names].filter(Boolean).join(' · ')} 生成 ${count} 项专属行动 + ${generalActions.length} 项通用建议${readiness==='preparation'?'；填写出发到达后，为你生成站内与接驳的专属行动':readiness==='station-only'?(!devices.length?'；当前为站点行动，设备相关内容将在选择后补充':'；当前为站点行动，补齐出发日期后生成完整行程行动'):''}`
+  const contacts=[{name:contact.name,phone:contact.phone,url:contact.source.url},{name:complaint.name,phone:complaint.phone,url:complaint.source.url}]
+  for(const action of [...stages.flatMap(stage=>stage.actions),...generalActions])if(action.verification&&!contacts.some(row=>row.phone===action.verification!.phone))contacts.push({name:action.verification.contact,phone:action.verification.phone,url:action.evidence.officialUrl})
+  return {version:1,id:'travel-task-'+hash(canonicalTripKey(input)),generatedAt,mode,summary,readiness,route,devices,companionCount:context.companionCount,missingFields,stages,generalActions,contacts:contacts.filter((row,index)=>contacts.findIndex(other=>other.phone===row.phone&&other.name===row.name)===index)}
 }

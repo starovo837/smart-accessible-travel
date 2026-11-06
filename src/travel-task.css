@@ -35,3 +35,16 @@
 @media(max-width:380px) { .travel-task-overview,.travel-task-parameters,.travel-task-stage,.travel-task-contacts { padding:14px; } }
 .large-text .travel-query .field-grid, .large-text .travel-task-result .field-grid { grid-template-columns:1fr; }
 @media(forced-colors:active) { .travel-task-state { border:1px solid CanvasText; } }
+.travel-task-filter,.travel-device-placeholder { margin:20px 0; padding:20px; border:1px solid #cbd8c5; border-radius:16px; background:rgb(255 255 251 / .97); }
+.travel-task-filter .switch-line { display:flex; align-items:flex-start; gap:12px; min-height:48px; padding:10px 0; cursor:pointer; }
+.travel-task-filter input[type=checkbox] { width:24px; height:24px; min-height:24px; margin:3px 0 0; flex:0 0 auto; accent-color:#315a40; }
+.travel-task-filter p { margin:8px 0 0; }
+.travel-action-changed { border-inline-start:4px solid #91661e; padding-inline:14px; background:#fbf5e3; }
+.travel-task-action .travel-change-tag { display:inline-block; margin:0 0 8px; padding:3px 10px; border:1px dashed #91661e; border-radius:8px; color:#624411; font-weight:700; }
+.travel-anchor-summary { color:#405a46; padding-inline-start:10px; border-inline-start:2px solid #9aaf90; }
+.travel-change-status { padding:10px 12px; background:#edf3e7; border-radius:9px; }
+.travel-stage-empty { color:#405a46; }
+.travel-complete-message { padding:18px; border:1px solid #9ab18f; border-radius:12px; background:#edf4e8; }
+.travel-task-stage:focus-visible,.travel-complete-message:focus-visible { outline:3px solid #835d1c; outline-offset:3px; }
+@media(max-width:380px) { .travel-task-filter,.travel-device-placeholder { padding:14px; } }
+@media(forced-colors:active) { .travel-action-changed { border:2px solid Highlight; } .travel-change-tag { border-color:CanvasText; } }

@@ -29,6 +29,7 @@ export const extraEquipment: { id: DeviceType; label: string; icon: IconName; gr
   { id: 'transfer-board', label: '移位板', icon: 'steps', group: '行动支持' },
   { id: 'pressure-cushion', label: '减压坐垫', icon: 'heart', group: '行动支持' },
   { id: 'electronic-cane', label: '电子盲杖', icon: 'cane', group: '视觉支持' },
+  { id: 'guide-dog', label: '导盲犬', icon: 'eye', group: '视觉支持' },
   { id: 'magnifier', label: '电子助视器', icon: 'eye', group: '视觉支持' },
   { id: 'braille-display', label: '盲文点显器', icon: 'eye', group: '视觉支持' },
   { id: 'reading-device', label: '便携读书机', icon: 'volume', group: '视觉支持' },

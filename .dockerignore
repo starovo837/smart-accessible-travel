@@ -15,6 +15,7 @@
 !scripts/
 scripts/*
 !scripts/build-offline.mjs
+!scripts/assert-travel-copy.mjs
 !desktop/
 desktop/*
 !desktop/server.mjs

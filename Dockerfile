@@ -9,6 +9,8 @@ COPY src ./src
 COPY server ./server
 COPY public ./public
 COPY scripts/build-offline.mjs ./scripts/build-offline.mjs
+COPY scripts/assert-travel-copy.mjs ./scripts/assert-travel-copy.mjs
+RUN node scripts/assert-travel-copy.mjs
 RUN pnpm exec tsc -b
 RUN VITE_DEPLOYMENT=studio pnpm exec vite build
 RUN VITE_DEPLOYMENT=studio node scripts/build-offline.mjs

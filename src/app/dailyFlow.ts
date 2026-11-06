@@ -17,6 +17,7 @@ export function productFocus(product:ProductAnalysis) {
 export interface TravelQuestion {id:string;deviceId:string;name:string;field:keyof TravelDeviceSpecs;label:string;hint:string;choices?:[string,string][]}
 export function travelQuestions(mode:string,devices:Device[],specs:Record<string,TravelDeviceSpecs>):TravelQuestion[] {
   return devices.flatMap(device=>{
+    if(device.type==='guide-dog')return []
     const values=specs[device.id]??{},large=largeDeviceTypes.has(device.type),rows:TravelQuestion[]=[]
     const add=(field:keyof TravelDeviceSpecs,label:string,hint:string,choices?:[string,string][])=>{const value=values[field];if(value===undefined||value==='unknown')rows.push({id:device.id+':'+field,deviceId:device.id,name:device.name,field,label,hint,choices})}
     if(large||['rail','train'].includes(mode)){

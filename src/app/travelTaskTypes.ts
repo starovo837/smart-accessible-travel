@@ -19,6 +19,7 @@ export interface TravelPlanAction {
   detail: string
   evidence: TravelActionEvidence
   verification?: { contact: string; phone: string; question: string }
+  anchors: { kind: 'mode' | 'from' | 'to' | 'date' | 'device' | 'companion' | 'spec' | 'city' | 'line' | 'carrier'; value: string; label?: string }[]
 }
 export interface TravelTaskDevice {
   id: string
@@ -32,10 +33,17 @@ export interface TravelTaskPlan {
   generatedAt: string
   mode: TravelMode
   summary: string
+  readiness: 'preparation' | 'station-only' | 'complete'
+  generalActions: TravelPlanAction[]
+  missingFields: string[]
+  companionCount: number
   route: { from: string; to: string; date: string }
   devices: TravelTaskDevice[]
-  stages: { id: TravelStageId; title: string; actions: TravelPlanAction[] }[]
+  stages: { id: TravelStageId; title: string; actions: TravelPlanAction[]; emptyReason?: string }[]
   contacts: { name: string; phone: string; url: string }[]
+}
+export function allTravelActions(plan: TravelTaskPlan): TravelPlanAction[] {
+  return [...plan.stages.flatMap(stage => stage.actions), ...(plan.generalActions ?? [])]
 }
 export interface TravelPlanInput {
   mode: TravelMode

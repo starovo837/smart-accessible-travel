@@ -37,10 +37,10 @@ export function TravelCarryCard({ plan }: { plan: TravelTaskPlan }) {
   }
   return <section className="travel-carry-card" aria-labelledby={headingId}>
     <h2 id={headingId}>生成随身携带卡</h2>
-    <p>把设备和协助需要保存成图片，进站、安检和检票时可直接展示。图片在本机生成。</p>
+    <p>把当前阶段的行程、设备和协助需要保存成图片。资料不全时生成预备卡，图片在本机生成。</p>
     <div className="travel-carry-text" aria-label="随身携带卡文字内容">
-      <h3>{content.itinerary}</h3><p>{content.date} · {content.mode}</p>
-      {content.devices.length ? content.devices.map((device, index) => <dl key={plan.devices[index].id + ':' + index}><dt>设备</dt><dd>{device.name}</dd><dt>运输尺寸</dt><dd>{device.dimensions}</dd><dt>重量</dt><dd>{device.weight}</dd><dt>电池类型</dt><dd>{device.battery}</dd></dl>) : <p>尚未选择设备；请向工作人员说明本次使用或携带的辅具。</p>}
+      <h3>{content.itinerary}</h3><p>{[content.date,content.mode].filter(Boolean).join(' · ')}</p>
+      {content.devices.length ? content.devices.map((device, index) => <dl key={plan.devices[index].id + ':' + index}><dt>设备</dt><dd>{device.name}</dd><dt>运输尺寸</dt><dd>{device.dimensions}</dd><dt>重量</dt><dd>{device.weight}</dd><dt>电池类型</dt><dd>{device.battery}</dd></dl>) : <p>如携带辅具，请向工作人员说明设备与所需协助。</p>}
       <h3>结论摘要</h3><p>{content.summary}</p>
       <h3>承运方与官方联系渠道</h3><ul className="travel-carry-contacts">{content.contacts.map(contact => <li key={contact.name + contact.phone}><span>{contact.name}</span><a className="travel-carry-phone" href={'tel:' + contact.phone.replace(/-/g, '')}>{contact.phone}</a></li>)}</ul>
       <p>{content.notice}</p>
