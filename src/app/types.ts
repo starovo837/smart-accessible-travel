@@ -11,6 +11,7 @@ export interface TravelDeviceSpecs {
 }
 export interface TravelContext {
   carrier: 'unspecified' | 'airchina' | 'ceair' | 'csair' | 'other'; city?: string; line?: string; journeyDate?: string;
+  from?: string; to?: string;
   availableLengthCm?: number; availableWidthCm?: number; availableHeightCm?: number; doorWidthCm?: number;
   availableWeightKg?: number;
 }

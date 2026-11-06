@@ -16,7 +16,7 @@ export function travelOptions(devices: Device[], custom: CustomTravelDevice[]) {
 
 interface Props {
   embedded?:boolean;
-  coverage?:ReactNode; initialStep?:1|2|3;
+  coverage?:ReactNode; livePreview?:ReactNode; initialStep?:1|2|3;
   mode: TravelMode; setMode: (mode: TravelMode) => void; devices: Device[];
   customModes: CustomTravelMode[]; setCustomModes: (modes: CustomTravelMode[]) => void;
   customDevices: CustomTravelDevice[]; setCustomDevices: (devices: CustomTravelDevice[]) => void;
@@ -64,7 +64,8 @@ export function TravelQuery(props: Props) {
   const invalid = chosen.some(item => Object.values(specs[item.id] ?? {}).some(value => typeof value === 'number' && (!Number.isFinite(value) || value <= 0))) || Object.entries(context).some(([key,value]) => ['availableLengthCm','availableWidthCm','availableHeightCm','doorWidthCm','availableWeightKg'].includes(key) && value !== undefined && (typeof value !== 'number' || !Number.isFinite(value) || value <= 0))
   const show = (n: number) => step === n
   return <section className="screen travel-query">
-    <PageHeader level={props.embedded?2:1} title="出行查询" subtitle="选方式、选设备，再逐项补充" onBack={()=>step>1?setStep(step-1):props.onBack()} />
+    <PageHeader level={props.embedded?2:1} title="出行查询" subtitle="先拿到行动清单，再按需要补充" onBack={props.onBack} />
+    {props.livePreview}
     <details><summary>本次规则范围与更新时间</summary>{props.coverage}</details>
     {<div className="guided-progress" aria-live="polite"><h2 ref={heading} tabIndex={-1}>第 {step} 步 / 3：{['选择出行方式', '选择所带设备', '核对设备参数'][step-1]}</h2><p>{step === 1 ? '先选择一种交通方式。' : step === 2 ? '选择本次要带的设备，可以多选。' : '复用已保存参数，只补影响本次判断的缺项。不知道可以跳过。'}</p></div>}
     {show(1) && <section className="query-section" aria-label="出行方式"><h2>1 · 怎么出行？</h2>
@@ -74,7 +75,8 @@ export function TravelQuery(props: Props) {
       {!modes.some(item=>item.label.includes(modeSearch.trim())) && <p>没有找到，可以在下方添加。</p>}
       <div className="catalog-add"><input aria-label="自定义出行方式" placeholder="其他出行方式" value={newMode} onChange={e=>setNewMode(e.target.value)}/><button aria-label="添加出行方式" disabled={!newMode.trim()} onClick={addMode}>添加</button></div>
       {mode === 'plane' && <label className="travel-field">实际承运航空公司<select value={context.carrier} onChange={e=>setContext({ ...context, carrier: e.target.value as TravelContext['carrier'] })}><option value="unspecified">尚未确定</option><option value="airchina">中国国际航空</option><option value="ceair">中国东方航空</option><option value="csair">中国南方航空</option><option value="other">其他实际承运公司</option></select></label>}
-    <div className="field-grid two"><label>城市（选填）<input value={context.city??''} maxLength={40} onChange={e=>setContext({...context,city:e.target.value})}/></label><label>线路／航班（选填）<input value={context.line??''} maxLength={80} onChange={e=>setContext({...context,line:e.target.value})}/></label><label>出行日期（选填）<input type="date" value={context.journeyDate??''} onChange={e=>setContext({...context,journeyDate:e.target.value})}/></label></div>
+    <div className="field-grid two"><label>出发站或地点（选填）<input value={context.from??''} maxLength={80} placeholder="例如：上海虹桥" onChange={e=>setContext({...context,from:e.target.value})}/></label><label>到达站或地点（选填）<input value={context.to??''} maxLength={80} placeholder="例如：杭州东" onChange={e=>setContext({...context,to:e.target.value})}/></label><label>城市（选填）<input value={context.city??''} maxLength={40} onChange={e=>setContext({...context,city:e.target.value})}/></label><label>线路／航班（选填）<input value={context.line??''} maxLength={80} onChange={e=>setContext({...context,line:e.target.value})}/></label><label>出行日期（选填）<input type="date" value={context.journeyDate??''} onChange={e=>setContext({...context,journeyDate:e.target.value})}/></label></div>
+    <button onClick={()=>{const date=new Date();date.setDate(date.getDate()+1);const local=new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,10);setContext({...context,journeyDate:local})}}>明天出发</button>
     </section>}
     {show(2) && <section className="query-section" aria-label="所带设备"><h2>2 · 带什么设备？</h2>
       <label className="catalog-search"><Icon name="search" size={18}/><input aria-label="搜索设备" placeholder="搜索轮椅、助听器…" value={deviceSearch} onChange={e=>setDeviceSearch(e.target.value)}/></label>
@@ -85,7 +87,7 @@ export function TravelQuery(props: Props) {
       <div className="selected-equipment">{chosen.map(item=><button key={item.id} aria-label={`取消选择${item.name}`} onClick={()=>toggle(item.id)}>{item.name}<Icon name="close" size={16}/></button>)}</div>
     </section>}
     {show(3) && <section className="query-section" aria-label="设备参数"><h2>3 · 核对尺寸与电池</h2><p className="catalog-hint">填写实际运输状态的尺寸；折叠后的尺寸与使用时的尺寸可能不同。空白不代表符合限制。</p>
-      {chosen.length === 0 && <p>请先选择要携带的设备。</p>}
+      {chosen.length === 0 && <p>尚未选择设备，可以先按基础行动清单准备，稍后再选择设备。</p>}
       {chosen.length>0&&<TravelParameterGuide mode={mode} devices={chosen} specs={specs} onChange={update} onCheck={props.onStart} invalid={invalid}/>}
       <details><summary>查看或修改全部参数与可用空间</summary>
       {chosen.map(item => <fieldset className="transport-specs" key={item.id}><legend>{item.name}</legend>
@@ -104,7 +106,8 @@ export function TravelQuery(props: Props) {
     </section>}
     <div className="bottom-sticky"><p aria-live="polite">{getTravelMeta(mode).label} · 已选 {selected.length} 项设备</p>
       {step > 1 && <PrimaryButton variant="ghost" onClick={()=>setStep(step-1)}>上一步</PrimaryButton>}
-      {step < 3 ? <PrimaryButton disabled={step === 2 && !selected.length} onClick={()=>setStep(step+1)}>下一步</PrimaryButton> : <p>参数不全也可查看缺项；不会默认符合。</p>}
+      {step < 3 && <PrimaryButton onClick={()=>setStep(step+1)}>下一步</PrimaryButton>}
+      <PrimaryButton onClick={props.onStart}>查看出行行动清单</PrimaryButton>
     </div>
   </section>
 }

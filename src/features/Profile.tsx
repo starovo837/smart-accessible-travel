@@ -35,12 +35,13 @@ export function ProfilePage(props: Props) {
   const [deleting,setDeleting]=useState(false),[deleteError,setDeleteError]=useState('')
   const [savingPrivacy,setSavingPrivacy]=useState(false)
   return <section className="screen profile-screen"><PageHeader title="我的" subtitle="资料、辅助设置和隐私都由你决定" onBack={props.onBack} />
-    <p className="prototype-note">{props.consent === 'granted' ? '按你勾选的范围保存到当前浏览器。' : '基础模式：资料只在当前运行中使用，刷新后不保留。'}</p>
+    <p className="prototype-note">{props.consent === 'granted' ? '已授权的档案按你勾选的范围保存到当前浏览器。' : '基础模式：身份和健康档案只在当前运行中使用。'}本次出行行动清单和参数默认保存在本机，可在出行页导出或清除。</p>
     <PrimaryButton variant="secondary" onClick={props.onNeeds}>调整文字、朗读与操作方式</PrimaryButton>
     <section className="profile-section"><SectionTitle title="我的辅助版块" /><p>{props.modules.map(id => moduleMeta[id].label).join('、') || '未填写也可以使用基础功能'}</p><button className="text-action" onClick={props.onModules}>切换或叠加版块</button></section>
     <div className="profile-menu"><button onClick={props.onDevices}>我的设备与参数来源 <span>{props.devices.length} 台</span></button><button onClick={props.onLife}>生活便利工具</button><button onClick={props.onOffline}>离线随身包</button><button onClick={() => setView('feedback')}>纠错记录与处理进度 <span>{props.feedback.length} 条</span></button><button onClick={() => setView('privacy')}>隐私与数据</button></div>
     {props.storageError && <p role="alert" className="form-error">{props.storageError}</p>}
     {view === 'privacy' && <Modal title="隐私与数据" onClose={() => {if(!savingPrivacy)setView(null)}}>
+      <p>本次出行行动清单、设备参数与勾选进度独立保存在此浏览器，不需要登录。在出行结果页可导出或一键清除；删除全部数据也会一并清除。</p>
       <p>取消勾选会移除对应的浏览器保存副本；当前运行中的资料仍可使用。本次AI资料不写入长期服务器档案；主动提交的纠错和限时分享会保存到当前服务，并可删除。</p>
       <PrivacyOptions value={props.privacy} disabled={savingPrivacy} onChange={async value=>{setSavingPrivacy(true);try{await props.onPrivacy(value)}finally{setSavingPrivacy(false)}}} />
       {savingPrivacy&&<p role="status">正在撤销相关服务分享并更新保存范围，请稍候。</p>}
