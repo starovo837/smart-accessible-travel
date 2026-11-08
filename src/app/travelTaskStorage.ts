@@ -8,10 +8,14 @@ export const TRAVEL_TASK_KEY = 'smart-accessible-travel-task-v1'
 export interface TravelTaskSnapshot {
   version: 1; mode: string; selected: string[]; specs: Record<string, TravelDeviceSpecs>
   context: TravelContext; devices: Device[]; customModes: CustomTravelMode[]; customDevices: CustomTravelDevice[]
-  plan: TravelTaskPlan; checked: Record<string, string>; savedAt: string; inputKey: string; onlyNext?: boolean
+  plan: TravelTaskPlan; checked: Record<string, string>; savedAt: string; inputKey: string; onlyNext?: boolean; lastViewedPlan?:TravelTaskPlan
 }
 const safeUrl = (value: unknown) => { try { const url = new URL(String(value)); return url.protocol === 'https:' && !url.username && !url.password } catch { return false } }
 const validAction = (action: TravelPlanAction) => Boolean(action && typeof action.id==='string' && typeof action.title==='string' && typeof action.detail==='string' && safeUrl(action.evidence?.officialUrl) && Array.isArray(action.anchors))
+const validCompletion = (plan:TravelTaskPlan) => {
+  const value=plan.completion
+  return Boolean(value&&value.version===1&&value.generated===allTravelActions(plan).length&&Number.isInteger(value.total)&&value.total>=value.generated&&value.locked===value.total-value.generated&&Array.isArray(value.gaps)&&value.gaps.every(gap=>gap&&['devices','dimensions','batteryType','from','to','mode'].includes(gap.id)&&typeof gap.label==='string'&&Number.isInteger(gap.unlocks)&&gap.unlocks>=0&&(!gap.deviceIds||Array.isArray(gap.deviceIds))&&(!gap.requires||Array.isArray(gap.requires)))&&typeof value.statement==='string'&&plan.stages.every(stage=>{const row=value.stages?.[stage.id];return row&&row.generated===stage.actions.length&&row.total>=row.generated&&['ready','partial','blocked'].includes(row.status)&&Array.isArray(row.missing)})&&value.stages.fallback.status==='ready')
+}
 export function parseTravelTask(raw: string | null): TravelTaskSnapshot | null {
   if (!raw || raw.length > 700_000) return null
   try {
@@ -22,12 +26,13 @@ export function parseTravelTask(raw: string | null): TravelTaskSnapshot | null {
     if (!value.plan.stages.every(stage => Array.isArray(stage.actions) && stage.actions.length <= 60 && stage.actions.every(action => typeof action.title === 'string' && typeof action.detail === 'string' && safeUrl(action.evidence?.officialUrl)))) return null
     if (!Array.isArray(value.plan.contacts) || !value.plan.contacts.every(contact => typeof contact.phone === 'string' && safeUrl(contact.url))) return null
     if (!value.devices.every(device => ['id','name','type','battery','dimensions','weight'].every(field=>typeof device[field as keyof Device] === 'string'))) return null
-    if (!value.plan.readiness || !Array.isArray(value.plan.generalActions)) {
+    if (!value.plan.readiness || !Array.isArray(value.plan.generalActions) || !value.plan.completion) {
       value.plan=buildTravelTaskPlan({mode:value.mode,devices:value.devices,specs:value.specs,context:value.context,now:Date.parse(value.plan.generatedAt)})
-      value.checked={};value.inputKey=''
+      value.checked={};value.inputKey='';delete value.lastViewedPlan
     }
     if (!['preparation','station-only','complete'].includes(value.plan.readiness) || !Array.isArray(value.plan.generalActions) || value.plan.generalActions.length>60 || !allTravelActions(value.plan).every(validAction))return null
-    if (!value.plan.stages.every(stage=>stage.actions.length||Boolean(stage.emptyReason)))return null
+    if (!value.plan.stages.every(stage=>stage.actions.length||Boolean(stage.emptyReason))||!validCompletion(value.plan))return null
+    if(value.lastViewedPlan&&(!value.lastViewedPlan.completion||!Array.isArray(value.lastViewedPlan.stages)||!allTravelActions(value.lastViewedPlan).every(validAction)||!validCompletion(value.lastViewedPlan)))delete value.lastViewedPlan
     return { ...value, customModes: value.customModes ?? [], customDevices: value.customDevices ?? [], onlyNext:value.onlyNext!==false }
   } catch { return null }
 }
@@ -39,8 +44,10 @@ export function clearTravelTask() { localStorage.removeItem(TRAVEL_TASK_KEY) }
 /** Export the normalized task, excluding raw UI drafts and cancelled equipment. */
 export function exportTravelTask(snapshot:TravelTaskSnapshot) {
   const devices=snapshot.plan.devices.map((device,index)=>({...device,id:/（?(未选择|待填写|暂未)/u.test(device.id)?'travel-device-'+(index+1):device.id}))
-  const plan={...snapshot.plan,devices}
-  return {version:1,mode:plan.mode,context:{from:plan.route.from,to:plan.route.to,journeyDate:plan.route.date,companionCount:plan.companionCount},devices:plan.devices,plan,checked:Object.fromEntries(allTravelActions(plan).filter(action=>snapshot.checked[action.id]===travelActionSignature(action,plan)).map(action=>[action.id,true]))}
+  const deviceIds=new Map(snapshot.plan.devices.map((device,index)=>[device.id,devices[index].id]))
+  const completion={...snapshot.plan.completion,gaps:snapshot.plan.completion.gaps.map(gap=>({...gap,...(gap.deviceIds?{deviceIds:gap.deviceIds.map(id=>deviceIds.get(id)??id)}:{})}))}
+  const plan={...snapshot.plan,devices,completion}
+  return {completionStatement:plan.completion.statement,completion:plan.completion,version:1,mode:plan.mode,context:{from:plan.route.from,to:plan.route.to,journeyDate:plan.route.date,companionCount:plan.companionCount},devices:plan.devices,plan,checked:Object.fromEntries(allTravelActions(plan).filter(action=>snapshot.checked[action.id]===travelActionSignature(action,plan)).map(action=>[action.id,true]))}
 }
 
 /** Reuse existing user-entered values even before verification, without upgrading their evidence. */

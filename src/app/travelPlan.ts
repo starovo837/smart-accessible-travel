@@ -2,6 +2,7 @@ import { extraEquipment, getTravelMeta } from './catalog.ts'
 import { rulesFor, ruleCurrent } from './ruleCatalog.ts'
 import { travelPlanSources, safeOfficialTravelUrl, sourceEvidence, type TravelPlanSource } from './travelPlanSources.ts'
 import { canonicalTripKey, normalizeTripContext, normalizeTripSpecs, safeTripText } from './travelTripIdentity.ts'
+import { travelEquipmentGaps, travelCapacityInput, travelCompleteness, requiresTravelDimensions, requiresTravelBattery } from './travelCompleteness.ts'
 import type { TravelActionEvidence, TravelPlanAction, TravelPlanInput, TravelTaskPlan, TravelStageId } from './travelTaskTypes'
 
 export { normalizeTripSpecs as taskDeviceSpecs } from './travelTripIdentity.ts'
@@ -11,7 +12,7 @@ const batteryLabels = {none:'无电池',lithium:'锂电池',other:'其他类型�
 const hash = (value: string) => {let n=2166136261; for(let i=0;i<value.length;i++)n=Math.imul(n^value.charCodeAt(i),16777619);return(n>>>0).toString(16)}
 
 /** Pure trip compiler. Unknown endpoints produce preparation, never invented station details. */
-export function buildTravelTaskPlan(input: TravelPlanInput): TravelTaskPlan {
+function compileTravelTaskPlan(input: TravelPlanInput): Omit<TravelTaskPlan,'completion'> {
   const context=normalizeTripContext(input.context), mode=safeTripText(input.mode), label=safeTripText(getTravelMeta(mode).label,'出行')
   const hasClock=typeof input.now==='number'&&Number.isFinite(input.now)
   const generatedAt=hasClock?new Date(input.now!).toISOString():'生成时间未记录'
@@ -21,8 +22,9 @@ export function buildTravelTaskPlan(input: TravelPlanInput): TravelTaskPlan {
   const devices=(input.devices??[]).map(device=>({id:device.id,name:safeTripText(device.name,'随行辅具'),type:safeTripText(device.type,'other'),specs:normalizeTripSpecs(device,input.specs?.[device.id])})).sort((a,b)=>JSON.stringify([a.name,a.type,a.specs]).localeCompare(JSON.stringify([b.name,b.type,b.specs]),'zh-CN'))
   const route={from:context.from,to:context.to,date:context.journeyDate},from=route.from,to=route.to
   const completeRoute=Boolean(mode&&from&&to)
-  const readiness:TravelTaskPlan['readiness']=!completeRoute?'preparation':devices.length&&route.date?'complete':'station-only'
-  const missingFields=[...(!mode?['mode']:[]),...(!from?['from']:[]),...(!to?['to']:[]),...(!route.date?['journeyDate']:[]),...(!devices.length?['devices']:[])]
+  const equipmentGaps=travelEquipmentGaps(devices)
+  const readiness:TravelTaskPlan['readiness']=!completeRoute?'preparation':!equipmentGaps.length?'complete':'station-only'
+  const missingFields=[...(!mode?['mode']:[]),...(!from?['from']:[]),...(!to?['to']:[]),...equipmentGaps.map(gap=>gap.id)]
   const rail=mode==='rail'||mode==='train',plane=mode==='plane',metro=mode==='metro',bus=mode==='bus',road=['taxi','ride-hailing','accessible-car','private-car'].includes(mode)
   const names=devices.map(device=>device.name).join('、'),large=devices.some(device=>largeTypes.has(device.type)),dog=devices.some(device=>device.type==='guide-dog')
   const powered=devices.some(device=>device.type!=='guide-dog'&&(device.specs.batteryType!=='none')&&(device.specs.batteryType||['wheelchair','mobility-scooter','oxygen','pump','cpap','hearing-aid','aac-device','electronic-cane','magnifier','cochlear-processor'].includes(device.type)))
@@ -42,9 +44,9 @@ export function buildTravelTaskPlan(input: TravelPlanInput): TravelTaskPlan {
   const trip=completeRoute?`${label} ${from}→${to}${context.city?'，填写城市'+context.city:''}${context.line?'，线路'+context.line:''}${airline?'，'+airline:''}，${time}，${party}`:`${label}${context.city?' · '+context.city:''}`
   const equipmentPacket=devices.map(device=>{
     if(device.type==='guide-dog')return `${device.name}（服务犬，通行手续另向运营方核实）`
-    const s=device.specs,dimensions=[s.lengthCm?`长${s.lengthCm}`:'长度需测量',s.widthCm?`宽${s.widthCm}`:'宽度需测量',s.heightCm?`高${s.heightCm}`:'高度需测量'].join('/')
+    const s=device.specs,providedDimensions=([['lengthCm','长'],['widthCm','宽'],['heightCm','高']] as const).flatMap(([key,label])=>s[key]?[`${label}${s[key]} cm`]:[]).join('、'),dimensions=requiresTravelDimensions(device.type)?[s.lengthCm?`长${s.lengthCm}`:'长度需测量',s.widthCm?`宽${s.widthCm}`:'宽度需测量',s.heightCm?`高${s.heightCm}`:'高度需测量'].join('/')+' cm':'小型或佩戴式辅具，外廓不作为行动解锁前提'+(providedDimensions?'；已填'+providedDimensions:'')
     const category=extraEquipment.find(item=>item.id===device.type)?.label??({wheelchair:'电动轮椅',cane:'盲杖','hearing-aid':'助听器',oxygen:'便携制氧机',pump:'胰岛素泵'} as Record<string,string>)[device.type]??safeTripText(device.type.replace(/^custom:/u,''),'其他辅具')
-    return `${device.name}（类别：${category}）：${dimensions} cm${s.weightKg?`，${s.weightKg} kg`:''}，${batteryLabels[s.batteryType??'unknown']}${s.batteryWh?` ${s.batteryWh} Wh`:''}${s.batteryCount?` ${s.batteryCount}块`:''}${s.removable?`，电池${s.removable==='yes'?'可拆卸':s.removable==='no'?'不可拆卸':'拆卸方式需核对'}`:''}${s.folded?`，${s.folded==='yes'?'可折叠':s.folded==='no'?'不可折叠':'折叠方式需核对'}`:''}`
+    return `${device.name}（类别：${category}）：${dimensions}${s.weightKg?`，${s.weightKg} kg`:''}，${requiresTravelBattery(device.type)?batteryLabels[s.batteryType??'unknown']:'电池类型不适用（非电辅具）'}${s.batteryWh?` ${s.batteryWh} Wh`:''}${s.batteryCount?` ${s.batteryCount}块`:''}${s.removable?`，电池${s.removable==='yes'?'可拆卸':s.removable==='no'?'不可拆卸':'拆卸方式需核对'}`:''}${s.folded?`，${s.folded==='yes'?'可折叠':s.folded==='no'?'不可折叠':'折叠方式需核对'}`:''}`
   }).join('；')
   const available=[...(['availableLengthCm','availableWidthCm','availableHeightCm','doorWidthCm','availableWeightKg'] as const).flatMap((key)=>context[key]?[`${({availableLengthCm:'已填可用长度',availableWidthCm:'已填可用宽度',availableHeightCm:'已填可用高度',doorWidthCm:'已填门净宽',availableWeightKg:'已填承重'} as const)[key]}${context[key]}${key==='availableWeightKg'?' kg':' cm'}`]:[])].join('、')
   const conflicts=devices.flatMap(device=>([['lengthCm','availableLengthCm','长度'],['widthCm','availableWidthCm','宽度'],['heightCm','availableHeightCm','高度'],['widthCm','doorWidthCm','门净宽'],['weightKg','availableWeightKg','承重']] as const).flatMap(([field,limit,description])=>device.specs[field]&&context[limit]&&device.specs[field]!>Number(context[limit])?[`${device.name}${description}超出本人填写的可用值，需服务方实测并安排替代设备交运或接驳，不能直接判定适配`]:[])).join('；')
@@ -54,8 +56,8 @@ export function buildTravelTaskPlan(input: TravelPlanInput): TravelTaskPlan {
   const stages=stageTitles.map(([id,title])=>({id,title,actions:[] as TravelPlanAction[],emptyReason:''})),generalActions:TravelPlanAction[]=[]
   const add=(stage:TravelStageId|'general',id:string,title:string,detail:string,question:string,evidence:TravelActionEvidence=inferred(),anchors:TravelPlanAction['anchors']=[])=>{
     if(readiness==='station-only'&&devices.length&&['request','timing','entrance'].includes(id)){
-      detail+=` 日期确定前，先凭设备资料预核对受理与通行条件：${packet}。`
-      question+=` 设备资料为${packet}，日期确定前可以先核对哪些空间、接应与办理要求？`
+      detail+=` 资料补齐前，先凭已有设备资料预核对受理与通行条件：${packet}。`
+      question+=` 设备资料为${packet}，尚需测量的数据可以先怎样核对空间、接应与办理要求？`
     }
     const visible=title+' '+detail+' '+question
     const inferredAnchors:TravelPlanAction['anchors']=[...(from&&visible.includes(from)?[{kind:'from' as const,value:from}]:[]),...(to&&visible.includes(to)?[{kind:'to' as const,value:to}]:[]),...devices.filter(device=>visible.includes(device.name)).map(device=>({kind:'device' as const,value:device.name})),...(route.date&&visible.includes(route.date)?[{kind:'date' as const,value:route.date}]:[])]
@@ -68,7 +70,7 @@ export function buildTravelTaskPlan(input: TravelPlanInput): TravelTaskPlan {
   const dateSentence=route.date?`办理时说明出发日期${route.date}。`:'先核对计划出发日期。'
   if(readiness==='preparation'){
     const known=[from?'出发地点'+from:'',to?'到达地点'+to:'',route.date?'出发日期'+route.date:'',context.city?'城市'+context.city:'',context.line?'线路'+context.line:'',airline,party].filter(Boolean).join('，')
-    add('general','prepare-route','补齐出发与到达地点',`填写出发到达后，为你生成站内与接驳的专属行动。${context.city?'已有城市'+context.city+'的信息，仍需具体起终点，不能据此指定入口或站台。':''}`,'我需要安排一次无障碍出行，应该先向哪家实际运营单位确认服务？')
+    add('general','prepare-route','补齐出发与到达地点',`填写出发到达后，为你生成站内与接驳的行动。${context.city?'已有城市'+context.city+'的信息，仍需具体起终点，不能据此指定入口或站台。':''}`,'我需要安排一次无障碍出行，应该先向哪家实际运营单位确认服务？')
     add('general','prepare-contact',rail?'先咨询12306协助渠道':plane?'从订单查明实际承运航司':metro?'先问地铁运营方接应方式':bus?'先查公交线路与低地板车辆':road?'先问车辆装载与接送条件':'先找到本次运营单位',plane?'先在机票订单查找实际承运航司与官方客服；12326用于咨询或投诉，不代办预约。':metro?`可联系${contact.name}（${contact.phone}），询问本市无障碍入口、渡板与接应申请渠道，站名补齐后再核对路线。`:rail?'拨12306询问重点旅客预约；长宽高未知时先按大型辅具准备，建议提前60分钟到站，并问是否需要更早。':`拨${contact.phone}查询线路实际运营方，再向服务方确认适用车型及协助；12328不代办车辆预约。`,'请告知本次出行所需无障碍服务应向谁申请，需提供哪些行程资料？',official())
     if(devices.length)add('general','prepare-equipment',dog?'整理盲杖与导盲犬资料':'保存设备照片和实际外廓',`${packet}。${dog?'请运营方核对导盲犬所需证件、通行与停留位置，不能把服务犬按普通行李处理。':'拍摄设备及铭牌；尺寸未知时准备现场核量，不自行拆除不熟悉的结构。'}`,'我携带'+names+'，请说明办理前需补充哪项设备资料。')
     if(plane&&manualUnfolded)add('general','prepare-hold','不可折叠轮椅先问货舱装载',`携带${names}，先问航司机型货舱门和装载空间、交运及归还地点；不要按普通随身小件直接进客舱。`,'我的手动轮椅不可折叠，应如何申请交运与机场代用轮椅？')
@@ -78,6 +80,12 @@ export function buildTravelTaskPlan(input: TravelPlanInput): TravelTaskPlan {
     routeTask.detail=`已记录${known}。${routeTask.detail}`
     contactTask.detail=`咨询时说明${known}${names?'，携带'+names:''}。${contactTask.detail}`
     if(contactTask.verification)contactTask.verification.question=`我的出行资料为：${known}${packet?'，携带资料为'+packet:''}。${contactTask.verification.question}`
+    // The safety contact is usable before any itinerary fields are supplied.
+    generalActions.splice(1,1)
+    contactTask.title='遇到困难先联系官方协助'
+    contactTask.detail+=' 受阻时先在安全位置等候，请工作人员或官方渠道协助协调。'
+    stages.find(stage=>stage.id==='fallback')!.actions.push(contactTask)
+    if(to)add('arrival','prepare-arrival','先核对到达地点接应',`已知到达地点为${to}，先向实际运营方询问无台阶出口、现场接应和后续接驳；起点补齐后再核对整段路线。`,`${to}需要无障碍接应，请告知出口与服务受理渠道。`)
   } else {
     const deviceAsk=devices.length?`我携带${names}。`:'我需要无障碍乘降协助。'
     add('before','request',rail?'申请出发及到达接力服务':plane?'向实际航司申请机场协助':metro?'预约站点引导与渡板':bus?'确认本线路低地板车辆':road?'约定适用车型和接送点':'落实本次乘降协助',`${trip}。${deviceAsk}${rail?'拨12306分别确认'+from+'接应与'+to+'交接；线上预约须提前6小时，不足时咨询现场受理。':plane?'向实际承运航司确认'+from+'值机协助与'+to+'到达服务，记录受理编号；12326不代办预约。':metro?'联系运营方确认'+from+'到'+to+'所涉车站接应，不把网上设施标记当作当天可用。':bus?'向实际线路运营方查询'+from+'到'+to+'对应班次的无障碍车辆、站台和坡道。':'向服务方确认从'+from+'到'+to+'的装载空间、上车点和可提供协助。'}`,`${trip}，${deviceAsk}请确认接应地点、时间和到达交接，是否已受理？`,official())
@@ -113,10 +121,20 @@ export function buildTravelTaskPlan(input: TravelPlanInput): TravelTaskPlan {
       add('before','source-'+rule.id,(historical?'历史条款，可能已变更：':'')+topic,`${trip}。保留${safeTripText(rule.title,'相关官方条款')}原文。${current?'结合实际辅具逐条核对；有条款不等于本次已获运输许可。':'不以其中旧阈值作本次许可；打开官方页面核验新版本，并落实替代方式。'}`,`${trip}，这份条款是否仍有效并适用？若有变更请说明新入口与可办方案。`,{level:'official-rule',status:current?'current':historical?'historical':'unverified',updatedAt:rule.publishedAt?'原文发布日期：'+rule.publishedAt:rule.checkedAt?'上次来源核验：'+rule.checkedAt:'原文更新时间与核验时间未提供',officialUrl:url,officialLabel:safeTripText(rule.title,'官方规则'),sourceTitle:safeTripText(rule.title,'官方规则'),effectiveDate:rule.effectiveAt,expiresAt:rule.expiresAt,originalText:rule.excerpts.map(excerpt=>safeTripText(excerpt.label)+'：'+safeTripText(excerpt.text)).join('\n')})
     }
   }
-  for(const stage of stages)if(!stage.actions.length)stage.emptyReason=readiness==='preparation'?'出行方式或出发与到达地点尚不完整，请先完成通用预备。':readiness==='station-only'?(!devices.length?'选择本次设备后，再安排设备使用与乘车协助。':'补齐出发日期后，再安排设备使用与乘车协助。'):'当前交通方式及设备无需该环节。'
+  for(const stage of stages)if(!stage.actions.length)stage.emptyReason=readiness==='preparation'?'出行方式或出发与到达地点尚需补齐，请先使用通用预备与兜底渠道。':readiness==='station-only'?'补齐设备类型、所需尺寸及电池类型后，再解锁设备相关行动。':'当前交通方式及设备无需该环节。'
   const count=stages.reduce((sum,stage)=>sum+stage.actions.length,0)
   const summary=`本次为 ${[label,completeRoute?`${from} → ${to}`:context.city,route.date,names].filter(Boolean).join(' · ')} 生成 ${count} 项专属行动 + ${generalActions.length} 项通用建议${readiness==='preparation'?'；填写出发到达后，为你生成站内与接驳的专属行动':readiness==='station-only'?(!devices.length?'；当前为站点行动，设备相关内容将在选择后补充':'；当前为站点行动，补齐出发日期后生成完整行程行动'):''}`
   const contacts=[{name:contact.name,phone:contact.phone,url:contact.source.url},{name:complaint.name,phone:complaint.phone,url:complaint.source.url}]
   for(const action of [...stages.flatMap(stage=>stage.actions),...generalActions])if(action.verification&&!contacts.some(row=>row.phone===action.verification!.phone))contacts.push({name:action.verification.contact,phone:action.verification.phone,url:action.evidence.officialUrl})
   return {version:1,id:'travel-task-'+hash(canonicalTripKey(input)),generatedAt,mode,summary,readiness,route,devices,companionCount:context.companionCount,missingFields,stages,generalActions,contacts:contacts.filter((row,index)=>contacts.findIndex(other=>other.phone===row.phone&&other.name===row.name)===index)}
+}
+
+/** Adds an explicit coverage model without exposing the capacity probe as real data. */
+export function buildTravelTaskPlan(input:TravelPlanInput):TravelTaskPlan{
+  const plan=compileTravelTaskPlan(input),capacity=compileTravelTaskPlan(travelCapacityInput(input))
+  const completion=travelCompleteness(plan,capacity)
+  const itinerary=[getTravelMeta(plan.mode).label,[plan.route.from,plan.route.to].filter(Boolean).join(' → '),plan.route.date,plan.devices.map(device=>device.name).join('、')].filter(Boolean).join(' · ')
+  const progress=completion.gaps.length?`当前可执行 ${completion.generated} 项，满配 ${completion.total} 项，缺口 ${completion.gaps.length} 个：${completion.gaps.map(gap=>gap.label).join('、')}；还差 ${completion.locked} 项行动待补`:`${completion.generated}/${completion.total} 已就绪`
+  const summary=`${itinerary?itinerary+'。':''}${progress}${plan.readiness==='preparation'?'；填写出发到达后，为你生成站内与接驳的行动':''}`
+  return {...plan,completion,summary}
 }

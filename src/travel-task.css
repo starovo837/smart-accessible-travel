@@ -48,3 +48,24 @@
 .travel-task-stage:focus-visible,.travel-complete-message:focus-visible { outline:3px solid #835d1c; outline-offset:3px; }
 @media(max-width:380px) { .travel-task-filter,.travel-device-placeholder { padding:14px; } }
 @media(forced-colors:active) { .travel-action-changed { border:2px solid Highlight; } .travel-change-tag { border-color:CanvasText; } }
+.travel-completion-count { font-weight:700; color:#234b33; }
+.travel-stage-status { display:inline-block; margin-inline-start:8px; font-size:1rem; font-weight:600; }
+.travel-stage-missing { padding:8px 12px; border-inline-start:3px solid #91661e; background:#fbf5e3; }
+.travel-gap-section,.travel-gap-editor { margin:20px 0; padding:20px; border:1px solid #cbd8c5; border-radius:16px; background:rgb(255 255 251 / .97); }
+.travel-gap-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); gap:14px; }
+.travel-gap-card { padding:16px; border:1px solid #bdceb6; border-radius:12px; background:#f7faef; min-width:0; overflow-wrap:anywhere; }
+.travel-gap-card h3,.travel-new-actions h3 { margin:0 0 10px; font-size:1.125rem; line-height:1.6; }
+.travel-gap-card p { margin:8px 0 12px; }
+.travel-gap-card button { width:100%; text-align:center; }
+.travel-gap-editor label { display:flex; flex-direction:column; gap:6px; margin:14px 0; }
+.travel-gap-editor :is(input,select) { width:100%; max-width:100%; min-width:0; border:1px solid #a6b99c; border-radius:9px; background:#fffef9; color:#193c2c; padding:10px; }
+.travel-gap-editor fieldset { min-inline-size:0; margin:20px 0; padding:14px; border:1px solid #c5d4bf; border-radius:10px; }
+.travel-gap-editor legend { font-weight:700; padding:0 6px; }
+.travel-gap-editor .field-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.travel-unlock-estimate { padding:12px; border-radius:10px; background:#eef4e8; }
+.travel-new-actions { margin:12px 0; }
+.travel-new-actions button { display:flex; align-items:center; gap:10px; width:100%; margin:8px 0; text-align:start; overflow-wrap:anywhere; }
+.travel-new-badge { display:inline-flex; align-items:center; justify-content:center; min-width:32px; min-height:32px; border:1px solid #91661e; border-radius:6px; background:#fbf5e3; color:#624411; font-weight:700; flex:0 0 auto; }
+.travel-task-overview h2:focus-visible { outline:3px solid #835d1c; outline-offset:3px; }
+@media(max-width:380px) { .travel-gap-section,.travel-gap-editor { padding:14px; } .travel-gap-editor .field-grid { grid-template-columns:1fr; } }
+@media(forced-colors:active) { .travel-gap-card,.travel-stage-missing,.travel-new-badge { border:1px solid CanvasText; } }

@@ -39,6 +39,7 @@ export function TravelCarryCard({ plan }: { plan: TravelTaskPlan }) {
     <h2 id={headingId}>生成随身携带卡</h2>
     <p>把当前阶段的行程、设备和协助需要保存成图片。资料不全时生成预备卡，图片在本机生成。</p>
     <div className="travel-carry-text" aria-label="随身携带卡文字内容">
+      <p className="travel-card-completion"><strong>{content.completionStatement}</strong></p>
       <h3>{content.itinerary}</h3><p>{[content.date,content.mode].filter(Boolean).join(' · ')}</p>
       {content.devices.length ? content.devices.map((device, index) => <dl key={plan.devices[index].id + ':' + index}><dt>设备</dt><dd>{device.name}</dd><dt>运输尺寸</dt><dd>{device.dimensions}</dd><dt>重量</dt><dd>{device.weight}</dd><dt>电池类型</dt><dd>{device.battery}</dd></dl>) : <p>如携带辅具，请向工作人员说明设备与所需协助。</p>}
       <h3>结论摘要</h3><p>{content.summary}</p>

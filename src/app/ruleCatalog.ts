@@ -5,6 +5,12 @@ export interface RuleDocument {
   checkedAt:string|null; expiresAt:string|null; status:'verified'|'unverified'|'changed'|'fetch-failed';
   excerpts:{label:string;text:string}[]; contentHash?:string; pendingHash?:string; anchorsMatch?:boolean; reviewNote?:string; lastFetchedAt?:string;
 }
+/** Reject an HTML fallback or malformed service payload before replacing offline sources. */
+export function ruleDocumentsFromResponse(value:unknown):RuleDocument[]{
+  const documents=(value&&typeof value==='object'?'documents' in value?value.documents:undefined:undefined)
+  if(!Array.isArray(documents)||!documents.every(row=>row&&typeof row==='object'&&['id','title','operator','url','version'].every(key=>typeof row[key]==='string')&&Array.isArray(row.modes)&&row.modes.every((mode:unknown)=>typeof mode==='string')&&Array.isArray(row.excerpts)&&row.excerpts.every((excerpt:unknown)=>excerpt&&typeof excerpt==='object'&&'label' in excerpt&&typeof excerpt.label==='string'&&'text' in excerpt&&typeof excerpt.text==='string'))){throw new Error('规则服务未返回有效规则列表')}
+  return documents as RuleDocument[]
+}
 // Source entry points are not automatically approved policy. The source service
 // checks anchors and records versions; changed or expired text cannot supply limits.
 export const ruleCatalog:RuleDocument[]=[

@@ -1,6 +1,7 @@
 import { getTravelMeta } from './catalog.ts'
 import type { TravelTaskPlan } from './travelTaskTypes'
 import { allTravelActions } from './travelTaskTypes.ts'
+import { requiresTravelDimensions, requiresTravelBattery } from './travelCompleteness.ts'
 
 export interface TravelCarryDevice {
   name: string
@@ -9,6 +10,7 @@ export interface TravelCarryDevice {
   battery: string
 }
 export interface TravelCarryCardContent {
+  completionStatement: string
   title: string
   itinerary: string
   date: string
@@ -32,6 +34,7 @@ export function travelCarryCardContent(plan: TravelTaskPlan): TravelCarryCardCon
   const firstAction = allTravelActions(plan)[0]
   const from=readable(plan.route.from,''),to=readable(plan.route.to,'')
   return {
+    completionStatement: plan.completion?.statement??'本清单资料覆盖尚未核对，请补齐设备信息后再使用。',
     title: plan.readiness==='preparation'?'出行预备卡':'随身携带卡',
     itinerary: from&&to?`${from} → ${to}`:from||to||'出行准备',
     date,
@@ -47,9 +50,9 @@ export function travelCarryCardContent(plan: TravelTaskPlan): TravelCarryCardCon
       const removable = specs.removable === 'yes' ? '；可拆卸（用户填写）' : specs.removable === 'no' ? '；不可拆卸（用户填写）' : ''
       return {
         name: readable(device.name, '辅助设备'),
-        dimensions: `长 ${measurement(specs.lengthCm, 'cm')} × 宽 ${measurement(specs.widthCm, 'cm')} × 高 ${measurement(specs.heightCm, 'cm')}`,
+        dimensions: !requiresTravelDimensions(device.type)&&!specs.lengthCm&&!specs.widthCm&&!specs.heightCm?'此类辅具尺寸不作为本次解锁前提；有特殊空间需要请另行说明。':`长 ${measurement(specs.lengthCm, 'cm')} × 宽 ${measurement(specs.widthCm, 'cm')} × 高 ${measurement(specs.heightCm, 'cm')}`,
         weight: measurement(specs.weightKg, 'kg'),
-        battery: battery + energy + removable,
+        battery: !requiresTravelBattery(device.type)&&!specs.batteryType?'非电动辅具，电池类型不适用；如带电子附件请另行申报。':battery + energy + removable,
       }
     }),
     contacts: plan.contacts.filter(contact => /^\+?[\d\s-]{3,24}$/.test(contact.phone.trim())).map(contact => ({ name: readable(contact.name, '服务渠道'), phone: contact.phone.replace(/\s/g, '') })),
@@ -80,6 +83,7 @@ export type TravelCarryCardRow = { text: string; kind: 'section' | 'body' | 'not
 export function travelCarryCardRows(content: TravelCarryCardContent): TravelCarryCardRow[] {
   const rows: TravelCarryCardRow[] = []
   const section = (title: string, values: string[]) => { rows.push({ text: title, kind: 'section' }, ...values.map(text => ({ text, kind: 'body' as const }))) }
+  section('清单资料覆盖', [content.completionStatement])
   section('本次行程', [content.itinerary, [content.date,content.mode].filter(Boolean).join(' · ')])
   section('设备信息 · 按用户填写', content.devices.length ? content.devices.flatMap((device, index) => [`${index + 1}. ${device.name}`, `运输尺寸：${device.dimensions}`, `重量：${device.weight}`, `电池：${device.battery}`]) : ['如携带辅具，请向工作人员说明设备与所需协助。'])
   section('结论摘要与下一步', [content.summary, content.nextStep])
@@ -98,14 +102,17 @@ export async function createTravelCarryCard(plan: TravelTaskPlan): Promise<Trave
   if (!context) throw new Error('浏览器暂不支持生成图片，可使用下方文字设备卡联系工作人员。')
   const width = 1080, padding = 64, textWidth = width - padding * 2
   const family = '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif'
-  const lines = travelCarryCardRows(content).flatMap(row => {
+  context.font=`400 42px ${family}`
+  const coverageLines=wrapCarryCardText(content.completionStatement,textWidth,text=>context.measureText(text).width)
+  const coverageHeight=coverageLines.length*70+24
+  const lines = travelCarryCardRows(content).slice(2).flatMap(row => {
     const fontSize = row.kind === 'phone' ? 56 : row.kind === 'section' ? 48 : row.kind === 'notice' ? 40 : 46
     context.font = `${row.kind === 'section' ? '700' : '400'} ${fontSize}px ${family}`
     // Phone numbers occupy their own row and never pass through character wrapping.
     const wrapped = row.kind === 'phone' ? [row.text] : wrapCarryCardText(row.text, textWidth, text => context.measureText(text).width)
     return wrapped.map((text, index) => ({ text, fontSize, kind: row.kind, gap: index === 0 ? row.kind === 'section' ? 38 : 8 : 0, lineHeight: Math.ceil(fontSize * 1.65) }))
   })
-  const pages: typeof lines[] = [], headerHeight = 230, footerHeight = 80, maxHeight = 12000
+  const pages: typeof lines[] = [], headerHeight = 230+coverageHeight, footerHeight = 80, maxHeight = 12000
   let current: typeof lines = [], height = headerHeight + footerHeight
   for (const line of lines) {
     const nextHeight = line.gap + line.lineHeight
@@ -122,6 +129,9 @@ export async function createTravelCarryCard(plan: TravelTaskPlan): Promise<Trave
     context.font = `700 38px ${family}`; context.fillText('智能无碍行', padding, 48)
     context.font = `700 64px ${family}`; context.fillText(content.title, padding, 108)
     context.font = `400 30px ${family}`; context.textAlign = 'right'; context.fillText(`${index + 1} / ${pages.length}`, width - padding, 58); context.textAlign = 'left'
+    context.fillStyle=plan.completion?.locked?'#f8efcf':'#edf4e8';context.fillRect(padding-16,200,textWidth+32,coverageHeight)
+    context.fillStyle='#193c2c';context.font=`400 42px ${family}`
+    coverageLines.forEach((text,line)=>context.fillText(text,padding,214+line*70))
     let y = headerHeight
     for (const line of page) {
       y += line.gap

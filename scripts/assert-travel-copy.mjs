@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import {pathToFileURL} from 'node:url'
 import {travelCarryCardContent} from '../src/app/travelCarryCard.ts'
+import {ruleCatalog} from '../src/app/ruleCatalog.ts'
+import {safeOfficialTravelUrl} from '../src/app/travelPlanSources.ts'
 
 export const TRAVEL_PLACEHOLDER_PATTERN = /（?(未选择|待填写|暂未)/u
 const stageIds = ['before', 'station', 'onboard', 'arrival', 'fallback']
@@ -29,6 +31,7 @@ function scanStrings(value, path, bad, state) {
 export function assertTravelCopy(plan, {carryContent = travelCarryCardContent(plan), exportPayload} = {}) {
   const bad = [], state = {checkedFields: 0}
   scanStrings(plan.summary, 'plan.summary', bad, state)
+  scanStrings(plan.completion, 'plan.completion', bad, state)
   scanStrings(plan.route, 'plan.route', bad, state)
   scanStrings(plan.devices?.map(device => ({name: device.name})), 'plan.devices', bad, state)
   scanStrings(plan.contacts, 'plan.contacts', bad, state)
@@ -108,7 +111,8 @@ export function assertTravelPlanShape(plan, {preparation = false, input} = {}) {
   for (const [stageIndex, stage] of (plan.stages ?? []).entries()) {
     if (!(stage.actions ?? []).length && !String(stage.emptyReason ?? '').trim()) bad.push(`plan.stages[${stageIndex}].emptyReason.required`)
     for (const [index, action] of (stage.actions ?? []).entries()) {
-      if (!Array.isArray(action.anchors) || !action.anchors.length || !action.anchors.some(anchor => realAnchor(anchor, plan, action, input))) bad.push(`plan.stages[${stageIndex}].actions[${index}].anchors.actualVisibleInputRequired`)
+      const genericFallback=stage.id==='fallback'&&(!plan.route?.from||!plan.route?.to)&&action.id?.endsWith('-prepare-contact')&&['official-rule','official-excerpt'].includes(action.evidence?.level)&&safeOfficialTravelUrl(action.evidence?.officialUrl??'')&&action.verification?.contact&&/^\+?[\d -]{3,24}$/.test(action.verification?.phone??'')&&action.verification?.question
+      if (!genericFallback&&(!Array.isArray(action.anchors) || !action.anchors.length || !action.anchors.some(anchor => realAnchor(anchor, plan, action, input)))) bad.push(`plan.stages[${stageIndex}].actions[${index}].anchors.actualVisibleInputRequired`)
     }
   }
   for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
@@ -118,11 +122,49 @@ export function assertTravelPlanShape(plan, {preparation = false, input} = {}) {
   return {actions: all.length, stages: plan.stages.length}
 }
 
+/** Coverage is a statement about actual action availability, never ticked progress. */
+export function assertTravelCompleteness(plan,{carryContent=travelCarryCardContent(plan),exportPayload}={}){
+  const bad=[],coverage=plan.completion,all=actions(plan)
+  if(!coverage||coverage.version!==1)throw new TravelCopyGuardError(['plan.completion.required'])
+  for(const key of ['generated','total','locked','estimatedAdditional'])if(!Number.isInteger(coverage[key])||coverage[key]<0)bad.push(`plan.completion.${key}.nonnegativeInteger`)
+  if(coverage.generated!==all.length)bad.push('plan.completion.generated.actualActionCount')
+  if(coverage.total<coverage.generated||coverage.locked!==coverage.total-coverage.generated)bad.push('plan.completion.locked.capacityDifference')
+  if(coverage.estimatedAdditional!==coverage.locked)bad.push('plan.completion.estimatedAdditional.actualLockedCount')
+  const gaps=Array.isArray(coverage.gaps)?coverage.gaps:[]
+  if(!Array.isArray(coverage.gaps)||new Set(gaps.map(gap=>gap.id)).size!==gaps.length)bad.push('plan.completion.gaps.uniqueParameters')
+  if(coverage.locked>0&&!gaps.length)bad.push('plan.completion.gaps.missingParametersRequired')
+  for(const [index,gap] of gaps.entries()){
+    if(!String(gap.label??'').trim()||!Number.isInteger(gap.unlocks)||gap.unlocks<0||gap.unlocks>coverage.locked)bad.push(`plan.completion.gaps[${index}].validUnlockCount`)
+    if(!String(coverage.statement??'').includes(gap.label))bad.push(`plan.completion.gaps[${index}].statementMissingParameter`)
+  }
+  if(!String(coverage.statement??'').includes(`${coverage.generated}/${coverage.total}`))bad.push('plan.completion.statement.coverageRequired')
+  if((coverage.locked>0||gaps.length)&&/专属行动|完整/u.test(plan.summary??''))bad.push('plan.summary.incompleteClaim')
+  const states=coverage.stages??{}
+  if(JSON.stringify(Object.keys(states).sort())!==JSON.stringify([...stageIds].sort()))bad.push('plan.completion.stages.fixedFiveStages')
+  for(const stage of plan.stages??[]){
+    const state=states[stage.id]
+    if(!state){bad.push(`plan.completion.stages.${stage.id}.required`);continue}
+    if(state.generated!==stage.actions.length||!Number.isInteger(state.total)||state.total<state.generated)bad.push(`plan.completion.stages.${stage.id}.actualCounts`)
+    if(!Array.isArray(state.missing))bad.push(`plan.completion.stages.${stage.id}.missingParameters`)
+    const expected=stage.id==='fallback'?'ready':state.generated===state.total&&!state.missing?.length?'ready':state.generated>0?'partial':'blocked'
+    if(state.status!==expected)bad.push(`plan.completion.stages.${stage.id}.honestStatus`)
+    if(stage.id==='fallback'&&!stage.actions.length)bad.push('plan.completion.stages.fallback.realActionRequired')
+  }
+  if(coverage.total!==Object.values(states).reduce((sum,state)=>sum+(Number(state.total)||0),plan.generalActions?.length??0))bad.push('plan.completion.total.stageCapacities')
+  if(carryContent?.completionStatement!==coverage.statement)bad.push('carryCardContent.completionStatement.required')
+  if(exportPayload!==undefined){
+    if(Object.keys(exportPayload)[0]!=='completionStatement'||exportPayload.completionStatement!==coverage.statement)bad.push('export.completionStatement.firstFieldRequired')
+    if(JSON.stringify(exportPayload.completion)!==JSON.stringify(coverage))bad.push('export.completion.actualCoverageRequired')
+  }
+  if(bad.length)throw new TravelCopyGuardError(bad)
+  return {generated:coverage.generated,total:coverage.total,locked:coverage.locked,missingParameters:gaps.length}
+}
+
 const device = (id, type, name) => ({id, type, name, battery: '', dimensions: '', weight: '', source: 'manual'})
 const now = Date.parse('2026-11-07T02:00:00Z')
 export const travelCopyFixtures = [
   {name: 'empty', preparation: true, input: {mode: '', devices: [], specs: {}, context: {carrier: 'unspecified'}, now}},
-  {name: 'station-only', preparation: false, compare: false, input: {mode: 'rail', devices: [], specs: {}, context: {carrier: 'unspecified', from: '上海虹桥', to: '杭州东'}, now}},
+  {name: 'station-only', preparation: false, compare: false, input: {mode: 'rail', devices: [], specs: {}, context: {carrier: 'unspecified', from: '上海虹桥', to: '杭州东'}, documents:ruleCatalog, now}},
   {name: 'rail-electric-wheelchair', input: {mode: 'rail', devices: [device('guard-electric', 'wheelchair', '电动轮椅')], specs: {'guard-electric': {lengthCm: 120, widthCm: 68, heightCm: 95, batteryType: 'lithium', batteryWh: 288, batteryCount: 1, removable: 'no'}}, context: {carrier: 'unspecified', from: '上海虹桥', to: '杭州东', journeyDate: '2026-11-07', companionCount: 1}, now}},
   {name: 'plane-unfoldable-manual-wheelchair', input: {mode: 'plane', devices: [device('guard-manual', 'manual-wheelchair', '不可折叠手动轮椅')], specs: {'guard-manual': {lengthCm: 110, widthCm: 70, heightCm: 95, batteryType: 'none', folded: 'no'}}, context: {carrier: 'unspecified', from: '上海浦东国际机场', to: '北京首都国际机场', journeyDate: '2026-11-07', companionCount: 1}, now}},
   {name: 'metro-cane-guide-dog', preparation: true, compare: true, input: {mode: 'metro', devices: [device('guard-cane', 'cane', '盲杖'), device('guard-dog', 'guide-dog', '导盲犬')], specs: {'guard-cane': {batteryType: 'none'}, 'guard-dog': {batteryType: 'none'}}, context: {carrier: 'unspecified', city: '上海'}, now}},
@@ -143,8 +185,8 @@ export async function runTravelCopyGuard() {
     const snapshot = {version: 1, mode: fixture.input.mode, selected: fixture.input.devices.map(item => item.id), specs: fixture.input.specs, context: fixture.input.context, devices: fixture.input.devices, customModes: [], customDevices: [], plan, checked: {}, savedAt: plan.generatedAt, inputKey: 'guard'}
     const exported = exportTravelTask(snapshot)
     const exportPayload = typeof exported === 'string' ? JSON.parse(exported) : exported
-    const copy = assertTravelCopy(plan, {exportPayload}), shape = assertTravelPlanShape(plan, {preparation: fixture.preparation, input: fixture.input})
-    plans.push({fixture, plan}); results.push({scenario: fixture.name, ...shape, ...copy})
+    const copy = assertTravelCopy(plan, {exportPayload}), shape = assertTravelPlanShape(plan, {preparation: fixture.preparation, input: fixture.input}),coverage=assertTravelCompleteness(plan,{exportPayload})
+    plans.push({fixture, plan}); results.push({scenario: fixture.name, ...shape, ...copy, ...coverage})
   }
   const complete = plans.filter(item => item.fixture.compare ?? !item.fixture.preparation), comparisons = []
   for (let i = 0; i < complete.length; i++) for (let j = i + 1; j < complete.length; j++) {

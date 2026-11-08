@@ -27,12 +27,36 @@ export interface TravelTaskDevice {
   type: string
   specs: TravelDeviceSpecs
 }
+export interface TravelCompletionGap {
+  id: 'devices' | 'dimensions' | 'batteryType' | 'from' | 'to' | 'mode'
+  label: string
+  unlocks: number
+  deviceIds?: string[]
+  requires?: string[]
+}
+export interface TravelStageCompletion {
+  generated: number
+  total: number
+  status: 'ready' | 'partial' | 'blocked'
+  missing: string[]
+}
+export interface TravelCompleteness {
+  version: 1
+  generated: number
+  total: number
+  locked: number
+  gaps: TravelCompletionGap[]
+  stages: Record<TravelStageId, TravelStageCompletion>
+  statement: string
+  estimatedAdditional: number
+}
 export interface TravelTaskPlan {
   version: 1
   id: string
   generatedAt: string
   mode: TravelMode
   summary: string
+  completion: TravelCompleteness
   readiness: 'preparation' | 'station-only' | 'complete'
   generalActions: TravelPlanAction[]
   missingFields: string[]
