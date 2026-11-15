@@ -1,0 +1,20 @@
+import { copyDictionary } from "../app/copyDictionary.ts";
+import { disabilityCategories, disabilitySummary, normalizeDisabilityProfile, type DisabilityProfile } from '../app/disabilityProfile';
+import type { Device } from '../app/types';
+import { disabilityNotice } from '../app/disabilityCopy';
+import '../disability.css';
+export function DisabilitySelector({ value, onChange, devices }: {
+    value: DisabilityProfile;
+    onChange: (value: DisabilityProfile) => void;
+    devices: Device[];
+}) {
+    const summary = disabilitySummary(value);
+    const update = (category: string, patch: object) => onChange(normalizeDisabilityProfile({ ...value, selections: value.selections.map(item => item.category === category ? { ...item, ...patch } : item) }));
+    return <section className="disability-selector" aria-label={copyDictionary.c9abdb1471243edc9}><h2>{copyDictionary.c01313b5f10a5b2a7}</h2><p>{copyDictionary.c400e12f4a8c5e172}</p>
+    <div className="disability-options">{disabilityCategories.map(item => { const selected = value.selections.find(row => row.category === item.id); return <button type="button" key={item.id} aria-pressed={Boolean(selected)} aria-label={`${item.name}，${selected ? copyDictionary.ca737fd72b0160164 : copyDictionary.c0e0c21de6988a338}${selected?.grade ? '，' + ['', copyDictionary.c28b83c628f5b7f6e, copyDictionary.c3393c1261d42611d, copyDictionary.ccf4cd06c4ad7cda5, copyDictionary.c92b107d5d61a5a62][selected.grade] : ''}`} onClick={() => onChange(normalizeDisabilityProfile({ ...value, selections: selected ? value.selections.filter(row => row.category !== item.id) : [...value.selections, { category: item.id, deviceIds: [] }] }))}>{item.name}{selected ? copyDictionary.c85da02fc14ae50d7 : ''}</button>; })}</div>
+    {summary.multiple && <p role="status">{copyDictionary.c709695d8daacad79}{summary.names.join('、')}。{summary.overallGrade ? copyDictionary.c4d54a398b0d9a65e + ['', copyDictionary.c28b83c628f5b7f6e, copyDictionary.c3393c1261d42611d, copyDictionary.ccf4cd06c4ad7cda5, copyDictionary.c92b107d5d61a5a62][summary.overallGrade] + '。' : ''}</p>}
+    {value.selections.map(item => <fieldset key={item.category}><legend>{disabilityCategories.find(row => row.id === item.category)!.name}</legend><label>{copyDictionary.cfc6e7f26dbf4a610}<select value={item.grade ?? ''} onChange={event => update(item.category, { grade: event.target.value ? Number(event.target.value) : undefined })}><option value="">{copyDictionary.c36fc95521b4e2e2d}</option>{[copyDictionary.cb3aa3831d9bd9782, copyDictionary.c3984d4fd679c5608, copyDictionary.c3692bf692c98ec38, copyDictionary.c419d242a5ce95999].map((label, index) => <option key={label} value={index + 1}>{label}</option>)}</select></label><label>{copyDictionary.cdd880a277c73d92a}<select value={item.accompaniment === undefined ? '' : String(item.accompaniment)} onChange={event => update(item.category, { accompaniment: event.target.value === '' ? undefined : event.target.value === 'true' })}><option value="">{copyDictionary.c800922687b2b61b0}</option><option value="true">{copyDictionary.cb5141d3d19e9a048}</option><option value="false">{copyDictionary.cb329ec04a6017eab}</option></select></label><label>{copyDictionary.ca0de0db14558d7fa}<select value={item.deviceIds[0] ?? ''} onChange={event => update(item.category, { deviceIds: event.target.value ? [event.target.value] : [] })}><option value="">{copyDictionary.c7e09094d72c79e2a}</option>{devices.map(device => <option key={device.id} value={device.id}>{device.name}</option>)}</select></label></fieldset>)}
+    {value.selections.length > 1 && <label>{copyDictionary.c4426c3418f66cfc7}<select value={value.primary ?? ''} onChange={event => onChange(normalizeDisabilityProfile({ ...value, primary: event.target.value || undefined }))}><option value="">{copyDictionary.c2a7445cf503b9dac}</option>{value.selections.map(item => <option key={item.category} value={item.category}>{disabilityCategories.find(row => row.id === item.category)!.name}</option>)}</select></label>}
+    <p>{copyDictionary.c487c321e5b1b62f1}</p><p>{disabilityNotice}</p>
+  </section>;
+}

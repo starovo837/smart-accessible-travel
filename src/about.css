@@ -1,0 +1,13 @@
+.about-screen { overflow:visible; padding:24px 14px 20px; }
+.about-sections { display:grid; gap:6px; margin-top:14px; }
+.about-block { padding:9px 11px; border:1px solid #cbd8c5; border-radius:14px; background:rgb(255 255 251 / .97); }
+.about-block h2 { margin:0 0 5px; color:#193f2e; font-size:1.05rem; line-height:1.55; }
+.about-block ul { margin:0; padding-inline-start:1.2rem; }
+.about-block li { margin:0; color:#314f3c; font-size:1rem; line-height:1.6; }
+.about-updates { margin-top:8px; border-top:1px solid #d7e0d2; }
+.about-updates summary { min-height:48px; display:flex; align-items:center; color:#234b33; cursor:pointer; font-weight:700; }
+.about-updates ol { margin:0; padding:0 0 0 1.25rem; }
+.about-updates li { margin:8px 0; }
+.about-updates strong,.about-updates span { display:block; }
+@media(max-width:380px){.about-block{padding:11px 12px}.about-sections{gap:8px}}
+@media(forced-colors:active){.about-block{border:1px solid CanvasText}}

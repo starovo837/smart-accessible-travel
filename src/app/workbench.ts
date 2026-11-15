@@ -1,73 +1,68 @@
-import type { IconName } from '../components/Icons'
-import { supportTools, type SupportToolId } from './supportCatalog.ts'
-
-export type WorkbenchTarget = SupportToolId | 'fitting' | 'shop' | 'travel' | 'assistant' | 'profile' | 'devices' | 'choose-needs' | 'offline'
-
+import { copyDictionary } from "./copyDictionary.ts";
+import type { IconName } from '../components/Icons';
+import { supportTools, type SupportToolId } from './supportCatalog.ts';
+export type WorkbenchTarget = SupportToolId | 'fitting' | 'shop' | 'travel' | 'assistant' | 'profile' | 'devices' | 'choose-needs' | 'offline' | 'about';
 export interface WorkbenchItem {
-  id: WorkbenchTarget
-  target: WorkbenchTarget
-  label: string
-  description: string
-  icon: IconName
+    id: WorkbenchTarget;
+    target: WorkbenchTarget;
+    label: string;
+    description: string;
+    icon: IconName;
 }
-
 export interface WorkbenchGroup {
-  id: string
-  title: string
-  items: WorkbenchItem[]
+    id: string;
+    title: string;
+    items: WorkbenchItem[];
 }
-
 function tool(id: SupportToolId): WorkbenchItem {
-  const item = supportTools.find(entry => entry.id === id)
-  if (!item) throw new Error('工作台功能未找到：' + id)
-  return { id, target: id, label: item.title, description: item.detail, icon: item.icon }
+    const item = supportTools.find(entry => entry.id === id);
+    if (!item)
+        throw new Error(copyDictionary.c3f1e1b198c1e71c2 + id);
+    return { id, target: id, label: item.title, description: item.detail, icon: item.icon };
 }
-
 function action(id: WorkbenchTarget, label: string, icon: IconName, description: string): WorkbenchItem {
-  return { id, target: id, label, icon, description }
+    return { id, target: id, label, icon, description };
 }
-
 export const workbenchGroups: WorkbenchGroup[] = [
-  {
-    id: 'equipment-travel', title: '辅具与出行', items: [
-      action('fitting', '三维试配', 'cube', '旋转查看人体与辅具的三维示意，按需要填写尺寸'),
-      action('shop', '买辅具', 'cart', '读懂商品资料，核对依据并比较候选款式'),
-      action('travel', '出行查询', 'train', '结合实物设备资料，检查交通携带要求'),
-      tool('equipment-service'),
-    ],
-  },
-  {
-    id: 'reading-communication', title: '阅读与沟通', items: [
-      tool('vision'), tool('magnifier'), tool('color'), tool('communication'), { ...tool('gestures'), label:'基础手势' },
-      action('assistant', '文字助手', 'message', '输入问题或选择常用问题，逐项理解当前资料'),
-    ],
-  },
-  {
-    id: 'daily-health', title: '生活与健康', items: [
-      { ...tool('life'), icon: 'home' }, tool('steps'), tool('reminders'),
-      { ...tool('healthcare'), icon: 'hospital' }, { ...tool('home-connect'), icon: 'home-connect' },
-    ],
-  },
-  {
-    id: 'affairs-participation', title: '办事与参与', items: [
-      { ...tool('benefits'), icon: 'documents' }, { ...tool('digital-help'), icon: 'digital-form' },
-      { ...tool('participation'), icon: 'book-open' },
-    ],
-  },
-  {
-    id: 'map-help', title: '地图与求助', items: [
-      { ...tool('places'), icon: 'map-pin' }, tool('help'), { ...tool('live-help'), icon: 'handshake' },
-    ],
-  },
-  {
-    id: 'personal-settings', title: '我的与设置', items: [
-      action('profile', '我的资料', 'user', '查看个人资料、隐私和纠错记录'),
-      action('devices', '我的设备', 'wheelchair', '添加设备，编辑参数与资料来源'),
-      action('choose-needs', '辅助组合', 'settings', '自由选择或调整辅助需要，不限制其他功能'),
-      tool('needs'),
-      action('offline', '离线随身包', 'cube', '按选择的范围准备可离线查看的设备与出行资料'),
-    ],
-  },
-]
-
-export const workbenchItems = workbenchGroups.flatMap(group => group.items)
+    {
+        id: 'equipment-travel', title: copyDictionary.cbd9d87c32f1f239a, items: [
+            action('fitting', copyDictionary.cbfc50e32f27a32dc, 'cube', copyDictionary.c699ba7b9e14e22a4),
+            action('shop', copyDictionary.c4a98f083f7fe73b2, 'cart', copyDictionary.cd8715d4a85d9a1ab),
+            action('travel', copyDictionary.c6e7604f9408c6b81, 'train', copyDictionary.c9318925fb874f0ca),
+            tool('equipment-service'),
+        ],
+    },
+    {
+        id: 'reading-communication', title: copyDictionary.cf4b9d1a7735fee51, items: [
+            tool('vision'), tool('magnifier'), tool('color'), tool('communication'), { ...tool('gestures'), label: copyDictionary.c09efa1fba179a2b2 },
+            action('assistant', copyDictionary.c613f4eaa42519a01, 'message', copyDictionary.cd57c981a6337bcf9),
+        ],
+    },
+    {
+        id: 'daily-health', title: copyDictionary.c314c313d16f320a0, items: [
+            { ...tool('life'), icon: 'home' }, tool('steps'), tool('reminders'),
+            { ...tool('healthcare'), icon: 'hospital' }, { ...tool('home-connect'), icon: 'home-connect' },
+        ],
+    },
+    {
+        id: 'affairs-participation', title: copyDictionary.c102a9624a5979031, items: [
+            { ...tool('benefits'), icon: 'documents' }, { ...tool('digital-help'), icon: 'digital-form' },
+            { ...tool('participation'), icon: 'book-open' },
+        ],
+    },
+    {
+        id: 'map-help', title: copyDictionary.ca7c20c7d4efe828a, items: [
+            { ...tool('places'), icon: 'map-pin' }, tool('help'), { ...tool('live-help'), icon: 'handshake' },
+        ],
+    },
+    {
+        id: 'personal-settings', title: copyDictionary.c32d35544298319e0, items: [
+            action('profile', copyDictionary.cc3f46556ef6b7d3b, 'user', copyDictionary.c0bd98c40ce79ece3),
+            action('devices', copyDictionary.c0542b7f63404edef, 'wheelchair', copyDictionary.c4eb1d3163bd9a058),
+            action('choose-needs', copyDictionary.c10ca95dfcc79c12c, 'settings', copyDictionary.c26dab7343136e052),
+            tool('needs'),
+            action('offline', copyDictionary.c93f004ab9ea94276, 'cube', copyDictionary.c4babe7fa6f7d32f8),
+        ],
+    },
+];
+export const workbenchItems = workbenchGroups.flatMap(group => group.items);

@@ -1,41 +1,165 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Modal, PageHeader, PrimaryButton } from '../components/UI'
-import { ProductIntake as AdvancedIntake, readAIStatus } from './ProductIntake'
-import { isStudio, processingNotice } from '../app/deployment'
-import { RuntimeReadiness } from './RuntimeReadiness'
-import { browserAIAvailable } from '../app/browserAI'
-import { inferSource, intakeSources, type IntakeDraft } from '../app/intake'
-import { sampleBundles, sourceNames, type ProductSource } from '../app/product'
-import { shoppingPlatforms, shoppingUrl } from '../app/catalog'
-import { downloadText } from '../app/accessibility'
-type Mode='ai'|'browser'|'local'|'sample'
-interface Props {embedded?:boolean;draft:IntakeDraft|null;onDraftChange:(draft:IntakeDraft)=>void;onBack:()=>void;onAnalyze:(sources:ProductSource[],mode:Mode)=>Promise<boolean>;loading:boolean;error:string;progress?:string;onCancel:()=>void;initialQuery?:string;initialSources?:ProductSource[]}
-export function QuickProductIntake(props:Props){
- const [cloudConsent,setCloudConsent]=useState(!isStudio)
- const [sources,setSources]=useState(props.draft?.sources??props.initialSources??[]),[text,setText]=useState(props.draft?.text??''),[notice,setNotice]=useState(''),[checking,setChecking]=useState(false),[advanced,setAdvanced]=useState(false),[browserConsent,setBrowserConsent]=useState<ProductSource[]|null>(null)
- const [query,setQuery]=useState(props.initialQuery??'辅具'),[platform,setPlatform]=useState('jd'),mounted=useRef(false),busy=props.loading||checking
- useEffect(()=>{mounted.current=true;return()=>{mounted.current=false}},[])
- useEffect(()=>{props.onDraftChange({sources,text})},[sources,text,props.onDraftChange])
- const advancedDraft=useCallback((next:IntakeDraft)=>{setSources(next.sources);setText(next.text)},[])
- const addFiles=async(files:FileList|null)=>{if(!files?.length)return;setChecking(true);try{
-  const list=Array.from(files);if(sources.length+list.length+(text.trim()?1:0)>5||list.length+sources.filter(source=>source.image).length>2)throw Error('一次最多5份资料，其中最多2张图片。请保留关键页。')
-  if(list.some(file=>!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>3*1024*1024))throw Error('请选择PNG、JPEG或WebP，每张不超过3MB。')
-  const added=await Promise.all(list.map((file,index)=>new Promise<ProductSource>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve({id:'image-'+Date.now()+'-'+index,name:file.name,kind:inferSource('',file.name),text:'',image:String(reader.result)});reader.onerror=()=>reject(Error('图片读取失败。'));reader.readAsDataURL(file)})))
-  if(mounted.current){setSources(current=>[...current,...added]);setNotice('图片已加入，可以直接开始。')}
- }catch(error){if(mounted.current)setNotice((error as Error).message)}finally{if(mounted.current)setChecking(false)}}
- const start=async()=>{if(busy)return;if(!cloudConsent){setNotice('请先同意本次商品资料交给创空间服务端处理。');return;}let next:ProductSource[];try{next=intakeSources(sources,text);if(!next.length)throw Error('请先粘贴文字或上传图片。')}catch(error){setNotice((error as Error).message);return}
-  setChecking(true);try{const status=await readAIStatus();if(!mounted.current)return;if(status.configured&&status.authorized){await props.onAnalyze(next,'ai');return}if(browserAIAvailable()&&!next.some(source=>source.image)){setBrowserConsent(next);return}setNotice(isStudio?'创空间模型正在准备或暂不可用，草稿已保留，请稍后重试。':status.configured?'电脑AI已就绪，请打开“更多资料与手机授权”完成配对。':'电脑AI尚未就绪，草稿已保留。可稍后重试，或明确选择文字整理，不会自动换成固定答案。')
-  }catch(error){if(mounted.current){if(browserAIAvailable()&&!next.some(source=>source.image))setBrowserConsent(next);else setNotice((error as Error).message)}}finally{if(mounted.current)setChecking(false)}}
- return <section className="screen product-intake"><PageHeader level={props.embedded?2:1} title="买辅具 · AI帮你看懂" subtitle="加入资料就能开始，不必先整理参数" onBack={()=>{props.onCancel();props.onBack()}}/>
-  <section className="intake-panel"><h2>粘贴文字，或加入图片</h2><label htmlFor="quick-product-text">商品文字、说明书或商家回复</label><textarea id="quick-product-text" disabled={busy} maxLength={6000} value={text} onChange={e=>setText(e.target.value)} placeholder="直接粘贴即可，来源和型号会自动判断，不确定时再核对"/><button disabled={busy} onClick={async()=>{try{if(!navigator.clipboard?.readText)throw Error('请在输入框长按或使用Ctrl+V粘贴。');const value=await navigator.clipboard.readText();if(mounted.current){setText(value.slice(0,6000));setNotice(value.length>6000?'已粘贴前6000字，请精简或分批处理。':'文字已粘贴，可以直接开始。')}}catch(error){setNotice((error as Error).message)}}}>粘贴商品资料</button><label className="image-input">上传详情图或说明书照片<input type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={busy} onChange={e=>{void addFiles(e.target.files);e.target.value=''}}/></label><p>本次草稿离开页面仍保留。{processingNotice}刷新前请导出草稿。</p></section>
-  {sources.map(source=><article className="source-preview" key={source.id}><strong>{source.name}</strong><p>{sourceNames[source.kind]}（自动判断，可修改）</p><button disabled={busy} aria-label={'移除'+source.name} onClick={()=>setSources(current=>current.filter(item=>item.id!==source.id))}>移除</button><details><summary>修改这份资料的来源或型号</summary><label>资料来源<select disabled={busy} value={source.kind} onChange={e=>setSources(current=>current.map(item=>item.id===source.id?{...item,kind:e.target.value as ProductSource['kind']}:item))}>{Object.entries(sourceNames).map(([id,label])=><option value={id} key={id}>{label}</option>)}</select></label><label>型号（选填）<input disabled={busy} maxLength={60} value={source.modelKey??''} onChange={e=>setSources(current=>current.map(item=>item.id===source.id?{...item,modelKey:e.target.value.trim().toUpperCase()}:item))}/></label></details></article>)}
-  {isStudio&&<label className="switch-line"><input type="checkbox" checked={cloudConsent} disabled={busy} onChange={e=>setCloudConsent(e.target.checked)}/>同意把本次公开商品文字或图片发送到创空间服务端解读</label>}
-  <p role="status">{props.loading&&props.progress?props.progress:notice}</p>{props.error&&<p role="alert" className="form-error">{props.error}</p>}<PrimaryButton disabled={busy||!cloudConsent||(!sources.length&&!text.trim())} onClick={()=>void start()}>{props.loading?'正在解读……':checking?'正在检查运行条件……':'开始解读'}</PrimaryButton>{props.loading&&<PrimaryButton variant="ghost" onClick={props.onCancel}>取消本次解读</PrimaryButton>}
-  <details><summary>{isStudio?'补充多份资料、保存草稿或查看模型状态':'补充多份资料、保存草稿或手机授权'}</summary><button disabled={busy||!text.trim()} onClick={()=>{try{setSources(intakeSources(sources,text).map(source=>source.id==='draft-text'?{...source,id:'text-'+Date.now()}:source));setText('')}catch(error){setNotice((error as Error).message)}}}>加入这段文字，继续补充</button><button disabled={!sources.length&&!text.trim()} onClick={()=>downloadText(JSON.stringify({kind:'accessible-product-draft',sources,text},null,2),'智能无碍行-商品草稿.json','application/json')}>导出本次草稿（含原图与全文）</button><label>恢复本应用导出的草稿<input type="file" accept=".json,application/json" disabled={busy} onChange={async e=>{const file=e.target.files?.[0];if(!file)return;try{if(file.size>9*1024*1024)throw Error('草稿文件过大。');const value=JSON.parse(await file.text());if(value.kind!=='accessible-product-draft'||!Array.isArray(value.sources)||value.sources.length>5||typeof value.text!=='string'||value.text.length>6000)throw Error('草稿格式不正确。');const restored:ProductSource[]=value.sources.map((source:ProductSource,index:number)=>{if(!['merchant','manual','reply','review'].includes(source.kind)||typeof source.text!=='string'||source.text.length>18000||source.image&&(!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(source.image)||source.image.length>4*1024*1024))throw Error('草稿资料不完整。');return{id:'restore-'+index,name:String(source.name??'商品资料').slice(0,120),kind:source.kind,text:source.text,image:source.image,modelKey:String(source.modelKey??'').slice(0,60)}});setSources(restored);setText(value.text);setNotice('已恢复到本次运行，尚未发送给模型。')}catch(error){setNotice((error as Error).message)}finally{e.target.value=''}}}/></label><button disabled={busy} onClick={()=>{try{setSources(intakeSources(sources,text));setText('');setAdvanced(true)}catch(error){setNotice((error as Error).message)}}}>{isStudio?'更多资料与模型状态':'更多资料与手机授权'}</button><button disabled={busy||(!sources.length&&!text.trim())} onClick={()=>{try{const next=intakeSources(sources,text);if(next.every(source=>!source.text.trim()))throw Error('文字整理需要至少一段文字，图片请使用图文AI。');void props.onAnalyze(next,'local')}catch(error){setNotice((error as Error).message)}}}>仅整理文字（不调用AI、不识别图片）</button><p>只有商品链接时，请到平台复制详情文字或截图。当前不会自动抓取链接，也不会把未读取网页当成依据。</p></details>
-  <details><summary>检查手机运行条件与离线使用</summary><RuntimeReadiness/></details>
-  <section className="sample-library"><h2>先看完整案例</h2><p>明确预置的合成资料，未调用模型。</p>{sampleBundles.map(bundle=><button className="task-link" disabled={busy} key={bundle.id} onClick={()=>void props.onAnalyze(bundle.sources,'sample')}><strong>{bundle.title}</strong><span>体验资料 → 依据 → 适配 → 出行核验</span></button>)}</section>
-  <details className="shopping-secondary"><summary>还没有商品？去购物平台找辅具</summary><label>想找什么<input value={query} onChange={e=>setQuery(e.target.value)}/></label><label>购物平台<select value={platform} onChange={e=>setPlatform(e.target.value)}>{shoppingPlatforms.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}</select></label><a className="button button-secondary" href={shoppingUrl(shoppingPlatforms.find(item=>item.id===platform)??shoppingPlatforms[0],query||'辅具')} target="_blank" rel="noopener noreferrer">打开购物平台搜索（新标签页）</a><p>只发送搜索词。查看商品后可回到本页加入资料。</p></details>
-  {advanced&&<Modal title={isStudio?'更多资料与模型状态':'更多资料与手机授权'} fullScreen onClose={()=>setAdvanced(false)}><AdvancedIntake initialSources={sources} onDraftChange={advancedDraft} initialQuery={query} onBack={()=>setAdvanced(false)} onAnalyze={async(next,mode)=>{setSources(next);setText('');setAdvanced(false);await props.onAnalyze(next,mode)}} loading={props.loading} error={props.error} onCancel={props.onCancel}/></Modal>}
-  {browserConsent&&<Modal title="在这台设备运行文字AI？" onClose={()=>setBrowserConsent(null)}><p>首次需要下载约数百MB模型到本浏览器，要求安全连接、WebGPU和足够内存。最多3500字，不支持图片。资料在本设备处理，不用密钥或付费接口。</p><PrimaryButton onClick={()=>{const next=browserConsent;setBrowserConsent(null);void props.onAnalyze(next,'browser')}}>下载／加载模型并开始解读</PrimaryButton><PrimaryButton variant="ghost" onClick={()=>setBrowserConsent(null)}>暂不下载，保留草稿</PrimaryButton></Modal>}
- </section>
+import { copyDictionary } from "../app/copyDictionary.ts";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Modal, PageHeader, PrimaryButton } from '../components/UI';
+import { ProductIntake as AdvancedIntake, readAIStatus } from './ProductIntake';
+import { isStudio, processingNotice } from '../app/deployment';
+import { RuntimeReadiness } from './RuntimeReadiness';
+import { browserAIAvailable } from '../app/browserAI';
+import { inferSource, intakeSources, type IntakeDraft } from '../app/intake';
+import { sampleBundles, sourceNames, type ProductSource } from '../app/product';
+import { shoppingPlatforms, shoppingUrl } from '../app/catalog';
+import { downloadText } from '../app/accessibility';
+type Mode = 'ai' | 'browser' | 'local' | 'sample';
+interface Props {
+    embedded?: boolean;
+    draft: IntakeDraft | null;
+    onDraftChange: (draft: IntakeDraft) => void;
+    onBack: () => void;
+    onAnalyze: (sources: ProductSource[], mode: Mode) => Promise<boolean>;
+    loading: boolean;
+    error: string;
+    progress?: string;
+    onCancel: () => void;
+    initialQuery?: string;
+    initialSources?: ProductSource[];
+}
+export function QuickProductIntake(props: Props) {
+    const [cloudConsent, setCloudConsent] = useState(!isStudio);
+    const [sources, setSources] = useState(props.draft?.sources ?? props.initialSources ?? []), [text, setText] = useState(props.draft?.text ?? ''), [notice, setNotice] = useState(''), [checking, setChecking] = useState(false), [advanced, setAdvanced] = useState(false), [browserConsent, setBrowserConsent] = useState<ProductSource[] | null>(null);
+    const [query, setQuery] = useState(props.initialQuery ?? copyDictionary.cc0ef02c12f8eb71e), [platform, setPlatform] = useState('jd'), mounted = useRef(false), busy = props.loading || checking;
+    useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+    useEffect(() => { props.onDraftChange({ sources, text }); }, [sources, text, props.onDraftChange]);
+    const advancedDraft = useCallback((next: IntakeDraft) => { setSources(next.sources); setText(next.text); }, []);
+    const addFiles = async (files: FileList | null) => {
+        if (!files?.length)
+            return;
+        setChecking(true);
+        try {
+            const list = Array.from(files);
+            if (sources.length + list.length + (text.trim() ? 1 : 0) > 5 || list.length + sources.filter(source => source.image).length > 2)
+                throw Error(copyDictionary.c54a3318eccd1e57f);
+            if (list.some(file => !['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 3 * 1024 * 1024))
+                throw Error(copyDictionary.ceec2aa43cf7fcd9e);
+            const added = await Promise.all(list.map((file, index) => new Promise<ProductSource>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve({ id: 'image-' + Date.now() + '-' + index, name: file.name, kind: inferSource('', file.name), text: '', image: String(reader.result) }); reader.onerror = () => reject(Error(copyDictionary.cb2709e4fc84a094d)); reader.readAsDataURL(file); })));
+            if (mounted.current) {
+                setSources(current => [...current, ...added]);
+                setNotice(copyDictionary.cf963f8a7cb936060);
+            }
+        }
+        catch (error) {
+            if (mounted.current)
+                setNotice((error as Error).message);
+        }
+        finally {
+            if (mounted.current)
+                setChecking(false);
+        }
+    };
+    const start = async () => {
+        if (busy)
+            return;
+        if (!cloudConsent) {
+            setNotice(copyDictionary.cea8abed9060192a5);
+            return;
+        }
+        let next: ProductSource[];
+        try {
+            next = intakeSources(sources, text);
+            if (!next.length)
+                throw Error(copyDictionary.cc075cc3afc60b17d);
+        }
+        catch (error) {
+            setNotice((error as Error).message);
+            return;
+        }
+        setChecking(true);
+        try {
+            const status = await readAIStatus();
+            if (!mounted.current)
+                return;
+            if (status.configured && status.authorized) {
+                await props.onAnalyze(next, 'ai');
+                return;
+            }
+            if (browserAIAvailable() && !next.some(source => source.image)) {
+                setBrowserConsent(next);
+                return;
+            }
+            setNotice(isStudio ? copyDictionary.c5846a8eed9e3ea81 : status.configured ? copyDictionary.c27d38216a584878b : copyDictionary.c67eb448e463a87f3);
+        }
+        catch (error) {
+            if (mounted.current) {
+                if (browserAIAvailable() && !next.some(source => source.image))
+                    setBrowserConsent(next);
+                else
+                    setNotice((error as Error).message);
+            }
+        }
+        finally {
+            if (mounted.current)
+                setChecking(false);
+        }
+    };
+    return <section className="screen product-intake"><PageHeader level={props.embedded ? 2 : 1} title={copyDictionary.cb4cab9c262b53d6a} subtitle={copyDictionary.cdea84b0fd005791d} onBack={() => { props.onCancel(); props.onBack(); }}/>
+  <section className="intake-panel"><h2>{copyDictionary.c81bdac2103ded094}</h2><label htmlFor="quick-product-text">{copyDictionary.c7e60f7a5ccb07bc4}</label><textarea id="quick-product-text" disabled={busy} maxLength={6000} value={text} onChange={e => setText(e.target.value)} placeholder={copyDictionary.c60ad4811d3508af8}/><button disabled={busy} onClick={async () => { try {
+        if (!navigator.clipboard?.readText)
+            throw Error(copyDictionary.cdc14a27299f8d706);
+        const value = await navigator.clipboard.readText();
+        if (mounted.current) {
+            setText(value.slice(0, 6000));
+            setNotice(value.length > 6000 ? copyDictionary.ce03ed0fa63628e96 : copyDictionary.cebb9c887473eb606);
+        }
+    }
+    catch (error) {
+        setNotice((error as Error).message);
+    } }}>{copyDictionary.c5d41e9a049bfcd8e}</button><label className="image-input">{copyDictionary.ca2c883a4f97f73a9}<input type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={busy} onChange={e => { void addFiles(e.target.files); e.target.value = ''; }}/></label><p>{copyDictionary.cdbca681a9f193d22}{processingNotice}{copyDictionary.c09a905fbc8a6f40e}</p></section>
+  {sources.map(source => <article className="source-preview" key={source.id}><strong>{source.name}</strong><p>{sourceNames[source.kind]}{copyDictionary.c992c5b8e4e7bfd3a}</p><button disabled={busy} aria-label={copyDictionary.c6135d4159e892541 + source.name} onClick={() => setSources(current => current.filter(item => item.id !== source.id))}>{copyDictionary.c6135d4159e892541}</button><details><summary>{copyDictionary.ca2cf0672eb259a1f}</summary><label>{copyDictionary.c36ca458a92bd722f}<select disabled={busy} value={source.kind} onChange={e => setSources(current => current.map(item => item.id === source.id ? { ...item, kind: e.target.value as ProductSource['kind'] } : item))}>{Object.entries(sourceNames).map(([id, label]) => <option value={id} key={id}>{label}</option>)}</select></label><label>{copyDictionary.c8018c96013e2271d}<input disabled={busy} maxLength={60} value={source.modelKey ?? ''} onChange={e => setSources(current => current.map(item => item.id === source.id ? { ...item, modelKey: e.target.value.trim().toUpperCase() } : item))}/></label></details></article>)}
+  {isStudio && <label className="switch-line"><input type="checkbox" checked={cloudConsent} disabled={busy} onChange={e => setCloudConsent(e.target.checked)}/>{copyDictionary.cb2babf422d7bf8cb}</label>}
+  <p role="status">{props.loading && props.progress ? props.progress : notice}</p>{props.error && <p role="alert" className="form-error">{props.error}</p>}<PrimaryButton disabled={busy || !cloudConsent || (!sources.length && !text.trim())} onClick={() => void start()}>{props.loading ? copyDictionary.cc98fe4fb01aac840 : checking ? copyDictionary.cd888ad993f785857 : copyDictionary.ca35bf3d0941627aa}</PrimaryButton>{props.loading && <PrimaryButton variant="ghost" onClick={props.onCancel}>{copyDictionary.ca15c68d61100c9ff}</PrimaryButton>}
+  <details><summary>{isStudio ? copyDictionary.c0e29b626b39943db : copyDictionary.c22601ac215c61d1a}</summary><button disabled={busy || !text.trim()} onClick={() => { try {
+        setSources(intakeSources(sources, text).map(source => source.id === 'draft-text' ? { ...source, id: 'text-' + Date.now() } : source));
+        setText('');
+    }
+    catch (error) {
+        setNotice((error as Error).message);
+    } }}>{copyDictionary.c5f19c4f16c8c6fa0}</button><button disabled={!sources.length && !text.trim()} onClick={() => downloadText(JSON.stringify({ kind: 'accessible-product-draft', sources, text }, null, 2), copyDictionary.c82f7448b5517cebc, 'application/json')}>{copyDictionary.c3605d9762a586fee}</button><label>{copyDictionary.c41ab4b52b77875d9}<input type="file" accept=".json,application/json" disabled={busy} onChange={async (e) => { const file = e.target.files?.[0]; if (!file)
+        return; try {
+        if (file.size > 9 * 1024 * 1024)
+            throw Error(copyDictionary.cb59c562448aa8770);
+        const value = JSON.parse(await file.text());
+        if (value.kind !== 'accessible-product-draft' || !Array.isArray(value.sources) || value.sources.length > 5 || typeof value.text !== 'string' || value.text.length > 6000)
+            throw Error(copyDictionary.c1a45506a32201cbf);
+        const restored: ProductSource[] = value.sources.map((source: ProductSource, index: number) => { if (!['merchant', 'manual', 'reply', 'review'].includes(source.kind) || typeof source.text !== 'string' || source.text.length > 18000 || source.image && (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(source.image) || source.image.length > 4 * 1024 * 1024))
+            throw Error(copyDictionary.c79b13c1105934f39); return { id: 'restore-' + index, name: String(source.name ?? copyDictionary.cd241dc8fbab192f8).slice(0, 120), kind: source.kind, text: source.text, image: source.image, modelKey: String(source.modelKey ?? '').slice(0, 60) }; });
+        setSources(restored);
+        setText(value.text);
+        setNotice(copyDictionary.c7fb94488891cbbc4);
+    }
+    catch (error) {
+        setNotice((error as Error).message);
+    }
+    finally {
+        e.target.value = '';
+    } }}/></label><button disabled={busy} onClick={() => { try {
+        setSources(intakeSources(sources, text));
+        setText('');
+        setAdvanced(true);
+    }
+    catch (error) {
+        setNotice((error as Error).message);
+    } }}>{isStudio ? copyDictionary.ce48b5c460a6300f2 : copyDictionary.c3ade10c678a2f512}</button><button disabled={busy || (!sources.length && !text.trim())} onClick={() => { try {
+        const next = intakeSources(sources, text);
+        if (next.every(source => !source.text.trim()))
+            throw Error(copyDictionary.ccb6b69e875ae8afb);
+        void props.onAnalyze(next, 'local');
+    }
+    catch (error) {
+        setNotice((error as Error).message);
+    } }}>{copyDictionary.c9bea9f09011074f0}</button><p>{copyDictionary.ce6b93f7917334b9b}</p></details>
+  <details><summary>{copyDictionary.c6e73488f90eda7a8}</summary><RuntimeReadiness /></details>
+  <section className="sample-library"><h2>{copyDictionary.cd0705d6122297df7}</h2><p>{copyDictionary.c08d174f3252e6e76}</p>{sampleBundles.map(bundle => <button className="task-link" disabled={busy} key={bundle.id} onClick={() => void props.onAnalyze(bundle.sources, 'sample')}><strong>{bundle.title}</strong><span>{copyDictionary.c80fc60ee5b6e253b}</span></button>)}</section>
+  <details className="shopping-secondary"><summary>{copyDictionary.cf86c02a4304d5f06}</summary><label>{copyDictionary.c8c98ecc3037bfcb9}<input value={query} onChange={e => setQuery(e.target.value)}/></label><label>{copyDictionary.c753a108c178145d5}<select value={platform} onChange={e => setPlatform(e.target.value)}>{shoppingPlatforms.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label><a className="button button-secondary" href={shoppingUrl(shoppingPlatforms.find(item => item.id === platform) ?? shoppingPlatforms[0], query || copyDictionary.cc0ef02c12f8eb71e)} target="_blank" rel="noopener noreferrer">{copyDictionary.ccb5c875dd31d8221}</a><p>{copyDictionary.c21d7b737beca46e7}</p></details>
+  {advanced && <Modal title={isStudio ? copyDictionary.ce48b5c460a6300f2 : copyDictionary.c3ade10c678a2f512} fullScreen onClose={() => setAdvanced(false)}><AdvancedIntake initialSources={sources} onDraftChange={advancedDraft} initialQuery={query} onBack={() => setAdvanced(false)} onAnalyze={async (next, mode) => { setSources(next); setText(''); setAdvanced(false); await props.onAnalyze(next, mode); }} loading={props.loading} error={props.error} onCancel={props.onCancel}/></Modal>}
+  {browserConsent && <Modal title={copyDictionary.cde6b999c63a6a53c} onClose={() => setBrowserConsent(null)}><p>{copyDictionary.c2c2926222df5de30}</p><PrimaryButton onClick={() => { const next = browserConsent; setBrowserConsent(null); void props.onAnalyze(next, 'browser'); }}>{copyDictionary.c449db88acda06851}</PrimaryButton><PrimaryButton variant="ghost" onClick={() => setBrowserConsent(null)}>{copyDictionary.c468d466c2911ebff}</PrimaryButton></Modal>}
+ </section>;
 }

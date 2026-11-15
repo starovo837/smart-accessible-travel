@@ -1,38 +1,43 @@
-import { useState, type Dispatch, type SetStateAction } from 'react'
-import { Modal, PrimaryButton } from '../components/UI'
-import { copyText, downloadText, phoneLink, readText, stopReading } from '../app/accessibility'
-import type { Device, LifeData } from '../app/types'
-
-const phrases = ['请用文字与我沟通。', '请给我一点时间，不要催促。', '我需要无障碍通道，请告诉我入口在哪里。', '这是我的辅助设备，请说明检查步骤。', '请把重要信息写下来。', '请协助我联系家属。']
-export function HelpCard({ life, setLife, devices, onClose }: { life: LifeData; setLife: Dispatch<SetStateAction<LifeData>>; devices: Device[]; onClose: () => void }) {
-  const [editing, setEditing] = useState(false)
-  const [status, setStatus] = useState('')
-  const profile = life.emergency
-  const update = (fields: Partial<LifeData['emergency']>) => setLife(current => ({ ...current, emergency: { ...current.emergency, ...fields } }))
-  const medical = devices.filter(device => (profile.medicalIds ?? []).includes(device.id))
-  const content = [profile.helpText, profile.location ? `位置说明：${profile.location}` : '', profile.caregiver ? `联系人：${profile.caregiver}` : '', profile.phone ? `电话：${profile.phone}` : '', profile.showMedical && medical.length ? `我同意展示的设备：${medical.map(device => `${device.name}；${device.dimensions || '尺寸未填'}；${device.battery || '电池未填'}`).join('\n')}` : '', profile.staffReply ? `工作人员回复：${profile.staffReply}` : ''].filter(Boolean).join('\n')
-  const dial = phoneLink(profile.phone)
-  return <Modal title={editing ? '编辑求助资料' : '我的求助沟通卡'} onClose={() => { stopReading(); onClose() }} fullScreen>
+import { copyDictionary } from "../app/copyDictionary.ts";
+import { useState, type Dispatch, type SetStateAction } from 'react';
+import { Modal, PrimaryButton } from '../components/UI';
+import { copyText, downloadText, phoneLink, readText, stopReading } from '../app/accessibility';
+import type { Device, LifeData } from '../app/types';
+const phrases = [copyDictionary.c8c369db3d5102f01, copyDictionary.c027599a07d4635a9, copyDictionary.c2dc24328ed25b142, copyDictionary.ca72a5f498cc25b28, copyDictionary.cb7578e689d3c923c, copyDictionary.ca1f4c835ea8c6e27];
+export function HelpCard({ life, setLife, devices, onClose }: {
+    life: LifeData;
+    setLife: Dispatch<SetStateAction<LifeData>>;
+    devices: Device[];
+    onClose: () => void;
+}) {
+    const [editing, setEditing] = useState(false);
+    const [status, setStatus] = useState('');
+    const profile = life.emergency;
+    const update = (fields: Partial<LifeData['emergency']>) => setLife(current => ({ ...current, emergency: { ...current.emergency, ...fields } }));
+    const medical = devices.filter(device => (profile.medicalIds ?? []).includes(device.id));
+    const content = [profile.helpText, profile.location ? copyDictionary.cc9ec00f66aad056d + profile.location : '', profile.caregiver ? copyDictionary.c48cd63a7e4cae030 + profile.caregiver : '', profile.phone ? copyDictionary.ccfd95f0ea62821b0 + profile.phone : '', profile.showMedical && medical.length ? copyDictionary.c8c0f64094ea6397f + medical.map(device => `${device.name}；${device.dimensions || copyDictionary.c47babeed7cfbedbb}；${device.battery || copyDictionary.c3a7bee11c98fcccd}`).join('\n') : '', profile.staffReply ? copyDictionary.ce25f5ce25ac91185 + profile.staffReply : ''].filter(Boolean).join('\n');
+    const dial = phoneLink(profile.phone);
+    return <Modal title={editing ? copyDictionary.c13c9e39372d9b358 : copyDictionary.cadc1dde18d3205d7} onClose={() => { stopReading(); onClose(); }} fullScreen>
     {editing ? <>
-      <p>资料由你决定。未填写联系人也可以使用沟通卡。</p>
-      <label>希望对方知道什么<textarea value={profile.helpText} onChange={event => update({ helpText: event.target.value })} /></label>
-      <label>家属或联系人姓名<input value={profile.caregiver} onChange={event => update({ caregiver: event.target.value })} /></label>
-      <label>联系电话<input inputMode="tel" value={profile.phone} onChange={event => update({ phone: event.target.value })} placeholder="用于你点击拨号，不会自动发送" /></label>
-      <label>所在位置说明<input value={profile.location ?? ''} onChange={event => update({ location: event.target.value })} placeholder="例如：车站东入口旁" /></label>
-      <label className="switch-line"><input type="checkbox" checked={profile.showMedical} onChange={event => update({ showMedical: event.target.checked })} />同意在这张卡展示我选择的设备</label>
-      {profile.showMedical && (devices.length ? devices.map(device => <label className="switch-line" key={device.id}><input type="checkbox" checked={(profile.medicalIds ?? []).includes(device.id)} onChange={event => update({ medicalIds: event.target.checked ? [...(profile.medicalIds ?? []), device.id] : (profile.medicalIds ?? []).filter(id => id !== device.id) })} />{device.name}</label>) : <p>没有设备资料，可稍后在“我的”里添加。</p>)}
-      <PrimaryButton onClick={() => setEditing(false)}>完成，展示沟通卡</PrimaryButton>
+      <p>{copyDictionary.cda4fe4f8d743c528}</p>
+      <label>{copyDictionary.ce7ca0730ea108ee0}<textarea value={profile.helpText} onChange={event => update({ helpText: event.target.value })}/></label>
+      <label>{copyDictionary.cbd9f3a83a8c8ce65}<input value={profile.caregiver} onChange={event => update({ caregiver: event.target.value })}/></label>
+      <label>{copyDictionary.cd6981829142aa3dc}<input inputMode="tel" value={profile.phone} onChange={event => update({ phone: event.target.value })} placeholder={copyDictionary.c3ceb963a800172c8}/></label>
+      <label>{copyDictionary.c7dd69a07985d3196}<input value={profile.location ?? ''} onChange={event => update({ location: event.target.value })} placeholder={copyDictionary.c2263fad706ff7b81}/></label>
+      <label className="switch-line"><input type="checkbox" checked={profile.showMedical} onChange={event => update({ showMedical: event.target.checked })}/>{copyDictionary.c5e392d06066607da}</label>
+      {profile.showMedical && (devices.length ? devices.map(device => <label className="switch-line" key={device.id}><input type="checkbox" checked={(profile.medicalIds ?? []).includes(device.id)} onChange={event => update({ medicalIds: event.target.checked ? [...(profile.medicalIds ?? []), device.id] : (profile.medicalIds ?? []).filter(id => id !== device.id) })}/>{device.name}</label>) : <p>{copyDictionary.ccd6843c783929bc7}</p>)}
+      <PrimaryButton onClick={() => setEditing(false)}>{copyDictionary.c57ce23be33c2a43f}</PrimaryButton>
     </> : <>
-      <div className="help-display" role="region" aria-label="给工作人员看的大字沟通卡"><p>{profile.helpText || '请协助我，谢谢。'}</p>{profile.location && <p>{profile.location}</p>}{profile.caregiver && <p>联系人：{profile.caregiver}</p>}{profile.phone && <p>{profile.phone}</p>}{profile.showMedical && medical.map(device => <p key={device.id}>{device.name} · {device.dimensions || '尺寸未填写'}</p>)}</div>
-      <div className="phrase-list" aria-label="常用沟通语句">{phrases.map(phrase => <button key={phrase} aria-pressed={profile.helpText === phrase} onClick={() => update({ helpText: phrase })}>{phrase}</button>)}</div>
-      <label>工作人员可以在这里回复<textarea value={profile.staffReply ?? ''} onChange={event => update({ staffReply: event.target.value })} placeholder="请把回复写在这里" /></label>
-      <div className="action-row"><PrimaryButton icon="volume" onClick={() => setStatus(readText(content) ? '正在朗读卡片，可以点击停止。' : '此浏览器暂不支持朗读，仍可展示文字。')}>朗读卡片</PrimaryButton><PrimaryButton variant="ghost" onClick={() => { stopReading(); setStatus('已停止朗读。') }}>停止朗读</PrimaryButton></div>
-      {dial ? <a className="button button-primary" href={dial}>拨打联系人电话</a> : <p>尚未填写有效联系人电话。可以先展示沟通卡，或请工作人员帮助联系。</p>}
-      <PrimaryButton variant="secondary" icon="copy" onClick={async () => setStatus(await copyText(content) ? '内容已复制。尚未发送给任何人。' : '复制失败，请直接展示卡片或导出文件。')}>复制沟通内容</PrimaryButton>
-      <PrimaryButton variant="ghost" onClick={() => { downloadText(content, '智能无碍行-离线沟通卡.txt'); setStatus('已请求下载。请确认文件保存成功，之后可在手机文件管理器离线打开。') }}>下载离线沟通卡</PrimaryButton>
-      <button className="text-action" onClick={() => setEditing(true)}>编辑联系人与展示范围</button>
+      <div className="help-display" role="region" aria-label={copyDictionary.c7ab2fd3de0ff4011}><p>{profile.helpText || copyDictionary.c5a454a54022cd6ba}</p>{profile.location && <p>{profile.location}</p>}{profile.caregiver && <p>{copyDictionary.c48cd63a7e4cae030}{profile.caregiver}</p>}{profile.phone && <p>{profile.phone}</p>}{profile.showMedical && medical.map(device => <p key={device.id}>{device.name} · {device.dimensions || copyDictionary.c7924cee95748ca72}</p>)}</div>
+      <div className="phrase-list" aria-label={copyDictionary.cce9fa7224966ebf4}>{phrases.map(phrase => <button key={phrase} aria-pressed={profile.helpText === phrase} onClick={() => update({ helpText: phrase })}>{phrase}</button>)}</div>
+      <label>{copyDictionary.cf217c35fa1419879}<textarea value={profile.staffReply ?? ''} onChange={event => update({ staffReply: event.target.value })} placeholder={copyDictionary.cbfa574a1fa4ac56f}/></label>
+      <div className="action-row"><PrimaryButton icon="volume" onClick={() => setStatus(readText(content) ? copyDictionary.cea3f7e5c26404617 : copyDictionary.c60d0365a8639761e)}>{copyDictionary.c9b742dd399d91366}</PrimaryButton><PrimaryButton variant="ghost" onClick={() => { stopReading(); setStatus(copyDictionary.c6a7c1a94d4b82021); }}>{copyDictionary.c6113d2b22a57df3a}</PrimaryButton></div>
+      {dial ? <a className="button button-primary" href={dial}>{copyDictionary.c5aecd0fe5bfe970e}</a> : <p>{copyDictionary.c9b97bb78929949a7}</p>}
+      <PrimaryButton variant="secondary" icon="copy" onClick={async () => setStatus(await copyText(content) ? copyDictionary.cb95b86070a37dd83 : copyDictionary.c9671d3230cff2db7)}>{copyDictionary.cc3720a7f651ac618}</PrimaryButton>
+      <PrimaryButton variant="ghost" onClick={() => { downloadText(content, copyDictionary.c57fabf6273329e6b); setStatus(copyDictionary.cec8a93de340f9724); }}>{copyDictionary.c4140c80a051c511d}</PrimaryButton>
+      <button className="text-action" onClick={() => setEditing(true)}>{copyDictionary.cce47aa80a3e028e1}</button>
     </>}
     <p className="operation-status" role="status">{status}</p>
-    <p className="prototype-note">这是现场沟通工具，不会自动呼叫救援或通知家属。拨号是否接通以手机显示为准。</p>
-  </Modal>
+    <p className="prototype-note">{copyDictionary.cabd9d09d2d9faabf}</p>
+  </Modal>;
 }

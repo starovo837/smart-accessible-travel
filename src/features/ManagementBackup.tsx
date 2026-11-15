@@ -1,7 +1,30 @@
-import { useState } from 'react'
-import { downloadText } from '../app/accessibility'
-import type { Feedback, LocalShare } from '../app/types'
-export function ManagementBackup({cases,shares,onImport}:{cases:Feedback[];shares:LocalShare[];onImport:(cases:Feedback[],shares:LocalShare[])=>void}){
- const [status,setStatus]=useState('')
- return <section className="task-panel"><h3>保存自己的管理凭据</h3><p>未授权浏览器保存时，刷新后会丢失追踪凭据。请下载此文件，之后在同一服务导入，可继续管理或删除。文件含管理权限，不要交给家属。</p><button disabled={!cases.some(item=>item.serverId)&&!shares.some(item=>item.serverId)} onClick={()=>downloadText(JSON.stringify({kind:'accessible-management',origin:location.origin,cases:cases.filter(item=>item.serverId),shares:shares.filter(item=>item.serverId)},null,2),'智能无碍行-本人管理凭据.json','application/json')}>下载本人管理凭据</button><label>导入本人管理凭据<input type="file" accept="application/json,.json" onChange={async event=>{const file=event.target.files?.[0];if(!file)return;try{if(file.size>1024*1024)throw Error('文件过大，请选择本应用导出的管理凭据。');const data=JSON.parse(await file.text());if(data.kind!=='accessible-management'||data.origin!==location.origin||!Array.isArray(data.cases)||!Array.isArray(data.shares))throw Error('文件格式或服务地址不匹配，请在导出凭据时的服务地址打开。');const valid=(value:unknown)=>typeof value==='string'&&/^[A-Za-z0-9_-]{10,100}$/.test(value);if(!data.cases.every((item:Feedback)=>valid(item.serverId)&&valid(item.accessToken))||!data.shares.every((item:LocalShare)=>valid(item.serverId)&&valid(item.ownerToken)))throw Error('管理凭据不完整。');onImport(data.cases.slice(0,500),data.shares.slice(0,100));setStatus('凭据已加入本次运行，没有自动发布或变更任何资料。')}catch(error){setStatus((error as Error).message)}finally{event.target.value=''}}}/></label><p role="status">{status}</p></section>
+import { copyDictionary } from "../app/copyDictionary.ts";
+import { useState } from 'react';
+import { downloadText } from '../app/accessibility';
+import type { Feedback, LocalShare } from '../app/types';
+export function ManagementBackup({ cases, shares, onImport }: {
+    cases: Feedback[];
+    shares: LocalShare[];
+    onImport: (cases: Feedback[], shares: LocalShare[]) => void;
+}) {
+    const [status, setStatus] = useState('');
+    return <section className="task-panel"><h3>{copyDictionary.c3798298a372aaebd}</h3><p>{copyDictionary.c982eb72ad388e9f0}</p><button disabled={!cases.some(item => item.serverId) && !shares.some(item => item.serverId)} onClick={() => downloadText(JSON.stringify({ kind: 'accessible-management', origin: location.origin, cases: cases.filter(item => item.serverId), shares: shares.filter(item => item.serverId) }, null, 2), copyDictionary.ce6d3ad8e9ebe175c, 'application/json')}>{copyDictionary.c141e1d152f62b214}</button><label>{copyDictionary.c1113d316bd02e013}<input type="file" accept="application/json,.json" onChange={async (event) => { const file = event.target.files?.[0]; if (!file)
+        return; try {
+        if (file.size > 1024 * 1024)
+            throw Error(copyDictionary.cb2157d64ba62673c);
+        const data = JSON.parse(await file.text());
+        if (data.kind !== 'accessible-management' || data.origin !== location.origin || !Array.isArray(data.cases) || !Array.isArray(data.shares))
+            throw Error(copyDictionary.cc2c11df13757c242);
+        const valid = (value: unknown) => typeof value === 'string' && /^[A-Za-z0-9_-]{10,100}$/.test(value);
+        if (!data.cases.every((item: Feedback) => valid(item.serverId) && valid(item.accessToken)) || !data.shares.every((item: LocalShare) => valid(item.serverId) && valid(item.ownerToken)))
+            throw Error(copyDictionary.ceddaccb5ce12f8b0);
+        onImport(data.cases.slice(0, 500), data.shares.slice(0, 100));
+        setStatus(copyDictionary.c252e4cbb1c489dca);
+    }
+    catch (error) {
+        setStatus((error as Error).message);
+    }
+    finally {
+        event.target.value = '';
+    } }}/></label><p role="status">{status}</p></section>;
 }

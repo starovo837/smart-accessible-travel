@@ -1,38 +1,135 @@
-import {useEffect,useRef,useState} from 'react'
-import {Modal,PageHeader,PrimaryButton} from '../../components/UI'
-import {copyText,readText,stopReading} from '../../app/accessibility'
-import {isStudio} from '../../app/deployment'
-import {prepareService,service} from '../../app/service'
-import {helpState,helpStatusText,helpUrl,type HelpCreatedRecord,type HelpLocation,type HelpPublicRecord,type HelpSessionRecord} from '../../app/liveHelp'
-
-interface Preview {text:string;recipientLabel:string;minutes:number;location?:HelpLocation}
-export function LiveHelp({records,onRecordsChange}:{records:HelpSessionRecord[];onRecordsChange:(records:HelpSessionRecord[])=>void}){
- const [message,setMessage]=useState(''),[text,setText]=useState('我需要一点协助，请先与我确认具体需要。'),[recipient,setRecipient]=useState(''),[minutes,setMinutes]=useState(30),[includeLocation,setIncludeLocation]=useState(false),[locationLabel,setLocationLabel]=useState(''),[position,setPosition]=useState<{latitude:number;longitude:number}|null>(null),[locating,setLocating]=useState(false),[preview,setPreview]=useState<Preview|null>(null),[consent,setConsent]=useState(false),[busy,setBusy]=useState(false),[selected,setSelected]=useState(''),[now,setNow]=useState(Date.now())
- const [base,setBase]=useState(location.origin+location.pathname),[addresses,setAddresses]=useState<{name:string;url:string}[]>([])
- const latest=useRef(records),busyRef=useRef(false),epoch=useRef(0),mounted=useRef(true),request=useRef<AbortController|null>(null)
- latest.current=records
- useEffect(()=>{mounted.current=true;const timer=setInterval(()=>setNow(Date.now()),15000);return()=>{mounted.current=false;epoch.current++;request.current?.abort();clearInterval(timer);stopReading()}},[])
- useEffect(()=>{if(isStudio||!['localhost','127.0.0.1'].includes(location.hostname))return;service<{addresses:{name:string;url:string}[]}>('connection').then(value=>{if(!mounted.current)return;setAddresses(value.addresses??[])}).catch(()=>{})},[])
- const update=(id:string,change:Partial<HelpSessionRecord>)=>onRecordsChange(latest.current.map(record=>record.id===id?{...record,...change}:record))
- const perform=async(work:(signal:AbortSignal)=>Promise<void>)=>{if(busyRef.current)return;busyRef.current=true;setBusy(true);const version=++epoch.current,controller=new AbortController();request.current=controller;try{await work(controller.signal)}catch(error){if(mounted.current&&version===epoch.current&&(error as Error).name!=='AbortError')setMessage((error as Error).message)}finally{busyRef.current=false;if(mounted.current&&version===epoch.current)setBusy(false)}}
- const refresh=async(record:HelpSessionRecord,signal?:AbortSignal)=>{
-  if(helpState(record)==='expired'||record.lastStatus==='revoked'){setNow(Date.now());return}
-  const next=await service<HelpPublicRecord>('help/'+record.id+'/owner',undefined,record.ownerToken,signal)
-  if(!mounted.current||signal?.aborted)return
-  update(record.id,{lastStatus:next.status,response:next.response})
-  setMessage(next.status==='acknowledged'?'收到对方主动提交的回应；这不表示已到场或已获得救援。':next.status==='declined'?'对方明确表示暂时无法协助，可另选渠道。':'目前没有收到对方回应。')
- }
- useEffect(()=>{if(!selected)return;const timer=setInterval(()=>{const record=latest.current.find(item=>item.id===selected);if(record&&!busyRef.current)void perform(signal=>refresh(record,signal))},15000);return()=>clearInterval(timer)},[selected])
- const locate=()=>{if(!includeLocation)return;if(!navigator.geolocation||!window.isSecureContext){setMessage('此浏览器不能读取位置，可手动填写地点。');return}setLocating(true);const version=epoch.current;navigator.geolocation.getCurrentPosition(result=>{if(!mounted.current)return;setLocating(false);if(version!==epoch.current)return;setPosition({latitude:Math.round(result.coords.latitude*1e5)/1e5,longitude:Math.round(result.coords.longitude*1e5)/1e5});setLocating(false);setMessage('已读取这一次坐标，分享前还会让你预览；不会持续追踪。')},()=>{if(!mounted.current)return;setLocating(false);if(version!==epoch.current)return;setMessage('没有获得位置，可以手动填写地点。')},{enableHighAccuracy:false,timeout:10000,maximumAge:0})}
- const makePreview=()=>{if(!text.trim())return setMessage('请先写下需要的协助。');if(text.length>1000||recipient.length>60||locationLabel.length>200)return setMessage('内容太长，请精简后再预览。');if(includeLocation&&!locationLabel.trim()&&!position)return setMessage('请写下地点、读取一次位置，或取消共享位置。');setPreview({text:text.trim(),recipientLabel:recipient.trim(),minutes,...(includeLocation?{location:{label:locationLabel.trim(),...(position??{})}}:{})});setConsent(false);setMessage('')}
- return <section className="live-help"><p>先选择接收人并预览内容，再自己复制或通过系统分享。这个页面不会代你呼叫、发消息或通知家属，也不会派出救援。</p><label>想请对方帮什么<textarea aria-label="想请对方帮什么" maxLength={1000} value={text} onChange={event=>setText(event.target.value)}/></label><label>准备发给谁（称呼即可）<input aria-label="准备发给谁（称呼即可）" maxLength={60} value={recipient} onChange={event=>setRecipient(event.target.value)} placeholder="例如：同行朋友、站点服务人员"/></label><label>链接有效时间<select aria-label="链接有效时间" value={minutes} onChange={event=>setMinutes(Number(event.target.value))}><option value={15}>15分钟</option><option value={30}>30分钟</option><option value={60}>60分钟</option></select></label><label className="switch-line"><input type="checkbox" checked={includeLocation} onChange={event=>{setIncludeLocation(event.target.checked);if(!event.target.checked){setPosition(null);setLocationLabel('')}}}/>这一次愿意共享位置</label>{includeLocation&&<><label>地点说明<input aria-label="地点说明" maxLength={200} value={locationLabel} onChange={event=>setLocationLabel(event.target.value)} placeholder="如：某站东入口服务台旁"/></label><div className="daily-actions"><button disabled={locating||busy} onClick={locate}>{locating?'正在读取…':'读取一次当前位置'}</button>{position&&<button onClick={()=>{setPosition(null);setMessage('已移除坐标，地点说明可继续手动填写。')}}>移除坐标</button>}</div>{position&&<p>将共享坐标：{position.latitude}，{position.longitude}</p>}</>}{addresses.length>0&&<label>接收方能访问的当前服务地址<select aria-label="接收方能访问的当前服务地址" value={base} onChange={event=>setBase(event.target.value)}><option value={location.origin+location.pathname}>当前页面地址</option>{addresses.map(item=><option key={item.url} value={item.url}>{item.name} · {item.url}（需另行确认可达）</option>)}</select></label>}{/^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(base)&&<p>当前链接只适合这台电脑查看。跨设备需使用同网络可访问的地址或线上服务；本应用不会把局域网服务变成公网服务。</p>}<PrimaryButton disabled={busy} onClick={makePreview}>预览这次求助内容</PrimaryButton><p>只暂存本次预览中显示的文字、接收对象称呼和所选位置。不会附带身体尺寸、残障类型、设备档案、病历或联系人列表。有效期最多60分钟，服务重启也会清空。</p><h2>我创建的限时求助</h2><p>管理凭据仅在此浏览器保留，长期保存范围由生活资料授权决定。未授权保存时，关闭前请先撤销不再需要的链接。</p>{!records.length&&<p>还没有创建求助链接。</p>}{records.map(record=>{const state=helpState(record,now),active=!['revoked','expired'].includes(state);return <article className="live-help-record" key={record.id}><h3>{record.recipientLabel||'本次求助'}</h3><p>上次状态：{helpStatusText[state]} · 到期 {new Date(record.expiresAt).toLocaleString('zh-CN')}</p>{record.linkAction&&<p>{record.linkAction==='copied'?'已复制链接，不能据此确认已发送或已读。':'已打开系统分享，是否送达请在所选平台核对。'}</p>}{record.response&&<p>回执：{record.response.status==='acknowledged'?'愿意与发起人进一步确认协助':'暂时无法协助'} · {record.response.name||'未填写称呼'}（称呼由接收方填写，未核验身份） · {new Date(record.response.at).toLocaleString('zh-CN')}</p>}<div className="daily-actions"><button disabled={busy||!active} onClick={()=>void perform(async()=>{const copied=await copyText(record.viewUrl);if(!mounted.current)return;if(copied){update(record.id,{linkAction:'copied'});setMessage('链接已复制，尚未确认发送。请自行交给选定的接收人。')}else setMessage('复制未完成，可选择下方链接文字复制。')})}>复制求助链接</button><button disabled={busy||!active||!navigator.share} onClick={()=>void perform(async()=>{await navigator.share({title:'我这次需要的协助',text:'请打开这条限时链接查看，能否协助请在页面中回应。',url:record.viewUrl});if(mounted.current){update(record.id,{linkAction:'shared'});setMessage('系统分享已结束，尚未获得对方回应。')}})}>系统分享</button><button disabled={busy||!active} onClick={()=>{setSelected(record.id);void perform(signal=>refresh(record,signal))}}>查看对方是否回应</button><button disabled={busy||!active} onClick={()=>void perform(async signal=>{await service('help/'+record.id+'/owner',undefined,record.ownerToken,signal,'DELETE');if(mounted.current){update(record.id,{lastStatus:'revoked'});if(selected===record.id)setSelected('');setMessage('已撤销，链接不再允许查看。接收方自行保存的副本无法撤回。')}})}>撤销此求助链接</button></div>{active&&<details><summary>查看本次可分享链接</summary><p style={{overflowWrap:'anywhere'}}>{record.viewUrl}</p></details>}</article>})}<p role="status">{message}</p>{preview&&<Modal title="确认这次要分享的内容" onClose={()=>{if(!busy)setPreview(null)}}><h3>接收对象</h3><p>{preview.recipientLabel||'由我稍后选择接收人'}</p><h3>求助内容</h3><p style={{whiteSpace:'pre-wrap'}}>{preview.text}</p><h3>位置</h3><p>{preview.location?[preview.location.label,preview.location.latitude===undefined?'':`${preview.location.latitude}，${preview.location.longitude}`].filter(Boolean).join(' · '):'不共享位置'}</p><p>有效期 {preview.minutes} 分钟。创建后仍需本人复制或系统分享，没有自动联系任何人。</p><label className="switch-line"><input type="checkbox" checked={consent} onChange={event=>setConsent(event.target.checked)} disabled={busy}/>我已预览，同意将以上选定内容暂存到当前服务并创建限时链接</label><PrimaryButton disabled={!consent||busy} onClick={()=>void perform(async signal=>{if(latest.current.filter(record=>helpState(record)==='waiting'||helpState(record)==='acknowledged'||helpState(record)==='declined').length>=30)throw Error('已有30条有效求助，请先撤销不需要的链接。');await prepareService();signal.throwIfAborted();const result=await service<HelpCreatedRecord>('help',{...preview,consent:true,previewed:true},undefined,signal);if(!mounted.current||signal.aborted)return;const viewUrl=helpUrl(base,result.id,result.viewToken);const record:HelpSessionRecord={id:result.id,ownerToken:result.ownerToken,viewUrl,expiresAt:result.expiresAt,recipientLabel:result.recipientLabel,lastStatus:result.status};onRecordsChange([...latest.current.filter(item=>!['expired','revoked'].includes(helpState(item))),record]);setPreview(null);setSelected(record.id);setMessage('已创建实际限时链接，尚未发送，也没有收到对方回应。')})}>{busy?'正在创建…':'创建限时求助链接'}</PrimaryButton></Modal>}</section>
+import { copyDictionary } from "../../app/copyDictionary.ts";
+import { useEffect, useRef, useState } from 'react';
+import { Modal, PageHeader, PrimaryButton } from '../../components/UI';
+import { copyText, readText, stopReading } from '../../app/accessibility';
+import { isStudio } from '../../app/deployment';
+import { prepareService, service } from '../../app/service';
+import { helpState, helpStatusText, helpUrl, type HelpCreatedRecord, type HelpLocation, type HelpPublicRecord, type HelpSessionRecord } from '../../app/liveHelp';
+interface Preview {
+    text: string;
+    recipientLabel: string;
+    minutes: number;
+    location?: HelpLocation;
 }
-
-export function LiveHelpViewer({id,token}:{id:string;token:string}){
- const [record,setRecord]=useState<HelpPublicRecord|null>(null),[name,setName]=useState(''),[message,setMessage]=useState('正在读取限时求助…'),[busy,setBusy]=useState(false),[now,setNow]=useState(Date.now()),version=useRef(0)
- const load=async(signal?:AbortSignal)=>{const current=++version.current;try{const result=await service<HelpPublicRecord>('help/'+id,undefined,token,signal);if(!signal?.aborted&&current===version.current){setRecord(result);setNow(Date.now());setMessage('只显示发起人这次明确选择的内容。')}}catch(error){if(!signal?.aborted&&current===version.current){setRecord(null);setMessage((error as Error).message)}}}
- useEffect(()=>{const controller=new AbortController();void load(controller.signal);const timer=setInterval(()=>void load(controller.signal),15000);return()=>{version.current++;controller.abort();clearInterval(timer);stopReading()}},[id,token])
- const respond=async(response:'acknowledged'|'declined')=>{if(busy)return;setBusy(true);version.current++;try{const result=await service<HelpPublicRecord>('help/'+id+'/respond',{response,name},token);version.current++;setRecord(result);setMessage(response==='acknowledged'?'你的明确回应已交给当前服务，发起人可刷新查看。请继续直接联系对方，不能据此认为已完成协助。':'已告知发起人你暂时无法协助。')}catch(error){setMessage((error as Error).message)}finally{setBusy(false)}}
- const expired=record&&record.expiresAt<=now
- return <main className="app-shell"><section className="app-frame screen support-tool-page"><PageHeader title="这一次的限时求助" subtitle="只查看本人选定的内容"/><p role="status">{message}</p>{record&&!expired&&<><p>有效至 {new Date(record.expiresAt).toLocaleString('zh-CN')}。链接持有人可以查看和回应；转发前请先征求发起人同意。</p><h2>需要的协助</h2><p style={{whiteSpace:'pre-wrap'}}>{record.text}</p>{record.recipientLabel&&<p>发起人准备联系：{record.recipientLabel}</p>}{record.location&&<section><h2>发起人主动共享的位置</h2><p>{record.location.label||'仅提供坐标'}</p>{record.location.latitude!==undefined&&<p>纬度 {record.location.latitude}，经度 {record.location.longitude}</p>}</section>}<button onClick={()=>readText([record.text,record.location?.label??''].join('。'))}>朗读求助内容</button><button onClick={stopReading}>停止朗读</button>{record.response?<article><h2>这条链接已有明确回执</h2><p>{record.response.status==='acknowledged'?'接收方愿意进一步确认协助':'接收方暂时无法协助'} · {record.response.name||'未填写称呼'}</p><p>回执不代表已经到场、已经完成协助或已派出救援。</p></article>:<><label>你的称呼（可不填）<input aria-label="你的称呼（可不填）" maxLength={40} value={name} onChange={event=>setName(event.target.value)}/></label><p>只有点击下方按钮才会向发起人提交你的明确回应。打开链接本身不算同意协助。</p><div className="daily-actions"><button disabled={busy} onClick={()=>void respond('acknowledged')}>我愿意进一步确认协助</button><button disabled={busy} onClick={()=>void respond('declined')}>我暂时无法协助</button></div></>}</>}{expired&&<p>链接已到期，内容不再显示。请通过你已有的联系方式联系发起人。</p>}<button disabled={busy} onClick={()=>void load()}>刷新链接状态</button><button onClick={()=>{location.hash='#home';location.reload()}}>退出此求助页面</button></section></main>
+export function LiveHelp({ records, onRecordsChange }: {
+    records: HelpSessionRecord[];
+    onRecordsChange: (records: HelpSessionRecord[]) => void;
+}) {
+    const [message, setMessage] = useState(''), [text, setText] = useState(copyDictionary.ce4d7550d4d3be065), [recipient, setRecipient] = useState(''), [minutes, setMinutes] = useState(30), [includeLocation, setIncludeLocation] = useState(false), [locationLabel, setLocationLabel] = useState(''), [position, setPosition] = useState<{
+        latitude: number;
+        longitude: number;
+    } | null>(null), [locating, setLocating] = useState(false), [preview, setPreview] = useState<Preview | null>(null), [consent, setConsent] = useState(false), [busy, setBusy] = useState(false), [selected, setSelected] = useState(''), [now, setNow] = useState(Date.now());
+    const [base, setBase] = useState(location.origin + location.pathname), [addresses, setAddresses] = useState<{
+        name: string;
+        url: string;
+    }[]>([]);
+    const latest = useRef(records), busyRef = useRef(false), epoch = useRef(0), mounted = useRef(true), request = useRef<AbortController | null>(null);
+    latest.current = records;
+    useEffect(() => { mounted.current = true; const timer = setInterval(() => setNow(Date.now()), 15000); return () => { mounted.current = false; epoch.current++; request.current?.abort(); clearInterval(timer); stopReading(); }; }, []);
+    useEffect(() => { if (isStudio || !['localhost', '127.0.0.1'].includes(location.hostname))
+        return; service<{
+        addresses: {
+            name: string;
+            url: string;
+        }[];
+    }>('connection').then(value => { if (!mounted.current)
+        return; setAddresses(value.addresses ?? []); }).catch(() => { }); }, []);
+    const update = (id: string, change: Partial<HelpSessionRecord>) => onRecordsChange(latest.current.map(record => record.id === id ? { ...record, ...change } : record));
+    const perform = async (work: (signal: AbortSignal) => Promise<void>) => { if (busyRef.current)
+        return; busyRef.current = true; setBusy(true); const version = ++epoch.current, controller = new AbortController(); request.current = controller; try {
+        await work(controller.signal);
+    }
+    catch (error) {
+        if (mounted.current && version === epoch.current && (error as Error).name !== 'AbortError')
+            setMessage((error as Error).message);
+    }
+    finally {
+        busyRef.current = false;
+        if (mounted.current && version === epoch.current)
+            setBusy(false);
+    } };
+    const refresh = async (record: HelpSessionRecord, signal?: AbortSignal) => {
+        if (helpState(record) === 'expired' || record.lastStatus === 'revoked') {
+            setNow(Date.now());
+            return;
+        }
+        const next = await service<HelpPublicRecord>('help/' + record.id + '/owner', undefined, record.ownerToken, signal);
+        if (!mounted.current || signal?.aborted)
+            return;
+        update(record.id, { lastStatus: next.status, response: next.response });
+        setMessage(next.status === 'acknowledged' ? copyDictionary.cf4bb7ec12ce82255 : next.status === 'declined' ? copyDictionary.cc8d9105ac20a0998 : copyDictionary.c08f61b1b1ebe4553);
+    };
+    useEffect(() => { if (!selected)
+        return; const timer = setInterval(() => { const record = latest.current.find(item => item.id === selected); if (record && !busyRef.current)
+        void perform(signal => refresh(record, signal)); }, 15000); return () => clearInterval(timer); }, [selected]);
+    const locate = () => { if (!includeLocation)
+        return; if (!navigator.geolocation || !window.isSecureContext) {
+        setMessage(copyDictionary.cdb7f0fac8e8b2e3e);
+        return;
+    } setLocating(true); const version = epoch.current; navigator.geolocation.getCurrentPosition(result => { if (!mounted.current)
+        return; setLocating(false); if (version !== epoch.current)
+        return; setPosition({ latitude: Math.round(result.coords.latitude * 1e5) / 1e5, longitude: Math.round(result.coords.longitude * 1e5) / 1e5 }); setLocating(false); setMessage(copyDictionary.cf91da21e3785ec13); }, () => { if (!mounted.current)
+        return; setLocating(false); if (version !== epoch.current)
+        return; setMessage(copyDictionary.cb47732b0a151e343); }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }); };
+    const makePreview = () => { if (!text.trim())
+        return setMessage(copyDictionary.c08086b8ad0b10cc9); if (text.length > 1000 || recipient.length > 60 || locationLabel.length > 200)
+        return setMessage(copyDictionary.c603011c6c5d2ab8c); if (includeLocation && !locationLabel.trim() && !position)
+        return setMessage(copyDictionary.ca87fa37aa42a01d7); setPreview({ text: text.trim(), recipientLabel: recipient.trim(), minutes, ...(includeLocation ? { location: { label: locationLabel.trim(), ...(position ?? {}) } } : {}) }); setConsent(false); setMessage(''); };
+    return <section className="live-help"><p>{copyDictionary.c7e236b71f2a9e1bb}</p><label>{copyDictionary.cf8bf98b163adf7fb}<textarea aria-label={copyDictionary.cf8bf98b163adf7fb} maxLength={1000} value={text} onChange={event => setText(event.target.value)}/></label><label>{copyDictionary.cd5ac64808a46739e}<input aria-label={copyDictionary.cd5ac64808a46739e} maxLength={60} value={recipient} onChange={event => setRecipient(event.target.value)} placeholder={copyDictionary.c2af07527f14538e5}/></label><label>{copyDictionary.c67d6a09eddc27523}<select aria-label={copyDictionary.c67d6a09eddc27523} value={minutes} onChange={event => setMinutes(Number(event.target.value))}><option value={15}>{copyDictionary.cdbaa1c565cb1f108}</option><option value={30}>{copyDictionary.c859757ea792a73da}</option><option value={60}>{copyDictionary.cfd70a9cdcc5cab82}</option></select></label><label className="switch-line"><input type="checkbox" checked={includeLocation} onChange={event => { setIncludeLocation(event.target.checked); if (!event.target.checked) {
+        setPosition(null);
+        setLocationLabel('');
+    } }}/>{copyDictionary.cdf5cbe30ff4dde54}</label>{includeLocation && <><label>{copyDictionary.c347be32af388a11f}<input aria-label={copyDictionary.c347be32af388a11f} maxLength={200} value={locationLabel} onChange={event => setLocationLabel(event.target.value)} placeholder={copyDictionary.caf546e38f9d0fa98}/></label><div className="daily-actions"><button disabled={locating || busy} onClick={locate}>{locating ? copyDictionary.c86b6d0d63062ba81 : copyDictionary.cfff93bae672b691f}</button>{position && <button onClick={() => { setPosition(null); setMessage(copyDictionary.c2ba1732115c2c446); }}>{copyDictionary.c4f3ff3f95897dd79}</button>}</div>{position && <p>{copyDictionary.cd45e40398357546f}{position.latitude}，{position.longitude}</p>}</>}{addresses.length > 0 && <label>{copyDictionary.cef49a67424b01a08}<select aria-label={copyDictionary.cef49a67424b01a08} value={base} onChange={event => setBase(event.target.value)}><option value={location.origin + location.pathname}>{copyDictionary.ccc73b4b30037824d}</option>{addresses.map(item => <option key={item.url} value={item.url}>{item.name} · {item.url}{copyDictionary.c47e3c2b720e0ad62}</option>)}</select></label>}{/^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(base) && <p>{copyDictionary.cc2e496f12dd12a12}</p>}<PrimaryButton disabled={busy} onClick={makePreview}>{copyDictionary.c0d595543fcf8ef82}</PrimaryButton><p>{copyDictionary.ce3e49670ffee581d}</p><h2>{copyDictionary.c10ec9bea6e19ac10}</h2><p>{copyDictionary.c6157a68f2e3edd76}</p>{!records.length && <p>{copyDictionary.c9387d19390be15f4}</p>}{records.map(record => { const state = helpState(record, now), active = !['revoked', 'expired'].includes(state); return <article className="live-help-record" key={record.id}><h3>{record.recipientLabel || copyDictionary.c1570d8d412df3572}</h3><p>{copyDictionary.ca9c570046168acc6}{helpStatusText[state]}{copyDictionary.c4e50171043a3f415}{new Date(record.expiresAt).toLocaleString('zh-CN')}</p>{record.linkAction && <p>{record.linkAction === 'copied' ? copyDictionary.cd8b63978cdfda13f : copyDictionary.c0257e5d517c88fe0}</p>}{record.response && <p>{copyDictionary.ce503a2081cbd06da}{record.response.status === 'acknowledged' ? copyDictionary.c3d63c5ccb9dbe2c3 : copyDictionary.c38acc71950f9b263} · {record.response.name || copyDictionary.c03142d24859618fb}{copyDictionary.c64560368aad10b4a}{new Date(record.response.at).toLocaleString('zh-CN')}</p>}<div className="daily-actions"><button disabled={busy || !active} onClick={() => void perform(async () => { const copied = await copyText(record.viewUrl); if (!mounted.current)
+        return; if (copied) {
+        update(record.id, { linkAction: 'copied' });
+        setMessage(copyDictionary.c0a0981abcba57a0e);
+    }
+    else
+        setMessage(copyDictionary.c8cd5825c75f7d53a); })}>{copyDictionary.c899bf90c3de412d5}</button><button disabled={busy || !active || !navigator.share} onClick={() => void perform(async () => { await navigator.share({ title: copyDictionary.ce2a638bc382a3563, text: copyDictionary.c24e609f9861c96af, url: record.viewUrl }); if (mounted.current) {
+        update(record.id, { linkAction: 'shared' });
+        setMessage(copyDictionary.ccd3add89b1ac9616);
+    } })}>{copyDictionary.c13a1c63fb5dc36ed}</button><button disabled={busy || !active} onClick={() => { setSelected(record.id); void perform(signal => refresh(record, signal)); }}>{copyDictionary.ca0d1e6c147b809f0}</button><button disabled={busy || !active} onClick={() => void perform(async (signal) => { await service('help/' + record.id + '/owner', undefined, record.ownerToken, signal, 'DELETE'); if (mounted.current) {
+        update(record.id, { lastStatus: 'revoked' });
+        if (selected === record.id)
+            setSelected('');
+        setMessage(copyDictionary.c78dd3dc244952b2f);
+    } })}>{copyDictionary.cb4d6edeb57a8f080}</button></div>{active && <details><summary>{copyDictionary.c1c66d512431eff08}</summary><p style={{ overflowWrap: 'anywhere' }}>{record.viewUrl}</p></details>}</article>; })}<p role="status">{message}</p>{preview && <Modal title={copyDictionary.cf806c081ed1b67e3} onClose={() => { if (!busy)
+        setPreview(null); }}><h3>{copyDictionary.ce0c36a479d90662f}</h3><p>{preview.recipientLabel || copyDictionary.c4e7936a868b7c3de}</p><h3>{copyDictionary.c50da12eb42154bc6}</h3><p style={{ whiteSpace: 'pre-wrap' }}>{preview.text}</p><h3>{copyDictionary.c1fb4d574da92f1c1}</h3><p>{preview.location ? [preview.location.label, preview.location.latitude === undefined ? '' : `${preview.location.latitude}，${preview.location.longitude}`].filter(Boolean).join(' · ') : copyDictionary.c06f7f4b5fdf764b9}</p><p>{copyDictionary.c9c2a28e8f98fb5df}{preview.minutes}{copyDictionary.cde2e5d01cde90eb8}</p><label className="switch-line"><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} disabled={busy}/>{copyDictionary.c782c1808014c7358}</label><PrimaryButton disabled={!consent || busy} onClick={() => void perform(async (signal) => { if (latest.current.filter(record => helpState(record) === 'waiting' || helpState(record) === 'acknowledged' || helpState(record) === 'declined').length >= 30)
+        throw Error(copyDictionary.cf03d44ac55ad0612); await prepareService(); signal.throwIfAborted(); const result = await service<HelpCreatedRecord>('help', { ...preview, consent: true, previewed: true }, undefined, signal); if (!mounted.current || signal.aborted)
+        return; const viewUrl = helpUrl(base, result.id, result.viewToken); const record: HelpSessionRecord = { id: result.id, ownerToken: result.ownerToken, viewUrl, expiresAt: result.expiresAt, recipientLabel: result.recipientLabel, lastStatus: result.status }; onRecordsChange([...latest.current.filter(item => !['expired', 'revoked'].includes(helpState(item))), record]); setPreview(null); setSelected(record.id); setMessage(copyDictionary.c637431bf1025adda); })}>{busy ? copyDictionary.c7c0305bc0ce607b2 : copyDictionary.cbd8391c0010292af}</PrimaryButton></Modal>}</section>;
+}
+export function LiveHelpViewer({ id, token }: {
+    id: string;
+    token: string;
+}) {
+    const [record, setRecord] = useState<HelpPublicRecord | null>(null), [name, setName] = useState(''), [message, setMessage] = useState(copyDictionary.c55a34c5384b7b2c9), [busy, setBusy] = useState(false), [now, setNow] = useState(Date.now()), version = useRef(0);
+    const load = async (signal?: AbortSignal) => { const current = ++version.current; try {
+        const result = await service<HelpPublicRecord>('help/' + id, undefined, token, signal);
+        if (!signal?.aborted && current === version.current) {
+            setRecord(result);
+            setNow(Date.now());
+            setMessage(copyDictionary.ca7eed6d23effcba3);
+        }
+    }
+    catch (error) {
+        if (!signal?.aborted && current === version.current) {
+            setRecord(null);
+            setMessage((error as Error).message);
+        }
+    } };
+    useEffect(() => { const controller = new AbortController(); void load(controller.signal); const timer = setInterval(() => void load(controller.signal), 15000); return () => { version.current++; controller.abort(); clearInterval(timer); stopReading(); }; }, [id, token]);
+    const respond = async (response: 'acknowledged' | 'declined') => { if (busy)
+        return; setBusy(true); version.current++; try {
+        const result = await service<HelpPublicRecord>('help/' + id + '/respond', { response, name }, token);
+        version.current++;
+        setRecord(result);
+        setMessage(response === 'acknowledged' ? copyDictionary.c6543afb27fe6664a : copyDictionary.cbb6c01855295b6d8);
+    }
+    catch (error) {
+        setMessage((error as Error).message);
+    }
+    finally {
+        setBusy(false);
+    } };
+    const expired = record && record.expiresAt <= now;
+    return <main className="app-shell"><section className="app-frame screen support-tool-page"><PageHeader title={copyDictionary.c1e99017abaf5553e} subtitle={copyDictionary.c3ec3fc0ab1acf41c}/><p role="status">{message}</p>{record && !expired && <><p>{copyDictionary.c1c2302f92551a9ff}{new Date(record.expiresAt).toLocaleString('zh-CN')}{copyDictionary.cf5adbcfd389c8d2f}</p><h2>{copyDictionary.ce030b94ebd49077a}</h2><p style={{ whiteSpace: 'pre-wrap' }}>{record.text}</p>{record.recipientLabel && <p>{copyDictionary.c1d97ba65ad766226}{record.recipientLabel}</p>}{record.location && <section><h2>{copyDictionary.c258c11d75860507d}</h2><p>{record.location.label || copyDictionary.c8a2b8357717c7711}</p>{record.location.latitude !== undefined && <p>{copyDictionary.c9c11bd8446723806}{record.location.latitude}{copyDictionary.c24eafdf752af9804}{record.location.longitude}</p>}</section>}<button onClick={() => readText([record.text, record.location?.label ?? ''].join('。'))}>{copyDictionary.cc9369c555ca59ce1}</button><button onClick={stopReading}>{copyDictionary.c6113d2b22a57df3a}</button>{record.response ? <article><h2>{copyDictionary.cb649ab2f64899cff}</h2><p>{record.response.status === 'acknowledged' ? copyDictionary.caa71bc2a980a7bf3 : copyDictionary.cffdc87d4b46ad19e} · {record.response.name || copyDictionary.c03142d24859618fb}</p><p>{copyDictionary.c7f97bd5ee8149baa}</p></article> : <><label>{copyDictionary.c84e7bc76682eb11e}<input aria-label={copyDictionary.c84e7bc76682eb11e} maxLength={40} value={name} onChange={event => setName(event.target.value)}/></label><p>{copyDictionary.cb37302868bd0a135}</p><div className="daily-actions"><button disabled={busy} onClick={() => void respond('acknowledged')}>{copyDictionary.c7e47471b7d929318}</button><button disabled={busy} onClick={() => void respond('declined')}>{copyDictionary.c2f553bd5c29bb9dc}</button></div></>}</>}{expired && <p>{copyDictionary.c6c5cbc95a8ddee48}</p>}<button disabled={busy} onClick={() => void load()}>{copyDictionary.c994c429210ba61c4}</button><button onClick={() => { location.hash = '#home'; location.reload(); }}>{copyDictionary.c0ae3398f4a3cc7f0}</button></section></main>;
 }

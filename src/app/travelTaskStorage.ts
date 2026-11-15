@@ -1,5 +1,6 @@
 import { deviceCard } from './journey.ts'
 import { buildTravelTaskPlan } from './travelPlan.ts'
+import {forbiddenInterfaceCopy} from './copyPolicy.ts'
 import { allTravelActions } from './travelTaskTypes.ts'
 import type { CustomTravelDevice, CustomTravelMode, Device, DeviceCard, TravelContext, TravelDeviceSpecs } from './types'
 import type { TravelTaskPlan, TravelPlanAction } from './travelTaskTypes'
@@ -8,7 +9,7 @@ export const TRAVEL_TASK_KEY = 'smart-accessible-travel-task-v1'
 export interface TravelTaskSnapshot {
   version: 1; mode: string; selected: string[]; specs: Record<string, TravelDeviceSpecs>
   context: TravelContext; devices: Device[]; customModes: CustomTravelMode[]; customDevices: CustomTravelDevice[]
-  plan: TravelTaskPlan; checked: Record<string, string>; savedAt: string; inputKey: string; onlyNext?: boolean; lastViewedPlan?:TravelTaskPlan
+  plan: TravelTaskPlan; checked: Record<string, string>; savedAt: string; inputKey: string; onlyNext?: boolean; displayVersion?:2; lastViewedPlan?:TravelTaskPlan
 }
 const safeUrl = (value: unknown) => { try { const url = new URL(String(value)); return url.protocol === 'https:' && !url.username && !url.password } catch { return false } }
 const validAction = (action: TravelPlanAction) => Boolean(action && typeof action.id==='string' && typeof action.title==='string' && typeof action.detail==='string' && safeUrl(action.evidence?.officialUrl) && Array.isArray(action.anchors))
@@ -26,14 +27,14 @@ export function parseTravelTask(raw: string | null): TravelTaskSnapshot | null {
     if (!value.plan.stages.every(stage => Array.isArray(stage.actions) && stage.actions.length <= 60 && stage.actions.every(action => typeof action.title === 'string' && typeof action.detail === 'string' && safeUrl(action.evidence?.officialUrl)))) return null
     if (!Array.isArray(value.plan.contacts) || !value.plan.contacts.every(contact => typeof contact.phone === 'string' && safeUrl(contact.url))) return null
     if (!value.devices.every(device => ['id','name','type','battery','dimensions','weight'].every(field=>typeof device[field as keyof Device] === 'string'))) return null
-    if (!value.plan.readiness || !Array.isArray(value.plan.generalActions) || !value.plan.completion) {
-      value.plan=buildTravelTaskPlan({mode:value.mode,devices:value.devices,specs:value.specs,context:value.context,now:Date.parse(value.plan.generatedAt)})
+    if (!value.plan.readiness || !Array.isArray(value.plan.generalActions) || !value.plan.completion || forbiddenInterfaceCopy.test(value.plan.summary+' '+value.plan.completion?.statement)) {
+      value.plan=buildTravelTaskPlan({mode:value.mode,devices:value.devices,specs:value.specs,context:value.context,now:Date.parse(value.plan.generatedAt),disabilityProfile:value.plan.disabilityProfile})
       value.checked={};value.inputKey='';delete value.lastViewedPlan
     }
     if (!['preparation','station-only','complete'].includes(value.plan.readiness) || !Array.isArray(value.plan.generalActions) || value.plan.generalActions.length>60 || !allTravelActions(value.plan).every(validAction))return null
     if (!value.plan.stages.every(stage=>stage.actions.length||Boolean(stage.emptyReason))||!validCompletion(value.plan))return null
     if(value.lastViewedPlan&&(!value.lastViewedPlan.completion||!Array.isArray(value.lastViewedPlan.stages)||!allTravelActions(value.lastViewedPlan).every(validAction)||!validCompletion(value.lastViewedPlan)))delete value.lastViewedPlan
-    return { ...value, customModes: value.customModes ?? [], customDevices: value.customDevices ?? [], onlyNext:value.onlyNext!==false }
+    return { ...value, customModes: value.customModes ?? [], customDevices: value.customDevices ?? [], onlyNext:value.displayVersion===2?value.onlyNext===true:value.onlyNext!==false }
   } catch { return null }
 }
 export function readTravelTask(): TravelTaskSnapshot | null {

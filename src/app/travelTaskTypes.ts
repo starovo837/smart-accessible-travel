@@ -14,6 +14,19 @@ export interface TravelActionEvidence {
   sourceTitle?: string
 }
 export interface TravelPlanAction {
+  constraints?: {
+    task: string
+    onlyChannel?: 'visual' | 'auditory'
+    minimumLeadMinutes?: number
+    minimizeWaiting?: boolean
+    directive?: { key: string; value: string }
+  }
+  supportingEvidence?: TravelActionEvidence[]
+  applicableCategories?: import('./disabilityProfile').DisabilityCategory[]
+  conflictCategories?: import('./disabilityProfile').DisabilityCategory[]
+  prerequisites?: string[]
+  priority?: 'safety' | 'advance' | 'access' | 'communication' | 'information'
+  combined?: { reason: string; replacedTitles: string[]; conflict: 'channel' | 'process' | 'instruction' }
   id: string
   title: string
   detail: string
@@ -51,6 +64,7 @@ export interface TravelCompleteness {
   estimatedAdditional: number
 }
 export interface TravelTaskPlan {
+  disabilityProfile?: import('./disabilityProfile').DisabilityProfile
   version: 1
   id: string
   generatedAt: string
@@ -67,9 +81,14 @@ export interface TravelTaskPlan {
   contacts: { name: string; phone: string; url: string }[]
 }
 export function allTravelActions(plan: TravelTaskPlan): TravelPlanAction[] {
-  return [...plan.stages.flatMap(stage => stage.actions), ...(plan.generalActions ?? [])]
+  const actions=[...plan.stages.flatMap(stage => stage.actions), ...(plan.generalActions ?? [])]
+  if(!plan.disabilityProfile)return actions
+  const rank={safety:0,advance:1,access:2,communication:3,information:4}
+  const severity=(action:TravelPlanAction)=>Math.min(5,...plan.disabilityProfile!.selections.filter(item=>action.applicableCategories?.includes(item.category)).map(item=>item.grade??5))
+  return actions.sort((a,b)=>rank[a.priority??'information']-rank[b.priority??'information']||severity(a)-severity(b)||Number(Boolean(b.applicableCategories?.includes(plan.disabilityProfile!.primary!)))-Number(Boolean(a.applicableCategories?.includes(plan.disabilityProfile!.primary!))))
 }
 export interface TravelPlanInput {
+  disabilityProfile?: import('./disabilityProfile').DisabilityProfile
   mode: TravelMode
   devices: Device[]
   specs: Record<string, TravelDeviceSpecs>

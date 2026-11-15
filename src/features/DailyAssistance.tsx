@@ -1,28 +1,96 @@
-import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
-import { Modal, PageHeader } from '../components/UI'
-import { readText, stopReading, copyText } from '../app/accessibility'
-import { dailyTemplates, imageSummary } from '../app/dailyAssistance'
-import type { LifeData } from '../app/types'
-
-interface Props {life:LifeData;setLife:Dispatch<SetStateAction<LifeData>>;saved:boolean;onPrivacy:()=>void;onHelp:()=>void;initialTool?:'menu'|'camera'|'talk'|'steps';onExit?:()=>void}
-export function DailyAssistance({life,setLife,saved,onPrivacy,onHelp,initialTool='menu',onExit}:Props){
- const [tool,setTool]=useState<string>(initialTool),[message,setMessage]=useState(''),[text,setText]=useState(''),[card,setCard]=useState(false),[slow,setSlow]=useState(false)
- const [camera,setCamera]=useState(false),[opening,setOpening]=useState(false)
- const [customTitle,setCustomTitle]=useState(''),[customSteps,setCustomSteps]=useState(''),[task,setTask]=useState<string|null>(null)
- const video=useRef<HTMLVideoElement>(null),photo=useRef<HTMLCanvasElement>(null),stream=useRef<MediaStream|null>(null),epoch=useRef(0)
- const tasks=[...dailyTemplates,...(life.assistance?.tasks??[])],active=tasks.find(item=>item.id===task),progress=life.assistance?.progress??{},index=active?Math.min(progress[active.id]??0,active.steps.length):0
- const stopCamera=()=>{epoch.current++;stream.current?.getTracks().forEach(track=>track.stop());stream.current=null;if(video.current)video.current.srcObject=null;setCamera(false);setOpening(false)}
- useEffect(()=>{const hidden=()=>{if(document.hidden){stopCamera();stopReading()}};document.addEventListener('visibilitychange',hidden);return()=>{epoch.current++;stream.current?.getTracks().forEach(track=>track.stop());stopReading();document.removeEventListener('visibilitychange',hidden)}},[])
- const open=(id:string)=>{stopCamera();stopReading();setTool(id);setTask(null);setMessage('')}
- const speak=(value=text)=>setMessage(readText(value,slow?.75:1)?'正在朗读':'这台浏览器暂不支持朗读，可以展示大字卡片。')
- const startCamera=async()=>{if(opening||camera)return;const version=++epoch.current;setOpening(true);try{if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia)throw Error('摄像头需要 HTTPS 或本机 localhost。也可以选择照片。');const next=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:640}},audio:false});if(epoch.current!==version){next.getTracks().forEach(t=>t.stop());return}stream.current=next;if(video.current){video.current.srcObject=next;await video.current.play()}setCamera(true);setMessage('摄像头已开启，画面只在这台设备处理。')}catch(error){if(version===epoch.current){stream.current?.getTracks().forEach(t=>t.stop());stream.current=null;setMessage((error as Error).message)}}finally{if(version===epoch.current)setOpening(false)}}
- const analyze=(kind:'color'|'light')=>{const canvas=photo.current,source=video.current;if(!canvas)return;if(camera&&source?.videoWidth){canvas.width=320;canvas.height=240;canvas.getContext('2d')!.drawImage(source,0,0,320,240)}if(!canvas.width||!canvas.dataset.loaded&&!camera){setMessage('先打开摄像头，或选择一张照片。');return}const ctx=canvas.getContext('2d')!,result=imageSummary(ctx.getImageData(0,0,canvas.width,canvas.height).data,canvas.width,canvas.height),value=kind==='color'?`画面中央大致为${result.color}。`:`画面整体${result.light}。`;setMessage(value);readText(value,slow?.75:1)}
- const updateProgress=(step:number)=>{if(!active)return;setLife(current=>({...current,assistance:{...current.assistance,tasks:current.assistance?.tasks??[],progress:{...current.assistance?.progress,[active.id]:step}}}))}
- return <section className="daily-assistance" aria-label="日常辅助"><PageHeader level={2} title={tool==='menu'?'随手用的小帮手':tool==='camera'?'看看颜色与明暗':tool==='talk'?'面对面沟通':'一步一步做'} subtitle={tool==='menu'?'选择一个现在用得上的小帮手':undefined} onBack={onExit??(tool==='menu'?undefined:()=>open('menu'))}/>
- {tool==='menu'&&<div className="daily-tool-menu"><button onClick={()=>open('camera')}><strong>看看颜色与明暗</strong><span>摄像头或照片，本机处理</span></button><button onClick={()=>open('talk')}><strong>面对面沟通</strong><span>打字朗读、常用话语与大字卡</span></button><button onClick={()=>open('steps')}><strong>一步一步做</strong><span>生活小任务，也可以写自己的步骤</span></button><button onClick={onHelp}><strong>需要他人协助</strong><span>打开已有的求助沟通卡</span></button></div>}
- {tool==='camera'&&<><p>把物品放在画面中央。受光照和摄像头影响，颜色与明暗只供辨认参考，不能探测障碍物或判断通行安全。</p><div className="daily-camera"><video ref={video} muted playsInline aria-label="摄像头预览" hidden={!camera}/><canvas ref={photo} aria-label="已选照片" hidden={camera}/>{!camera&&<span>选择照片，或打开摄像头</span>}</div><div className="daily-actions"><button disabled={opening||camera} onClick={startCamera}>{opening?'正在打开…':'打开摄像头'}</button><button disabled={!camera} onClick={stopCamera}>关闭摄像头</button><label className="daily-photo-input">选择照片<input type="file" accept="image/png,image/jpeg,image/webp" onChange={async e=>{const file=e.target.files?.[0];if(!file)return;stopCamera();try{if(file.size>8*1024*1024||!['image/png','image/jpeg','image/webp'].includes(file.type))throw Error('请选择不超过8MB的PNG、JPEG或WebP照片。');const bitmap=await createImageBitmap(file),canvas=photo.current!;canvas.width=320;canvas.height=Math.max(1,Math.round(320*bitmap.height/bitmap.width));canvas.getContext('2d')!.drawImage(bitmap,0,0,canvas.width,canvas.height);canvas.dataset.loaded='true';bitmap.close();setMessage('照片已就绪，没有上传或保存。')}catch(error){setMessage((error as Error).message)}e.target.value=''}}/></label></div><div className="daily-actions"><button onClick={()=>analyze('color')}>辨认中央颜色</button><button onClick={()=>analyze('light')}>查看画面明暗</button></div><p>不会保存照片；切换工具、离开本页或把页面切到后台会关闭摄像头。</p></>}
- {tool==='talk'&&<><label>想表达的内容<textarea maxLength={2000} value={text} onChange={e=>setText(e.target.value)} placeholder="输入想表达的内容，也可选择下方常用话语。"/></label><div className="daily-phrases">{[...new Set(['请面对我说话，也可以写下来。','请给我一点时间。','我需要无障碍通道，请告诉我怎么走。','谢谢，我可以自己完成。',...(life.assistance?.phrases??[])])].map(phrase=><button key={phrase} onClick={()=>setText(phrase)}>{phrase}</button>)}</div><button disabled={!text.trim()||(life.assistance?.phrases?.length??0)>=20} onClick={()=>{setLife(current=>({...current,assistance:{...current.assistance,tasks:current.assistance?.tasks??[],progress:current.assistance?.progress??{},phrases:[...new Set([...(current.assistance?.phrases??[]),text.trim().slice(0,120)])]}}));setMessage('已加入常用话语，保存范围随生活资料授权。')}}>加入我的常用话语</button><div className="daily-actions"><button disabled={!text.trim()} onClick={()=>speak()}>读出来</button><button onClick={stopReading}>停止朗读</button><button disabled={!text.trim()} onClick={()=>setCard(true)}>展示大字卡</button><button disabled={!text.trim()} onClick={async()=>setMessage(await copyText(text)?'文字已复制，尚未发送。':'复制未完成，请直接选择文字复制。')}>复制文字</button></div><label className="switch-line"><input type="checkbox" checked={slow} onChange={e=>setSlow(e.target.checked)}/>慢一点朗读</label></>}
- {tool==='steps'&&<>{active?<><div className="daily-current-step" role="status"><span>{index<active.steps.length?`第 ${index+1} / ${active.steps.length} 步`:'已经完成'}</span><h3>{active.title}</h3><p>{active.steps[index]??'辛苦了，可以休息一下，也可以重新开始。'}</p></div><div className="daily-actions"><button disabled={!index} onClick={()=>updateProgress(index-1)}>上一步</button><button onClick={()=>speak(active.steps[index]??'已经完成')}>读给我听</button><button onClick={()=>updateProgress(index<active.steps.length?index+1:0)}>{index<active.steps.length?'这步完成了':'重新开始'}</button><button onClick={()=>setTask(null)}>稍后再做</button></div></>:<><div className="daily-tool-menu">{tasks.map(item=><button key={item.id} onClick={()=>setTask(item.id)}><strong>{item.title}</strong><span>{progress[item.id]>=item.steps.length?'已完成':progress[item.id]?`继续第 ${progress[item.id]+1} 步`:`${item.steps.length} 个步骤`}</span></button>)}</div><details><summary>写一个自己的任务</summary><label>任务名称<input maxLength={60} value={customTitle} onChange={e=>setCustomTitle(e.target.value)}/></label><label>每行写一个步骤<textarea maxLength={2500} value={customSteps} onChange={e=>setCustomSteps(e.target.value)}/></label><button onClick={()=>{const steps=customSteps.split('\n').map(s=>s.trim()).filter(Boolean);if(!customTitle.trim()||steps.length<2||steps.length>20){setMessage('请填写任务名称，并写下2到20个步骤。');return}if((life.assistance?.tasks.length??0)>=30){setMessage('已保存30个任务，请先移除不再需要的任务。');return}setLife(current=>({...current,assistance:{...current.assistance,tasks:[...(current.assistance?.tasks??[]),{id:'daily-'+Date.now(),title:customTitle.trim(),steps}],progress:current.assistance?.progress??{}}}));setCustomTitle('');setCustomSteps('');setMessage('任务已加入。')}}>加入任务</button></details>{life.assistance?.tasks.map(item=><button key={item.id} onClick={()=>setLife(current=>({...current,assistance:{...current.assistance,tasks:current.assistance!.tasks.filter(t=>t.id!==item.id),progress:Object.fromEntries(Object.entries(current.assistance!.progress).filter(([id])=>id!==item.id))}}))}>移除任务：{item.title}</button>)}</>}<p>{saved?'任务进度随已授权的生活资料自动保存。':'任务只在本次使用中保留；若想刷新后继续，可在“隐私与数据”允许保存生活资料。'}</p>{!saved&&<button onClick={onPrivacy}>设置资料保存</button>}</>}
- <p className="daily-message" role="status">{message}</p>{card&&<Modal title="大字沟通卡" onClose={()=>setCard(false)}><p className="daily-big-card">{text}</p><button onClick={()=>speak()}>读出来</button><button onClick={()=>setCard(false)}>收起卡片</button></Modal>}
- </section>
+import { copyDictionary } from "../app/copyDictionary.ts";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { Modal, PageHeader } from '../components/UI';
+import { readText, stopReading, copyText } from '../app/accessibility';
+import { dailyTemplates, imageSummary } from '../app/dailyAssistance';
+import type { LifeData } from '../app/types';
+interface Props {
+    life: LifeData;
+    setLife: Dispatch<SetStateAction<LifeData>>;
+    saved: boolean;
+    onPrivacy: () => void;
+    onHelp: () => void;
+    initialTool?: 'menu' | 'camera' | 'talk' | 'steps';
+    onExit?: () => void;
+}
+export function DailyAssistance({ life, setLife, saved, onPrivacy, onHelp, initialTool = 'menu', onExit }: Props) {
+    const [tool, setTool] = useState<string>(initialTool), [message, setMessage] = useState(''), [text, setText] = useState(''), [card, setCard] = useState(false), [slow, setSlow] = useState(false);
+    const [camera, setCamera] = useState(false), [opening, setOpening] = useState(false);
+    const [customTitle, setCustomTitle] = useState(''), [customSteps, setCustomSteps] = useState(''), [task, setTask] = useState<string | null>(null);
+    const video = useRef<HTMLVideoElement>(null), photo = useRef<HTMLCanvasElement>(null), stream = useRef<MediaStream | null>(null), epoch = useRef(0);
+    const tasks = [...dailyTemplates, ...(life.assistance?.tasks ?? [])], active = tasks.find(item => item.id === task), progress = life.assistance?.progress ?? {}, index = active ? Math.min(progress[active.id] ?? 0, active.steps.length) : 0;
+    const stopCamera = () => { epoch.current++; stream.current?.getTracks().forEach(track => track.stop()); stream.current = null; if (video.current)
+        video.current.srcObject = null; setCamera(false); setOpening(false); };
+    useEffect(() => { const hidden = () => { if (document.hidden) {
+        stopCamera();
+        stopReading();
+    } }; document.addEventListener('visibilitychange', hidden); return () => { epoch.current++; stream.current?.getTracks().forEach(track => track.stop()); stopReading(); document.removeEventListener('visibilitychange', hidden); }; }, []);
+    const open = (id: string) => { stopCamera(); stopReading(); setTool(id); setTask(null); setMessage(''); };
+    const speak = (value = text) => setMessage(readText(value, slow ? .75 : 1) ? copyDictionary.c1ead396a0d02b0f0 : copyDictionary.ca256f7d9084c6f56);
+    const startCamera = async () => { if (opening || camera)
+        return; const version = ++epoch.current; setOpening(true); try {
+        if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia)
+            throw Error(copyDictionary.c9b47be687c91ee9b);
+        const next = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 640 } }, audio: false });
+        if (epoch.current !== version) {
+            next.getTracks().forEach(t => t.stop());
+            return;
+        }
+        stream.current = next;
+        if (video.current) {
+            video.current.srcObject = next;
+            await video.current.play();
+        }
+        setCamera(true);
+        setMessage(copyDictionary.c9627aef39582f407);
+    }
+    catch (error) {
+        if (version === epoch.current) {
+            stream.current?.getTracks().forEach(t => t.stop());
+            stream.current = null;
+            setMessage((error as Error).message);
+        }
+    }
+    finally {
+        if (version === epoch.current)
+            setOpening(false);
+    } };
+    const analyze = (kind: 'color' | 'light') => { const canvas = photo.current, source = video.current; if (!canvas)
+        return; if (camera && source?.videoWidth) {
+        canvas.width = 320;
+        canvas.height = 240;
+        canvas.getContext('2d')!.drawImage(source, 0, 0, 320, 240);
+    } if (!canvas.width || !canvas.dataset.loaded && !camera) {
+        setMessage(copyDictionary.cdc4694402cdd4e5d);
+        return;
+    } const ctx = canvas.getContext('2d')!, result = imageSummary(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height), value = kind === 'color' ? copyDictionary.c9e6640d5e12bf39d + result.color + copyDictionary.ceb0d5884569b398e : copyDictionary.cf68e26558472982f + result.light + copyDictionary.ceb0d5884569b398e; setMessage(value); readText(value, slow ? .75 : 1); };
+    const updateProgress = (step: number) => { if (!active)
+        return; setLife(current => ({ ...current, assistance: { ...current.assistance, tasks: current.assistance?.tasks ?? [], progress: { ...current.assistance?.progress, [active.id]: step } } })); };
+    return <section className="daily-assistance" aria-label={copyDictionary.c114c5c04c005c985}><PageHeader level={2} title={tool === 'menu' ? copyDictionary.ce56fb8dc776b927f : tool === 'camera' ? copyDictionary.cda40a134e9c84886 : tool === 'talk' ? copyDictionary.cb46982e5abfcf11f : copyDictionary.c30db6518cc83b35c} subtitle={tool === 'menu' ? copyDictionary.cdbe98b566bb10dac : undefined} onBack={onExit ?? (tool === 'menu' ? undefined : () => open('menu'))}/>
+ {tool === 'menu' && <div className="daily-tool-menu"><button onClick={() => open('camera')}><strong>{copyDictionary.cda40a134e9c84886}</strong><span>{copyDictionary.c20ed1517eddcffe1}</span></button><button onClick={() => open('talk')}><strong>{copyDictionary.cb46982e5abfcf11f}</strong><span>{copyDictionary.c35b35201f60b1e6b}</span></button><button onClick={() => open('steps')}><strong>{copyDictionary.c30db6518cc83b35c}</strong><span>{copyDictionary.c99c1104ff6cc10ff}</span></button><button onClick={onHelp}><strong>{copyDictionary.c77fea22f2216bd42}</strong><span>{copyDictionary.cb69555eab55faaa7}</span></button></div>}
+ {tool === 'camera' && <><p>{copyDictionary.c0cb91871b020fee6}</p><div className="daily-camera"><video ref={video} muted playsInline aria-label={copyDictionary.c0cad8bdbc53b2ca8} hidden={!camera}/><canvas ref={photo} aria-label={copyDictionary.cb69c1ccd00482ba4} hidden={camera}/>{!camera && <span>{copyDictionary.c2d5670ed4a734e9e}</span>}</div><div className="daily-actions"><button disabled={opening || camera} onClick={startCamera}>{opening ? copyDictionary.c821ffb8cd6a23594 : copyDictionary.cfe582aebd5e7f492}</button><button disabled={!camera} onClick={stopCamera}>{copyDictionary.c6941fa50f54bad84}</button><label className="daily-photo-input">{copyDictionary.ccae3ab4bfdb21193}<input type="file" accept="image/png,image/jpeg,image/webp" onChange={async (e) => { const file = e.target.files?.[0]; if (!file)
+        return; stopCamera(); try {
+        if (file.size > 8 * 1024 * 1024 || !['image/png', 'image/jpeg', 'image/webp'].includes(file.type))
+            throw Error(copyDictionary.cc72b9c5711ec2462);
+        const bitmap = await createImageBitmap(file), canvas = photo.current!;
+        canvas.width = 320;
+        canvas.height = Math.max(1, Math.round(320 * bitmap.height / bitmap.width));
+        canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        canvas.dataset.loaded = 'true';
+        bitmap.close();
+        setMessage(copyDictionary.cda2aab5e9012bcc0);
+    }
+    catch (error) {
+        setMessage((error as Error).message);
+    } e.target.value = ''; }}/></label></div><div className="daily-actions"><button onClick={() => analyze('color')}>{copyDictionary.c97d788721a876126}</button><button onClick={() => analyze('light')}>{copyDictionary.c851d2f85131bc99f}</button></div><p>{copyDictionary.ccf65054af2e3e8ad}</p></>}
+ {tool === 'talk' && <><label>{copyDictionary.cb79b8c6969520e29}<textarea maxLength={2000} value={text} onChange={e => setText(e.target.value)} placeholder={copyDictionary.cbf3b7b31ed5847f4}/></label><div className="daily-phrases">{[...new Set([copyDictionary.c83f6acfc9525bcfe, copyDictionary.c819cbae18336cc49, copyDictionary.c0ee2bbb7a0d4e13e, copyDictionary.c404b5a8544901de4, ...(life.assistance?.phrases ?? [])])].map(phrase => <button key={phrase} onClick={() => setText(phrase)}>{phrase}</button>)}</div><button disabled={!text.trim() || (life.assistance?.phrases?.length ?? 0) >= 20} onClick={() => { setLife(current => ({ ...current, assistance: { ...current.assistance, tasks: current.assistance?.tasks ?? [], progress: current.assistance?.progress ?? {}, phrases: [...new Set([...(current.assistance?.phrases ?? []), text.trim().slice(0, 120)])] } })); setMessage(copyDictionary.c974023fa0568270a); }}>{copyDictionary.c0c9b03f607507cd1}</button><div className="daily-actions"><button disabled={!text.trim()} onClick={() => speak()}>{copyDictionary.cfb0c375a15005733}</button><button onClick={stopReading}>{copyDictionary.c6113d2b22a57df3a}</button><button disabled={!text.trim()} onClick={() => setCard(true)}>{copyDictionary.c04887c30f39bdddd}</button><button disabled={!text.trim()} onClick={async () => setMessage(await copyText(text) ? copyDictionary.c3bb8fb00d8dd284b : copyDictionary.cac287766821bf449)}>{copyDictionary.c29636e43fdb4f595}</button></div><label className="switch-line"><input type="checkbox" checked={slow} onChange={e => setSlow(e.target.checked)}/>{copyDictionary.c7c1a9ce293652550}</label></>}
+ {tool === 'steps' && <>{active ? <><div className="daily-current-step" role="status"><span>{index < active.steps.length ? copyDictionary.c9552fe3bd366b214 + (index + 1) + copyDictionary.c005e1574a2b5c816 + active.steps.length + copyDictionary.ce010e3f578ccc221 : copyDictionary.c7bc40dc3cf575122}</span><h3>{active.title}</h3><p>{active.steps[index] ?? copyDictionary.c238653ea0de41629}</p></div><div className="daily-actions"><button disabled={!index} onClick={() => updateProgress(index - 1)}>{copyDictionary.cda336fdc0dbd1818}</button><button onClick={() => speak(active.steps[index] ?? copyDictionary.c7bc40dc3cf575122)}>{copyDictionary.cc7fc3b871df86092}</button><button onClick={() => updateProgress(index < active.steps.length ? index + 1 : 0)}>{index < active.steps.length ? copyDictionary.c3970f92d46b7235b : copyDictionary.ccc92cb4b8980dc15}</button><button onClick={() => setTask(null)}>{copyDictionary.c01974468b4e126bd}</button></div></> : <><div className="daily-tool-menu">{tasks.map(item => <button key={item.id} onClick={() => setTask(item.id)}><strong>{item.title}</strong><span>{progress[item.id] >= item.steps.length ? copyDictionary.cf28461bb49c85647 : progress[item.id] ? copyDictionary.c03517afb2407b71f + (progress[item.id] + 1) + copyDictionary.ce010e3f578ccc221 : copyDictionary.ce3b0c44298fc1c14 + item.steps.length + copyDictionary.ca178f38f6539f4ed}</span></button>)}</div><details><summary>{copyDictionary.cec3d8dde4c509998}</summary><label>{copyDictionary.c2479560deb339bea}<input maxLength={60} value={customTitle} onChange={e => setCustomTitle(e.target.value)}/></label><label>{copyDictionary.c9d0410ede5dabef2}<textarea maxLength={2500} value={customSteps} onChange={e => setCustomSteps(e.target.value)}/></label><button onClick={() => { const steps = customSteps.split('\n').map(s => s.trim()).filter(Boolean); if (!customTitle.trim() || steps.length < 2 || steps.length > 20) {
+        setMessage(copyDictionary.cf8f3e41ca2ac3083);
+        return;
+    } if ((life.assistance?.tasks.length ?? 0) >= 30) {
+        setMessage(copyDictionary.ce12a80fd361efc71);
+        return;
+    } setLife(current => ({ ...current, assistance: { ...current.assistance, tasks: [...(current.assistance?.tasks ?? []), { id: 'daily-' + Date.now(), title: customTitle.trim(), steps }], progress: current.assistance?.progress ?? {} } })); setCustomTitle(''); setCustomSteps(''); setMessage(copyDictionary.c552ed2279bb1c1c5); }}>{copyDictionary.c9baaedbedb6ae7e0}</button></details>{life.assistance?.tasks.map(item => <button key={item.id} onClick={() => setLife(current => ({ ...current, assistance: { ...current.assistance, tasks: current.assistance!.tasks.filter(t => t.id !== item.id), progress: Object.fromEntries(Object.entries(current.assistance!.progress).filter(([id]) => id !== item.id)) } }))}>{copyDictionary.ce86fe0345aef8a0f}{item.title}</button>)}</>}<p>{saved ? copyDictionary.c4c03c93bc47ad953 : copyDictionary.cdf4dc6e3856209a2}</p>{!saved && <button onClick={onPrivacy}>{copyDictionary.c055078c874caded0}</button>}</>}
+ <p className="daily-message" role="status">{message}</p>{card && <Modal title={copyDictionary.c9e733bd4509ec66a} onClose={() => setCard(false)}><p className="daily-big-card">{text}</p><button onClick={() => speak()}>{copyDictionary.cfb0c375a15005733}</button><button onClick={() => setCard(false)}>{copyDictionary.c02168a6acb23d3a9}</button></Modal>}
+ </section>;
 }

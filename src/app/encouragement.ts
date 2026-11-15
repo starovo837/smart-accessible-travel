@@ -1,143 +1,142 @@
-export type EncouragementContext = 'home' | 'support' | 'services' | 'hospital' | 'scene' | 'fitting' | 'shopping' | 'travel' | 'daily' | 'assistant' | 'profile'
-
+import { copyDictionary } from "./copyDictionary.ts";
+export type EncouragementContext = 'home' | 'support' | 'services' | 'hospital' | 'scene' | 'fitting' | 'shopping' | 'travel' | 'daily' | 'assistant' | 'profile';
 /** General, non-clinical copy. No profile or personal record is used to choose a message. */
 export const encouragementMessages: Record<EncouragementContext, readonly string[]> = {
-  home: [
-    '按自己的节奏来，今天也可以从一件小事开始。',
-    '你的感受和选择，都值得被认真对待。',
-    '需要时寻求支持，也是照顾自己的方式。',
-    '今天想先做什么，由你决定。',
-    '把事情分成小步，走到哪一步都算数。',
-    '愿今天有一点轻松，也有一点属于自己的时间。',
-    '做喜欢的事，也可以是今天的重要安排。',
-    '暂时停一停，再出发也来得及。',
-  ],
-  support: [
-    '每个人需要的支持不同，你可以自由选择。',
-    '让工具适应你的习惯，也是一种好的开始。',
-    '表达自己的需要，不必先向别人解释所有经历。',
-    '选择一种顺手的方式，让今天更方便一点。',
-    '可以多试几种工具，留下自己喜欢的。',
-    '你的偏好很重要，辅助方式也可以随时调整。',
-    '不必一次学会全部，从眼前需要的功能开始。',
-    '适合你的帮助，可以由你来定义。',
-  ],
-  services: [
-    '你可以说出自己的需要，也可以选择适合自己的方式。',
-    '合适的支持，可以从说清自己的需要开始。',
-    '选择可以慢慢比较，决定始终由你来做。',
-    '问清服务的细节，是在认真照顾自己的需要。',
-    '遇到不合适的安排，你可以提出调整。',
-    '需要陪同还是独立办理，都可以按自己的意愿选择。',
-    '保留自己的问题，沟通时一件一件说清楚。',
-    '一时没找到合适的渠道，也可以换一种方式再找。',
-  ],
-  hospital: [
-    '看诊时，你可以慢慢说明，也可以请对方再解释一次。',
-    '你的疑问值得被听见，需要的支持也可以说出来。',
-    '问清楚、再决定，按你能理解的节奏来。',
-    '把在意的问题记下来，就不用急着一次想全。',
-    '可以请工作人员用更方便理解的方式说明。',
-    '身体的感受，由你来描述；疑问也可以继续追问。',
-    '等候的时候，可以为自己留一点休息的时间。',
-    '照顾自己，也包括让自己的意愿被认真听见。',
-  ],
-  scene: [
-    '准备可以一步一步来，适合自己的安排最重要。',
-    '无论今天安排多少，都可以按自己的节奏来。',
-    '提前了解环境，是为自己的选择多留一点余地。',
-    '有些安排可以调整，不必勉强自己赶上别人的节奏。',
-    '把需要的东西准备好，也给自己留一点休息的余地。',
-    '临时改变计划没有关系，方便和舒适同样重要。',
-    '先完成眼前的一步，再决定接下来怎么走。',
-    '你可以选择独自完成，也可以邀请信任的人一起。',
-  ],
-  fitting: [
-    '舒适和方便，由你的感受来决定。',
-    '适合自己的方式，可以慢慢试、慢慢找。',
-    '你的使用习惯，值得成为选择的重要依据。',
-    '每一处合适的小细节，都可能让日常轻松一点。',
-    '试配时可以多比较几次，不必急着做决定。',
-    '你熟悉自己的身体，试用感受值得被认真记录。',
-    '好用的辅具，应当服务于你想过的生活。',
-    '调整尺寸和姿势，是在寻找更适合自己的方式。',
-  ],
-  shopping: [
-    '慢慢比较，给自己的选择留一点时间。',
-    '合适比热门更重要，你的日常需要值得放在前面。',
-    '参数看不懂时，可以一项一项问清楚。',
-    '不合适也可以放下，选择权一直在你手里。',
-    '把最在意的使用场景写下来，比较时会更有方向。',
-    '便于操作、舒适顺手，都是值得认真考虑的优点。',
-    '购买前多问一句，也是在照顾今后的自己。',
-    '预算和偏好都值得被尊重，选择可以按你的需要来。',
-  ],
-  travel: [
-    '按自己的节奏准备，路上也可以为休息留出时间。',
-    '说清需要的协助，让出行安排更贴近你的习惯。',
-    '提前确认一件事，就能少一份临时忙乱。',
-    '出发的方式有很多，适合自己的那种就很好。',
-    '遇到不清楚的流程，可以请工作人员再说明一次。',
-    '行程可以留些余地，舒适地到达也很重要。',
-    '想去的地方值得期待，准备工作可以一步一步来。',
-    '需要停下休息时，不必为自己的节奏感到抱歉。',
-  ],
-  daily: [
-    '生活里的小便利，也值得认真安排。',
-    '今天做多少，可以由自己的状态决定。',
-    '给自己留一点空闲，日常也可以有喜欢的节奏。',
-    '把需要记住的事交给清单，给自己腾一点空间。',
-    '顺手的工具和舒服的环境，都是照顾自己的方式。',
-    '完成一件小事之后，也可以歇一会儿。',
-    '不必把每一天安排得一样，生活可以有不同节奏。',
-    '那些让你觉得轻松的小办法，值得留给自己。',
-  ],
-  assistant: [
-    '问题可以慢慢说，不需要一次表达得很完整。',
-    '没弄明白也没关系，可以换一种说法再问。',
-    '你可以随时补充、改正，按自己的思路往下聊。',
-    '先问最在意的一件事，其他问题可以接着来。',
-    '理解需要一点时间，你可以请对方解释得更简单。',
-    '想确认的细节，都可以再多问一句。',
-    '表达自己的想法，有很多种同样重要的方式。',
-    '不急着下结论，先把需要的信息找齐。',
-  ],
-  profile: [
-    '你的资料和偏好，由你自己决定怎样保留。',
-    '辅助设置可以随时调整，适合现在的自己就好。',
-    '不想填写的内容，可以先留空。',
-    '需要什么支持，你可以在不同的时候给出不同答案。',
-    '改变偏好很平常，工具也可以跟着你一起调整。',
-    '为自己选一个舒服的字号，也是一件重要的小事。',
-    '保留习惯，也保留随时改变的自由。',
-    '你的意愿很重要，分享和保存都可以由你选择。',
-  ],
-}
-
-const contexts = Object.keys(encouragementMessages) as EncouragementContext[]
-
+    home: [
+        copyDictionary.c0fa14323ddb7f2c9,
+        copyDictionary.c15d8c8c9fb1288eb,
+        copyDictionary.c46b1cbbd41d93b40,
+        copyDictionary.c90202b0da76d3965,
+        copyDictionary.c2564dbf969a28be0,
+        copyDictionary.cf1e0d68cee54d87f,
+        copyDictionary.c86117df226ba3b89,
+        copyDictionary.cf84c849742ec47f3,
+    ],
+    support: [
+        copyDictionary.c2593dcbce6085df1,
+        copyDictionary.c7a856c2cb033fc8d,
+        copyDictionary.cde6b7972e22dc924,
+        copyDictionary.cf5806e2bfcdb2f44,
+        copyDictionary.cfd0a5fa42332de19,
+        copyDictionary.c348ab3169d9b1820,
+        copyDictionary.c26a16808b66e47b4,
+        copyDictionary.cf045cc550ed3fe6f,
+    ],
+    services: [
+        copyDictionary.c2375b36575cbd9d6,
+        copyDictionary.cdf90c744f3c3178c,
+        copyDictionary.c68d64a0da65f4c59,
+        copyDictionary.c1f1123c441fb39ee,
+        copyDictionary.cf98098b1f4891f1d,
+        copyDictionary.c11b75ba36b840785,
+        copyDictionary.c84469689e4666b97,
+        copyDictionary.c33e2e74e82ec8732,
+    ],
+    hospital: [
+        copyDictionary.c301e1ed4171e4514,
+        copyDictionary.c2db7ba182fc8c90d,
+        copyDictionary.c676b807061c25268,
+        copyDictionary.c39387d209945efd1,
+        copyDictionary.ce0d193df19b8b07a,
+        copyDictionary.cdad0e0adc08b0dd5,
+        copyDictionary.ccb68df8bdc7f198f,
+        copyDictionary.cc730326a146aa0b2,
+    ],
+    scene: [
+        copyDictionary.c7731bafa46091148,
+        copyDictionary.c65e5df227d602712,
+        copyDictionary.c80d571ed0766b799,
+        copyDictionary.c94a0a4078dce460c,
+        copyDictionary.c3babba0e9486b3ce,
+        copyDictionary.c8c90d6e3d77b9775,
+        copyDictionary.cb69bf19c20466879,
+        copyDictionary.c4f962c4bc33f7376,
+    ],
+    fitting: [
+        copyDictionary.c02ad4068c9cf30cf,
+        copyDictionary.c82001ddb418d5490,
+        copyDictionary.c4d743c18677f7f21,
+        copyDictionary.c3e8b2e12a0a8bd1d,
+        copyDictionary.c1cb05f815fc5c65b,
+        copyDictionary.c0a35dfc9ffd7821f,
+        copyDictionary.c8d3ba39363f2293e,
+        copyDictionary.c09056e1fb452fd5b,
+    ],
+    shopping: [
+        copyDictionary.c57f3311780414594,
+        copyDictionary.c6d9e31dd15a7ca55,
+        copyDictionary.cbf93395527e71b4f,
+        copyDictionary.cbd15be80992d3762,
+        copyDictionary.cd02dcd57fe3e2f79,
+        copyDictionary.c4d13d9d0948de2fc,
+        copyDictionary.cae12814dede50f58,
+        copyDictionary.c9e61de346fb4391a,
+    ],
+    travel: [
+        copyDictionary.c61d0475d00c6ef0f,
+        copyDictionary.ca6f99c935e2a9c4c,
+        copyDictionary.c011085bb73a09282,
+        copyDictionary.c1f39302fef079d56,
+        copyDictionary.c4b49e035e69be870,
+        copyDictionary.c555a5f3623e97a7b,
+        copyDictionary.cddc868135b766f75,
+        copyDictionary.cf85a4502c6465c35,
+    ],
+    daily: [
+        copyDictionary.ce7abf69798b3ffd8,
+        copyDictionary.cd68d6e3ba1d77dc4,
+        copyDictionary.c3685e7165282fa1c,
+        copyDictionary.cae0eb7c6684e7897,
+        copyDictionary.ca99e2244548f0bcc,
+        copyDictionary.c96c411ce3cb50d19,
+        copyDictionary.ce67bb234c4a96d0f,
+        copyDictionary.c815e0861aeabf015,
+    ],
+    assistant: [
+        copyDictionary.c9cd3db79f304eef0,
+        copyDictionary.c5f72b58a79da91c7,
+        copyDictionary.c07ae4737bd1c6a9d,
+        copyDictionary.ca337bb99128cc23d,
+        copyDictionary.ca640e9181ef3e01b,
+        copyDictionary.c315ffbd702330ed5,
+        copyDictionary.cd17782843819c988,
+        copyDictionary.c2490a5169e01444c,
+    ],
+    profile: [
+        copyDictionary.cda70851098c9721d,
+        copyDictionary.c3b4c665d799a345d,
+        copyDictionary.cc98af4310f23f8cd,
+        copyDictionary.cf41c15b2391c51e2,
+        copyDictionary.cbda2cc8739d90195,
+        copyDictionary.c1cf979d5ca438fa4,
+        copyDictionary.c4b9b95ddbd6cb43f,
+        copyDictionary.c291eae39810a9068,
+    ],
+};
+const contexts = Object.keys(encouragementMessages) as EncouragementContext[];
 /** Every supported context has a note; the date is only a repeatable starting point. */
 export function selectEncouragement(context: EncouragementContext, date: Date = new Date(), variation = 0): string | null {
-  if (!Number.isFinite(date.getTime()) || !Number.isSafeInteger(variation)) return null
-  const choices = encouragementMessages[context]
-  if (!choices) return null
-  const day = Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86_400_000)
-  const index = day + contexts.indexOf(context) * 3 + variation
-  return choices[((index % choices.length) + choices.length) % choices.length]
+    if (!Number.isFinite(date.getTime()) || !Number.isSafeInteger(variation))
+        return null;
+    const choices = encouragementMessages[context];
+    if (!choices)
+        return null;
+    const day = Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000);
+    const index = day + contexts.indexOf(context) * 3 + variation;
+    return choices[((index % choices.length) + choices.length) % choices.length];
 }
-
 /** In-memory rotation, without storage, profile access, timers, or automatic announcements. */
 export function createEncouragementCycle() {
-  const previous = new Map<EncouragementContext, string>()
-  return (context: EncouragementContext, date: Date = new Date()): string | null => {
-    const first = selectEncouragement(context, date)
-    if (!first) return null
-    const choices = encouragementMessages[context]
-    const last = previous.get(context)
-    const message = last ? choices[(choices.indexOf(last) + 1) % choices.length] : first
-    previous.set(context, message)
-    return message
-  }
+    const previous = new Map<EncouragementContext, string>();
+    return (context: EncouragementContext, date: Date = new Date()): string | null => {
+        const first = selectEncouragement(context, date);
+        if (!first)
+            return null;
+        const choices = encouragementMessages[context];
+        const last = previous.get(context);
+        const message = last ? choices[(choices.indexOf(last) + 1) % choices.length] : first;
+        previous.set(context, message);
+        return message;
+    };
 }
-
-export const nextEncouragement = createEncouragementCycle()
+export const nextEncouragement = createEncouragementCycle();

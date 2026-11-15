@@ -1,18 +1,65 @@
-import { RuleReview } from './RuleReview'
-import { useEffect, useState } from 'react'
-import { service, prepareService } from '../app/service'
-import { PrimaryButton } from '../components/UI'
-import type { Feedback } from '../app/types'
-export interface CaseRecord {id:string;subject:string;text:string;status:string;revision:number;events:{at:string;actor:string;text:string;status:string}[]}
-const labels:Record<string,string>={submitted:'已提交，待处理',reviewing:'正在核查','needs-info':'需要补充资料',resolved:'处理人已给出核查结论',closed:'已关闭'}
-export function CaseTracking({items}:{items:Feedback[]}){
- const [records,setRecords]=useState<CaseRecord[]>([]),[message,setMessage]=useState(''),[reply,setReply]=useState<Record<string,string>>({})
- const refresh=async()=>{const fetched:CaseRecord[]=[];for(const item of items.filter(item=>item.serverId&&item.accessToken)){try{fetched.push(await service<CaseRecord>('cases/'+item.serverId,undefined,item.accessToken))}catch(error){setMessage((error as Error).message)}}setRecords(fetched)}
- useEffect(()=>{void refresh()},[items])
- return <section><h3>纠错记录与处理进度</h3><p>只有主动提交的内容交给当前服务。处理人尚未回复时，不显示“已修正”。</p><button onClick={()=>void refresh()}>刷新处理进度</button>{items.map(item=>{const record=records.find(row=>row.id===item.serverId);return <article className="record-row" key={item.id}><h3>{item.subject}</h3><p>{item.text}</p><p>{record?labels[record.status]??record.status:item.serverId?'服务暂未连接，保留追踪凭据':'本机待处理，尚未提交'}</p>{record?.events.map((event,index)=><p key={index}>{new Date(event.at).toLocaleString('zh-CN')} · {event.actor}：{event.text}</p>)}{record&&<><label>补充资料<textarea value={reply[item.id]??''} onChange={e=>setReply({...reply,[item.id]:e.target.value})}/></label><button disabled={!reply[item.id]?.trim()} onClick={async()=>{try{await service('cases/'+item.serverId+'/reply',{text:reply[item.id]},item.accessToken);setReply({...reply,[item.id]:''});await refresh();setMessage('补充内容已提交。')}catch(error){setMessage((error as Error).message)}}}>提交补充资料</button></>}</article>})}<p role="status">{message}</p></section>
+import { copyDictionary } from "../app/copyDictionary.ts";
+import { RuleReview } from './RuleReview';
+import { useEffect, useState } from 'react';
+import { service, prepareService } from '../app/service';
+import { PrimaryButton } from '../components/UI';
+import type { Feedback } from '../app/types';
+export interface CaseRecord {
+    id: string;
+    subject: string;
+    text: string;
+    status: string;
+    revision: number;
+    events: {
+        at: string;
+        actor: string;
+        text: string;
+        status: string;
+    }[];
 }
-export function ReviewDesk(){
- const [records,setRecords]=useState<CaseRecord[]>([]),[message,setMessage]=useState(''),[reviewer,setReviewer]=useState(''),[note,setNote]=useState(''),[reference,setReference]=useState(''),[status,setStatus]=useState('reviewing')
- const refresh=async()=>{try{await prepareService();setRecords((await service<{cases:CaseRecord[]}>('review/cases')).cases);setMessage('工作台已连接当前电脑的实际记录。')}catch(error){setMessage((error as Error).message)}}
- return <section className="task-panel"><h2>纠错处理工作台</h2><p>仅服务运行电脑的 localhost 地址可打开。每次操作记录处理人、说明与修正依据，不会自动修改官方规则或用户确认参数。</p><button onClick={()=>void refresh()}>连接本机工作台</button><label>处理人<input value={reviewer} maxLength={40} onChange={e=>setReviewer(e.target.value)}/></label><label>核查说明<textarea value={note} onChange={e=>setNote(e.target.value)}/></label><label>依据链接／修正版本／核查结论<input value={reference} onChange={e=>setReference(e.target.value)}/></label><label>处理状态<select value={status} onChange={e=>setStatus(e.target.value)}>{Object.entries(labels).filter(([id])=>id!=='submitted').map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>{records.map(item=><article className="record-row" key={item.id}><h3>{item.subject}</h3><p>{item.text}</p><p>{labels[item.status]} · 版本{item.revision}</p>{item.events.map((event,index)=><p key={index}>{event.actor}：{event.text}</p>)}<PrimaryButton disabled={!reviewer.trim()||!note.trim()||(status==='resolved'&&!reference.trim())} onClick={async()=>{try{await service('review/cases/'+item.id,{revision:item.revision,reviewer,note,reference,status});setNote('');setReference('');await refresh()}catch(error){setMessage((error as Error).message)}}}>提交这条记录的处理结果</PrimaryButton></article>)}<p role="status">{message}</p><RuleReview/></section>
+const labels: Record<string, string> = { submitted: copyDictionary.c55e261e092d9bfbc, reviewing: copyDictionary.cde591721def37421, 'needs-info': copyDictionary.ce76164e009da4b31, resolved: copyDictionary.cfd5ffb11de285d37, closed: copyDictionary.c6744b4c6a9aa0038 };
+export function CaseTracking({ items }: {
+    items: Feedback[];
+}) {
+    const [records, setRecords] = useState<CaseRecord[]>([]), [message, setMessage] = useState(''), [reply, setReply] = useState<Record<string, string>>({});
+    const refresh = async () => { const fetched: CaseRecord[] = []; for (const item of items.filter(item => item.serverId && item.accessToken)) {
+        try {
+            fetched.push(await service<CaseRecord>('cases/' + item.serverId, undefined, item.accessToken));
+        }
+        catch (error) {
+            setMessage((error as Error).message);
+        }
+    } setRecords(fetched); };
+    useEffect(() => { void refresh(); }, [items]);
+    return <section><h3>{copyDictionary.cb1761897488b09cd}</h3><p>{copyDictionary.c442101c71ccdc67e}</p><button onClick={() => void refresh()}>{copyDictionary.cf65ecd7ce1d6f55d}</button>{items.map(item => { const record = records.find(row => row.id === item.serverId); return <article className="record-row" key={item.id}><h3>{item.subject}</h3><p>{item.text}</p><p>{record ? labels[record.status] ?? record.status : item.serverId ? copyDictionary.c4f6a7bdb91e98280 : copyDictionary.ccd5932ad9fac2fb8}</p>{record?.events.map((event, index) => <p key={index}>{new Date(event.at).toLocaleString('zh-CN')} · {event.actor}：{event.text}</p>)}{record && <><label>{copyDictionary.c6e2fce951ddee659}<textarea value={reply[item.id] ?? ''} onChange={e => setReply({ ...reply, [item.id]: e.target.value })}/></label><button disabled={!reply[item.id]?.trim()} onClick={async () => { try {
+        await service('cases/' + item.serverId + '/reply', { text: reply[item.id] }, item.accessToken);
+        setReply({ ...reply, [item.id]: '' });
+        await refresh();
+        setMessage(copyDictionary.ce21369bac2a12ae3);
+    }
+    catch (error) {
+        setMessage((error as Error).message);
+    } }}>{copyDictionary.cddec9c4045c093fe}</button></>}</article>; })}<p role="status">{message}</p></section>;
+}
+export function ReviewDesk() {
+    const [records, setRecords] = useState<CaseRecord[]>([]), [message, setMessage] = useState(''), [reviewer, setReviewer] = useState(''), [note, setNote] = useState(''), [reference, setReference] = useState(''), [status, setStatus] = useState('reviewing');
+    const refresh = async () => { try {
+        await prepareService();
+        setRecords((await service<{
+            cases: CaseRecord[];
+        }>('review/cases')).cases);
+        setMessage(copyDictionary.c0f571346d419aaee);
+    }
+    catch (error) {
+        setMessage((error as Error).message);
+    } };
+    return <section className="task-panel"><h2>{copyDictionary.cda04271e6d11b9bf}</h2><p>{copyDictionary.c42089fc4a58af65d}</p><button onClick={() => void refresh()}>{copyDictionary.c4b98d384c4c7c491}</button><label>{copyDictionary.c26ecd443b4c9b3ea}<input value={reviewer} maxLength={40} onChange={e => setReviewer(e.target.value)}/></label><label>{copyDictionary.c8e22ea7af2ab125e}<textarea value={note} onChange={e => setNote(e.target.value)}/></label><label>{copyDictionary.c38318c6f3420872f}<input value={reference} onChange={e => setReference(e.target.value)}/></label><label>{copyDictionary.cd5e74de3449e7458}<select value={status} onChange={e => setStatus(e.target.value)}>{Object.entries(labels).filter(([id]) => id !== 'submitted').map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>{records.map(item => <article className="record-row" key={item.id}><h3>{item.subject}</h3><p>{item.text}</p><p>{labels[item.status]}{copyDictionary.c33ba2aacc7d33d48}{item.revision}</p>{item.events.map((event, index) => <p key={index}>{event.actor}：{event.text}</p>)}<PrimaryButton disabled={!reviewer.trim() || !note.trim() || (status === 'resolved' && !reference.trim())} onClick={async () => { try {
+        await service('review/cases/' + item.id, { revision: item.revision, reviewer, note, reference, status });
+        setNote('');
+        setReference('');
+        await refresh();
+    }
+    catch (error) {
+        setMessage((error as Error).message);
+    } }}>{copyDictionary.ce0d6359e86090bf1}</PrimaryButton></article>)}<p role="status">{message}</p><RuleReview /></section>;
 }

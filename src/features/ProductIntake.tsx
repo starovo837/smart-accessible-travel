@@ -1,99 +1,189 @@
-import { useEffect, useRef, useState } from 'react'
-import { Icon } from '../components/Icons'
-import { PageHeader, PrimaryButton } from '../components/UI'
-import { sampleBundles, sourceNames, type ProductSource, type SourceKind } from '../app/product'
-import { apiFetch } from '../app/transport'
-import { isStudio, processingNotice, processingLocation } from '../app/deployment'
-import { browserAIAvailable, clearBrowserAI } from '../app/browserAI'
-import { shoppingPlatforms, shoppingUrl } from '../app/catalog'
-
-export interface AIStatus { configured: boolean; authorized: boolean; provider?: string; localOnly?: boolean; model?: string; reason?: string; deployment?:string }
+import { copyDictionary } from "../app/copyDictionary.ts";
+import { useEffect, useRef, useState } from 'react';
+import { Icon } from '../components/Icons';
+import { PageHeader, PrimaryButton } from '../components/UI';
+import { sampleBundles, sourceNames, type ProductSource, type SourceKind } from '../app/product';
+import { apiFetch } from '../app/transport';
+import { isStudio, processingNotice, processingLocation } from '../app/deployment';
+import { browserAIAvailable, clearBrowserAI } from '../app/browserAI';
+import { shoppingPlatforms, shoppingUrl } from '../app/catalog';
+export interface AIStatus {
+    configured: boolean;
+    authorized: boolean;
+    provider?: string;
+    localOnly?: boolean;
+    model?: string;
+    reason?: string;
+    deployment?: string;
+}
 export async function readAIStatus(): Promise<AIStatus> {
-  const response = await apiFetch('/api/status', { credentials: 'same-origin', cache: 'no-store' })
-  if (!response.ok) throw Error('当前AI服务未响应，请稍后重试。')
-  const status: AIStatus = await response.json()
-  if (status.provider !== 'ollama' || status.localOnly !== true) throw Error('当前服务未提供所需的开源图文模型，请检查部署状态。')
-  if((status.deployment==='studio')!==isStudio)throw Error('当前界面与服务部署模式不匹配，请刷新正确的软件页面。')
-  return status
+    const response = await apiFetch('/api/status', { credentials: 'same-origin', cache: 'no-store' });
+    if (!response.ok)
+        throw Error(copyDictionary.cbb9ea7c986783628);
+    const status: AIStatus = await response.json();
+    if (status.provider !== 'ollama' || status.localOnly !== true)
+        throw Error(copyDictionary.c46facc6955cf1e31);
+    if ((status.deployment === 'studio') !== isStudio)
+        throw Error(copyDictionary.c2105801ee995960b);
+    return status;
 }
 function modelStatus(status: AIStatus | null) {
-  if(isStudio)return !status?'正在检查创空间图文模型……':status.configured?'创空间图文模型已就绪，无需模型API密钥。':'创空间模型正在准备或暂不可用；请保留资料稍后重试。'
-  if (!status) return '正在检查电脑上的图文模型……'
-  if (status.configured) return status.authorized ? '已检测到本机图文模型，无需密钥。首次解读会加载模型。' : '本机图文模型已就绪，请先授权这台手机使用电脑资源。'
-  if(status.reason==='engine_starting')return '本机引擎首次启动，正在检查电脑硬件，通常需要数十秒；就绪后会更新状态。可先加入资料。'
-  if (status.reason === 'model_missing') return '本机引擎已启动，模型尚未下载完成。请在电脑完成安装后重新检查。'
-  if (status.reason === 'cloud_disabled') return '已阻止云端模型，请在电脑安装本地模型。'
-  if (status.reason === 'vision_missing') return '当前模型缺少图片识别能力，请检查本地图文模型安装。'
-  return '本机AI引擎未启动。请在电脑运行“安装本地AI”，或先使用下方规则整理与案例。'
+    if (isStudio)
+        return !status ? copyDictionary.c283cd9d6ce626ee4 : status.configured ? copyDictionary.c5c00a8663719f9c6 : copyDictionary.cbc4db2080fd88033;
+    if (!status)
+        return copyDictionary.c9e34203b43f39a89;
+    if (status.configured)
+        return status.authorized ? copyDictionary.ca639a7f7f7448646 : copyDictionary.ce742dcb846835d2c;
+    if (status.reason === 'engine_starting')
+        return copyDictionary.c4aeb89164a29817f;
+    if (status.reason === 'model_missing')
+        return copyDictionary.c0b1a530fc9994860;
+    if (status.reason === 'cloud_disabled')
+        return copyDictionary.c8e7eab666cb82c2d;
+    if (status.reason === 'vision_missing')
+        return copyDictionary.c12d96157ecce80a7;
+    return copyDictionary.c0243e9ade36634ca;
 }
-export function ProductIntake({ onBack, onAnalyze, loading, error, onCancel, initialQuery = '电动轮椅', initialSources = [], onDraftChange }: { onBack: () => void; onAnalyze: (sources: ProductSource[], mode: 'ai' | 'browser' | 'local' | 'sample') => void; loading: boolean; error: string; onCancel: () => void; initialQuery?: string; initialSources?: ProductSource[];onDraftChange?:(draft:import('../app/intake').IntakeDraft)=>void }) {
-  const [cloudConsent,setCloudConsent]=useState(!isStudio)
-  const [sources, setSources] = useState<ProductSource[]>(initialSources), [text, setText] = useState(''), [name, setName] = useState(''), [kind, setKind] = useState<SourceKind>('merchant')
-  const [mode, setMode] = useState<'ai' | 'browser' | 'local'>('ai'), [status, setStatus] = useState<AIStatus | null>(null), [notice, setNotice] = useState(''), [link, setLink] = useState('')
-  const [pair, setPair] = useState(''), [pairCode, setPairCode] = useState(''), [query, setQuery] = useState(initialQuery), [platform, setPlatform] = useState('jd'), [fileLoading, setFileLoading] = useState(false)
-  useEffect(()=>{onDraftChange?.({sources,text})},[sources,text,onDraftChange])
-  const mounted = useRef(true)
-  const [sourceModel,setSourceModel]=useState('')
-  useEffect(() => {
-    mounted.current = true
-    let timer:ReturnType<typeof setTimeout>|undefined,attempts=0
-    const check=async()=>{try{const value=await readAIStatus();if(!mounted.current)return;setStatus(value);if(!value.configured&&['engine_starting','engine_unavailable'].includes(value.reason??'')&&++attempts<12)timer=setTimeout(()=>void check(),5000)}catch(error){if(mounted.current)setNotice((error as Error).message)}}
-    void check()
-    return () => { mounted.current = false;clearTimeout(timer) }
-  }, [])
-  const refresh = async () => { try { setStatus(await readAIStatus()); setNotice('模型状态已更新。') } catch (error) { setStatus(null); setNotice((error as Error).message) } }
-  const addText = () => {
-    if (!text.trim()) return
-    if (sources.length >= 5) { setNotice('最多保留5份资料，请先移除不需要的内容。'); return }
-    setSources(current => [...current, { id: 'source-' + Date.now(), name: name.trim() || sourceNames[kind] + ' ' + (current.length + 1), kind, text: text.trim(),modelKey:sourceModel.trim().toUpperCase() }])
-    setText(''); setName(''); setNotice('资料已加入。可继续补充说明书、商家回复或反馈，再统一解读。')
-  }
-  const addFiles = async (files: FileList | null) => {
-    if (!files?.length) return
-    setFileLoading(true)
-    try {
-      const selected = Array.from(files)
-      if (selected.length + sources.length > 5) throw Error('文字和图片合计最多5份资料。')
-      if (selected.length + sources.filter(source => source.image).length > 2) throw Error('图文AI一次最多识别2张图片，请优先选择关键参数页。')
-      if (selected.some(file => !['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 3 * 1024 * 1024)) throw Error('请选择PNG、JPEG或WebP图片，每张不超过3MB。')
-      const added = await Promise.all(selected.map((file, index) => new Promise<ProductSource>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve({ id: 'image-' + Date.now() + '-' + index, name: file.name, kind, text: '', image: String(reader.result),modelKey:sourceModel.trim().toUpperCase() })
-        reader.onerror = () => reject(Error('图片读取失败，请重新选择。')); reader.readAsDataURL(file)
-      })))
-      if (mounted.current) { setSources(current => [...current, ...added]); setNotice('图片已加入。点击开始后，由'+processingLocation+'的模型处理。') }
-    } catch (error) { setNotice((error as Error).message) } finally { if (mounted.current) setFileLoading(false) }
-  }
-  const currentPlatform = shoppingPlatforms.find(item => item.id === platform) ?? shoppingPlatforms[0]
-  const overLimit = sources.reduce((sum, source) => sum + source.text.length, 0) > 6000
-  return <section className="screen product-intake">
-    <PageHeader title="买辅具 · AI帮你看懂" subtitle="读懂资料，找到依据，再决定下一步" onBack={() => { onCancel(); onBack() }} />
-    <div className="insight-hero"><span className="insight-kicker"><Icon name="spark" size={19} />{isStudio?'创空间AI · 无需模型API密钥':'本机AI · 无需密钥'}</span><h2>这件辅具，<br />适合我的生活吗？</h2><p>用当前服务的图文模型读懂商品资料，整理参数、发现矛盾，再核对你的使用与出行需要。</p><div className="insight-steps"><span>1 加入资料</span><span>2 看懂依据</span><span>3 核对适配</span></div></div>
-    <section className="intake-panel"><h2>先加入一份商品资料</h2>
-      <label>资料来源<select disabled={loading || fileLoading} value={kind} onChange={event => setKind(event.target.value as SourceKind)}>{Object.entries(sourceNames).map(([id, label]) => <option value={id} key={id}>{label}</option>)}</select></label>
-      <label>资料名称（选填）<input value={name} onChange={event => setName(event.target.value)} placeholder="例如：说明书第2页" maxLength={120} /></label>
-      <label>资料对应型号／规格（选填）<input value={sourceModel} onChange={event=>setSourceModel(event.target.value)} maxLength={60} placeholder="同一型号的详情、说明书和图片填写相同内容"/></label>
-      <label>商品文字、说明书或商家回复<textarea value={text} onChange={event => setText(event.target.value)} placeholder="例如：使用尺寸（长×宽×高）105×68×98 cm，整车32 kg不含电池，详情写单手折叠……" maxLength={6000} /></label>
-      <PrimaryButton variant="secondary" disabled={!text.trim() || loading || fileLoading} onClick={addText}>加入这段文字</PrimaryButton>
-      <label className="image-input"><Icon name="upload" size={22} /><span>上传详情图或说明书照片</span><small>PNG、JPEG、WebP；每张≤3MB；一次最多2张图片</small><input type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={loading || fileLoading} onChange={event => { void addFiles(event.target.files); event.target.value = '' }} /></label>
-      <p className="prototype-note">文字和图片合计最多5份资料；图文AI每次文字合计不超过6000字。长说明书可分批加入关键页。</p>
-      <details><summary>只有商品链接？</summary><label>商品链接<input type="url" value={link} onChange={event => setLink(event.target.value)} placeholder="https://…" /></label><p>目前不会自动抓取商品平台。请把详情文字或截图加入上方资料；链接不会被当作已读取的依据。</p></details>
+export function ProductIntake({ onBack, onAnalyze, loading, error, onCancel, initialQuery = copyDictionary.c4157eed714966bbc, initialSources = [], onDraftChange }: {
+    onBack: () => void;
+    onAnalyze: (sources: ProductSource[], mode: 'ai' | 'browser' | 'local' | 'sample') => void;
+    loading: boolean;
+    error: string;
+    onCancel: () => void;
+    initialQuery?: string;
+    initialSources?: ProductSource[];
+    onDraftChange?: (draft: import('../app/intake').IntakeDraft) => void;
+}) {
+    const [cloudConsent, setCloudConsent] = useState(!isStudio);
+    const [sources, setSources] = useState<ProductSource[]>(initialSources), [text, setText] = useState(''), [name, setName] = useState(''), [kind, setKind] = useState<SourceKind>('merchant');
+    const [mode, setMode] = useState<'ai' | 'browser' | 'local'>('ai'), [status, setStatus] = useState<AIStatus | null>(null), [notice, setNotice] = useState(''), [link, setLink] = useState('');
+    const [pair, setPair] = useState(''), [pairCode, setPairCode] = useState(''), [query, setQuery] = useState(initialQuery), [platform, setPlatform] = useState('jd'), [fileLoading, setFileLoading] = useState(false);
+    useEffect(() => { onDraftChange?.({ sources, text }); }, [sources, text, onDraftChange]);
+    const mounted = useRef(true);
+    const [sourceModel, setSourceModel] = useState('');
+    useEffect(() => {
+        mounted.current = true;
+        let timer: ReturnType<typeof setTimeout> | undefined, attempts = 0;
+        const check = async () => { try {
+            const value = await readAIStatus();
+            if (!mounted.current)
+                return;
+            setStatus(value);
+            if (!value.configured && ['engine_starting', 'engine_unavailable'].includes(value.reason ?? '') && ++attempts < 12)
+                timer = setTimeout(() => void check(), 5000);
+        }
+        catch (error) {
+            if (mounted.current)
+                setNotice((error as Error).message);
+        } };
+        void check();
+        return () => { mounted.current = false; clearTimeout(timer); };
+    }, []);
+    const refresh = async () => { try {
+        setStatus(await readAIStatus());
+        setNotice(copyDictionary.c4184502e73c4aa3b);
+    }
+    catch (error) {
+        setStatus(null);
+        setNotice((error as Error).message);
+    } };
+    const addText = () => {
+        if (!text.trim())
+            return;
+        if (sources.length >= 5) {
+            setNotice(copyDictionary.c1e74b64ae0384f8d);
+            return;
+        }
+        setSources(current => [...current, { id: 'source-' + Date.now(), name: name.trim() || sourceNames[kind] + ' ' + (current.length + 1), kind, text: text.trim(), modelKey: sourceModel.trim().toUpperCase() }]);
+        setText('');
+        setName('');
+        setNotice(copyDictionary.c60d50595360206f0);
+    };
+    const addFiles = async (files: FileList | null) => {
+        if (!files?.length)
+            return;
+        setFileLoading(true);
+        try {
+            const selected = Array.from(files);
+            if (selected.length + sources.length > 5)
+                throw Error(copyDictionary.cb0b5c88aa47fcc7d);
+            if (selected.length + sources.filter(source => source.image).length > 2)
+                throw Error(copyDictionary.c06e50fed962de56b);
+            if (selected.some(file => !['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 3 * 1024 * 1024))
+                throw Error(copyDictionary.cde5999de5d727980);
+            const added = await Promise.all(selected.map((file, index) => new Promise<ProductSource>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve({ id: 'image-' + Date.now() + '-' + index, name: file.name, kind, text: '', image: String(reader.result), modelKey: sourceModel.trim().toUpperCase() });
+                reader.onerror = () => reject(Error(copyDictionary.c4a95d2ba2846961a));
+                reader.readAsDataURL(file);
+            })));
+            if (mounted.current) {
+                setSources(current => [...current, ...added]);
+                setNotice(copyDictionary.c40ebc85fb2c6ce81 + processingLocation + copyDictionary.cea52d477702cd077);
+            }
+        }
+        catch (error) {
+            setNotice((error as Error).message);
+        }
+        finally {
+            if (mounted.current)
+                setFileLoading(false);
+        }
+    };
+    const currentPlatform = shoppingPlatforms.find(item => item.id === platform) ?? shoppingPlatforms[0];
+    const overLimit = sources.reduce((sum, source) => sum + source.text.length, 0) > 6000;
+    return <section className="screen product-intake">
+    <PageHeader title={copyDictionary.cb4cab9c262b53d6a} subtitle={copyDictionary.cd8e4be48e16f5be6} onBack={() => { onCancel(); onBack(); }}/>
+    <div className="insight-hero"><span className="insight-kicker"><Icon name="spark" size={19}/>{isStudio ? copyDictionary.c3d6bde583048a494 : copyDictionary.c43b85f6600369bc5}</span><h2>{copyDictionary.c501f69421dae4fe4}<br />{copyDictionary.c4445a67247f8b55b}</h2><p>{copyDictionary.c23c93a0ab5939948}</p><div className="insight-steps"><span>{copyDictionary.c4988073aa462b582}</span><span>{copyDictionary.cd8c58e4e264c6292}</span><span>{copyDictionary.c345496da3a13d7d1}</span></div></div>
+    <section className="intake-panel"><h2>{copyDictionary.c3f6bd057f6f3d57d}</h2>
+      <label>{copyDictionary.c36ca458a92bd722f}<select disabled={loading || fileLoading} value={kind} onChange={event => setKind(event.target.value as SourceKind)}>{Object.entries(sourceNames).map(([id, label]) => <option value={id} key={id}>{label}</option>)}</select></label>
+      <label>{copyDictionary.c507ab679f7dafc86}<input value={name} onChange={event => setName(event.target.value)} placeholder={copyDictionary.cf50580c2de8cdf15} maxLength={120}/></label>
+      <label>{copyDictionary.c2cc1b0e878c1f63a}<input value={sourceModel} onChange={event => setSourceModel(event.target.value)} maxLength={60} placeholder={copyDictionary.ca90bc03743068f06}/></label>
+      <label>{copyDictionary.c7e60f7a5ccb07bc4}<textarea value={text} onChange={event => setText(event.target.value)} placeholder={copyDictionary.c6d60202d58b1dc93} maxLength={6000}/></label>
+      <PrimaryButton variant="secondary" disabled={!text.trim() || loading || fileLoading} onClick={addText}>{copyDictionary.c622178dc30114645}</PrimaryButton>
+      <label className="image-input"><Icon name="upload" size={22}/><span>{copyDictionary.ca2c883a4f97f73a9}</span><small>{copyDictionary.cf035be56e607a751}</small><input type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={loading || fileLoading} onChange={event => { void addFiles(event.target.files); event.target.value = ''; }}/></label>
+      <p className="prototype-note">{copyDictionary.c480c024c36474ede}</p>
+      <details><summary>{copyDictionary.c9b7c689a8b966e7f}</summary><label>{copyDictionary.c282bbc888126f1b0}<input type="url" value={link} onChange={event => setLink(event.target.value)} placeholder="https://…"/></label><p>{copyDictionary.c0337a67108a362ff}</p></details>
     </section>
-    <section aria-label="本次资料" className="source-list"><h2>本次资料 · {sources.length} / 5</h2>{sources.length ? sources.map((source, index) => <article className="source-preview" key={source.id}><div><strong>{index + 1}．{source.name}</strong><small>{sourceNames[source.kind]} · {source.image ? '图片，待图文模型识别' : `${source.text.length}字`}</small></div><button disabled={loading} onClick={() => setSources(current => current.filter(item => item.id !== source.id))} aria-label={`移除${source.name}`}>移除</button>{source.image ? <img src={source.image} alt={`${source.name}，已选择但尚未解读`} /> : <p>{source.text.slice(0, 220)}{source.text.length > 220 ? '……' : ''}</p>}</article>) : <p className="muted-copy">尚未加入资料。也可以先体验下面的预置案例。</p>}</section>
-    <fieldset className="analysis-mode"><legend>选择解读方式</legend>
-      <label className="switch-line"><input type="radio" name="analysis-mode" checked={mode === 'ai'} onChange={() => setMode('ai')} disabled={loading} />{isStudio?'创空间AI解读（无需模型API密钥）':'本机AI解读（无需密钥）'}</label>
-      <label className="switch-line"><input type="radio" name="analysis-mode" checked={mode === 'browser'} onChange={() => setMode('browser')} disabled={loading} />这台手机／浏览器独立AI（文字）</label>
-      <label className="switch-line"><input type="radio" name="analysis-mode" checked={mode === 'local'} onChange={() => setMode('local')} disabled={loading} />规则整理（不用AI）</label>
-      {mode === 'ai' ? <><p role="status">{modelStatus(status)}</p><p className="prototype-note">{processingNotice}原图不写入长期设备档案。</p><p>{isStudio?'首次加载或算力唤醒可能较慢，可取消并保留资料。':'首次加载可能较慢，可随时取消。电脑需保持开机；模型安装完成后无需互联网。'}</p><button disabled={loading} onClick={() => void refresh()}>重新检查AI状态</button>
-        {!isStudio&&<>        <details><summary>手机首次授权 / 模型状态</summary><p>模型：{status?.model ?? '待检查'}。授权仅允许这台浏览器使用电脑资源，12小时后失效。</p>{status?.authorized ? <><button onClick={async () => { try { const response = await fetch('/api/pair-code', { method: 'POST' }), data = await response.json(); if (!response.ok) throw Error(data.error); setPairCode(data.code) } catch (error) { setNotice((error as Error).message) } }}>在电脑生成手机授权码</button>{pairCode && <p className="pair-code">授权码：{pairCode}（10分钟有效，仅可使用一次）</p>}</> : <><label>输入电脑生成的6位授权码<input inputMode="numeric" maxLength={6} value={pair} onChange={event => setPair(event.target.value)} /></label><button onClick={async () => { try { const response = await fetch('/api/pair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: pair }) }), data = await response.json(); if (!response.ok) throw Error(data.error); setStatus(await readAIStatus()); setPair(''); setNotice('已授权这台浏览器使用本机AI。') } catch (error) { setNotice((error as Error).message) } }}>授权这台浏览器</button></>}</details></>}
-      </> : mode === 'browser' ? <p>首次点击将下载约数百MB模型到此浏览器缓存，需要安全连接、WebGPU和足够内存。资料不发给模型供应方；下载就绪后可在本设备处理文字，不依赖电脑。一次最多3500字，不支持图片。{browserAIAvailable()?'当前浏览器检测到WebGPU入口，实际加载仍需验证。':'当前环境不具备运行条件，请使用电脑AI或规则整理。'}</p> : <p>仅识别有限的文字格式，不识别图片，也不理解自由描述。三维尺寸需标明长×宽×高顺序。这与真实模型解读分开显示。</p>}
+    <section aria-label={copyDictionary.c7961d416b0421b19} className="source-list"><h2>{copyDictionary.c4fbaacef960a8357}{sources.length} / 5</h2>{sources.length ? sources.map((source, index) => <article className="source-preview" key={source.id}><div><strong>{index + 1}．{source.name}</strong><small>{sourceNames[source.kind]} · {source.image ? copyDictionary.c9fe026070a131c82 : copyDictionary.ce3b0c44298fc1c14 + source.text.length + copyDictionary.cc55038b272b109b8}</small></div><button disabled={loading} onClick={() => setSources(current => current.filter(item => item.id !== source.id))} aria-label={copyDictionary.c6135d4159e892541 + source.name}>{copyDictionary.c6135d4159e892541}</button>{source.image ? <img src={source.image} alt={copyDictionary.ce3b0c44298fc1c14 + source.name + copyDictionary.ca65aa64a1e7f72d3}/> : <p>{source.text.slice(0, 220)}{source.text.length > 220 ? '……' : ''}</p>}</article>) : <p className="muted-copy">{copyDictionary.c9d8924ae795df43e}</p>}</section>
+    <fieldset className="analysis-mode"><legend>{copyDictionary.caa6fbdd259989078}</legend>
+      <label className="switch-line"><input type="radio" name="analysis-mode" checked={mode === 'ai'} onChange={() => setMode('ai')} disabled={loading}/>{isStudio ? copyDictionary.c9bb179dc6e26f894 : copyDictionary.c4f62d518a44b2669}</label>
+      <label className="switch-line"><input type="radio" name="analysis-mode" checked={mode === 'browser'} onChange={() => setMode('browser')} disabled={loading}/>{copyDictionary.c9bf958687d11c087}</label>
+      <label className="switch-line"><input type="radio" name="analysis-mode" checked={mode === 'local'} onChange={() => setMode('local')} disabled={loading}/>{copyDictionary.c2cd568b2627d4349}</label>
+      {mode === 'ai' ? <><p role="status">{modelStatus(status)}</p><p className="prototype-note">{processingNotice}{copyDictionary.c35fb7bb7aac8d7c5}</p><p>{isStudio ? copyDictionary.cf5410900f95ccc32 : copyDictionary.c04ce81ea246c108b}</p><button disabled={loading} onClick={() => void refresh()}>{copyDictionary.c072e4203d39d4ad8}</button>
+        {!isStudio && <>        <details><summary>{copyDictionary.c97456a22c83035d8}</summary><p>{copyDictionary.c2a845bd8e225c004}{status?.model ?? copyDictionary.c2329bc02cd048ac4}{copyDictionary.cb49c62967071e52e}</p>{status?.authorized ? <><button onClick={async () => { try {
+            const response = await fetch('/api/pair-code', { method: 'POST' }), data = await response.json();
+            if (!response.ok)
+                throw Error(data.error);
+            setPairCode(data.code);
+        }
+        catch (error) {
+            setNotice((error as Error).message);
+        } }}>{copyDictionary.cf0fa7d11ce802cab}</button>{pairCode && <p className="pair-code">{copyDictionary.c894e9b0b70acc58b}{pairCode}{copyDictionary.c6d5e78af34db933e}</p>}</> : <><label>{copyDictionary.c9d544e39f7714e8f}<input inputMode="numeric" maxLength={6} value={pair} onChange={event => setPair(event.target.value)}/></label><button onClick={async () => { try {
+            const response = await fetch('/api/pair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: pair }) }), data = await response.json();
+            if (!response.ok)
+                throw Error(data.error);
+            setStatus(await readAIStatus());
+            setPair('');
+            setNotice(copyDictionary.c2770d5ea45ff49bd);
+        }
+        catch (error) {
+            setNotice((error as Error).message);
+        } }}>{copyDictionary.c33d1486de88d6928}</button></>}</details></>}
+      </> : mode === 'browser' ? <p>{copyDictionary.c4dce00e2b6dd177c}{browserAIAvailable() ? copyDictionary.cbbe3b99d1b508357 : copyDictionary.c7416710162a326a7}</p> : <p>{copyDictionary.ceb5e6827122f9095}</p>}
     </fieldset>
-    <details><summary>管理本设备AI模型缓存</summary><p>只清理此浏览器下载的文字模型，不删除设备卡。服务端图文模型由运行服务的维护人单独管理。</p><button disabled={loading} onClick={async()=>{try{await clearBrowserAI();setNotice('已清理本浏览器文字模型缓存，下次使用需重新下载。')}catch(error){setNotice((error as Error).message)}}}>卸载本浏览器文字模型缓存</button></details>
-    {notice && <p className="operation-status" role="status">{notice}</p>}{error && <p role="alert" className="form-error">{error}</p>}{mode === 'ai' && overLimit && <p role="alert" className="form-error">文字合计超过6000字，请精简或分批解读。</p>}
-    {isStudio&&mode==='ai'&&<label className="switch-line"><input type="checkbox" checked={cloudConsent} onChange={e=>setCloudConsent(e.target.checked)}/>同意把本次公开商品资料发送到创空间服务端解读</label>}
-    <PrimaryButton icon="spark" disabled={(mode==='ai'&&!cloudConsent)||loading || fileLoading || !sources.length || (mode === 'ai' && (overLimit || !status?.configured || !status.authorized)) || (mode === 'browser' && (!browserAIAvailable() || sources.reduce((total,source)=>total+source.text.length,0)>3500 || sources.some(source=>source.image))) || (mode === 'local' && sources.every(source => !source.text.trim()))} onClick={() => onAnalyze(sources, mode)}>{loading ? '模型正在解读……' : mode === 'ai' ? (isStudio?'开始创空间AI解读':'开始本机AI解读') : mode === 'browser' ? '下载／加载并在本设备AI解读' : '开始规则整理'}</PrimaryButton>
-    {loading && <PrimaryButton variant="ghost" onClick={onCancel}>取消本次解读</PrimaryButton>}
-    <section className="sample-library"><h2>先看一个完整案例</h2><p>下面是明确预置的资料，不调用模型，也不代表真实商品。</p>{sampleBundles.map(bundle => <button className="task-link" disabled={loading} key={bundle.id} onClick={() => onAnalyze(bundle.sources, 'sample')}><strong>{bundle.title}</strong><span>查看资料 → 解读依据 → 个性化核对 → 出行检查</span></button>)}</section>
-    <details className="shopping-secondary"><summary>还没有商品？去购物平台找辅具</summary><label>想找什么<input value={query} onChange={event => setQuery(event.target.value)} /></label><label>购物平台<select value={platform} onChange={event => setPlatform(event.target.value)}>{shoppingPlatforms.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label><a className="button button-secondary" href={shoppingUrl(currentPlatform, query || '辅具')} target="_blank" rel="noopener noreferrer">打开{currentPlatform.label}搜索（新标签页）</a><p>只发送搜索词。查看商品后，可回到本页加入资料。</p></details>
-  </section>
+    <details><summary>{copyDictionary.c16a368fb42fdd125}</summary><p>{copyDictionary.c39d9e449dd7b49ba}</p><button disabled={loading} onClick={async () => { try {
+        await clearBrowserAI();
+        setNotice(copyDictionary.c74cba342ade72dc8);
+    }
+    catch (error) {
+        setNotice((error as Error).message);
+    } }}>{copyDictionary.c127efe9171999df1}</button></details>
+    {notice && <p className="operation-status" role="status">{notice}</p>}{error && <p role="alert" className="form-error">{error}</p>}{mode === 'ai' && overLimit && <p role="alert" className="form-error">{copyDictionary.c4864838afd420b56}</p>}
+    {isStudio && mode === 'ai' && <label className="switch-line"><input type="checkbox" checked={cloudConsent} onChange={e => setCloudConsent(e.target.checked)}/>{copyDictionary.ce726bee3b0d015db}</label>}
+    <PrimaryButton icon="spark" disabled={(mode === 'ai' && !cloudConsent) || loading || fileLoading || !sources.length || (mode === 'ai' && (overLimit || !status?.configured || !status.authorized)) || (mode === 'browser' && (!browserAIAvailable() || sources.reduce((total, source) => total + source.text.length, 0) > 3500 || sources.some(source => source.image))) || (mode === 'local' && sources.every(source => !source.text.trim()))} onClick={() => onAnalyze(sources, mode)}>{loading ? copyDictionary.c2f1f31b10b0fdc94 : mode === 'ai' ? (isStudio ? copyDictionary.c7989ff3f8e8ff37e : copyDictionary.c4328b79d424669cd) : mode === 'browser' ? copyDictionary.c1a724672e37d4552 : copyDictionary.cdaad14b0665621f3}</PrimaryButton>
+    {loading && <PrimaryButton variant="ghost" onClick={onCancel}>{copyDictionary.ca15c68d61100c9ff}</PrimaryButton>}
+    <section className="sample-library"><h2>{copyDictionary.c9335c8ac41f79ab9}</h2><p>{copyDictionary.c9af29b6fbb2ba3ee}</p>{sampleBundles.map(bundle => <button className="task-link" disabled={loading} key={bundle.id} onClick={() => onAnalyze(bundle.sources, 'sample')}><strong>{bundle.title}</strong><span>{copyDictionary.cb9f595f7350ff1c2}</span></button>)}</section>
+    <details className="shopping-secondary"><summary>{copyDictionary.cf86c02a4304d5f06}</summary><label>{copyDictionary.c8c98ecc3037bfcb9}<input value={query} onChange={event => setQuery(event.target.value)}/></label><label>{copyDictionary.c753a108c178145d5}<select value={platform} onChange={event => setPlatform(event.target.value)}>{shoppingPlatforms.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label><a className="button button-secondary" href={shoppingUrl(currentPlatform, query || copyDictionary.cc0ef02c12f8eb71e)} target="_blank" rel="noopener noreferrer">{copyDictionary.cc771248e511fbf93}{currentPlatform.label}{copyDictionary.cb1479c4391e528cc}</a><p>{copyDictionary.ce593b251404af25b}</p></details>
+  </section>;
 }

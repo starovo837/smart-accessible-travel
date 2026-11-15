@@ -1,4 +1,5 @@
 .travel-query, .travel-task-result { font-size:max(16px,1rem); line-height:1.7; padding-bottom:32px; }
+.screen.travel-task-result { height:auto; overflow:visible; touch-action:auto; }
 .travel-query :is(p,small,label,input,select,button,summary,a,legend,span), .travel-task-result :is(p,small,label,input,select,button,summary,a,legend,span,blockquote) { font-size:inherit; line-height:1.7; }
 .app-shell .app-frame :is(.travel-query,.travel-task-result) :is(p,small,label,input,select,button,summary,a,legend,span,blockquote) { font-size:max(16px,1rem); line-height:1.7; }
 .travel-task-result a { display:inline-flex; align-items:center; }
@@ -57,6 +58,7 @@
 .travel-gap-card h3,.travel-new-actions h3 { margin:0 0 10px; font-size:1.125rem; line-height:1.6; }
 .travel-gap-card p { margin:8px 0 12px; }
 .travel-gap-card button { width:100%; text-align:center; }
+.travel-gap-summary { padding:12px 14px; border-inline-start:4px solid #91661e; background:#fbf5e3; font-weight:700; }
 .travel-gap-editor label { display:flex; flex-direction:column; gap:6px; margin:14px 0; }
 .travel-gap-editor :is(input,select) { width:100%; max-width:100%; min-width:0; border:1px solid #a6b99c; border-radius:9px; background:#fffef9; color:#193c2c; padding:10px; }
 .travel-gap-editor fieldset { min-inline-size:0; margin:20px 0; padding:14px; border:1px solid #c5d4bf; border-radius:10px; }
@@ -69,3 +71,9 @@
 .travel-task-overview h2:focus-visible { outline:3px solid #835d1c; outline-offset:3px; }
 @media(max-width:380px) { .travel-gap-section,.travel-gap-editor { padding:14px; } .travel-gap-editor .field-grid { grid-template-columns:1fr; } }
 @media(forced-colors:active) { .travel-gap-card,.travel-stage-missing,.travel-new-badge { border:1px solid CanvasText; } }
+.travel-stage-collapsed { margin-top:12px; padding:12px 14px; border:1px dashed #9aaf90; border-radius:10px; background:#f7faef; }
+.travel-stage-collapsed p { margin:0 0 8px; }
+.travel-stage-collapsed button { width:100%; }
+.travel-export-footer { margin:24px 0 8px; padding:16px; border:1px solid #a9bea2; border-radius:14px; background:rgb(247 250 239 / .98); }
+.travel-export-footer button { width:100%; }
+.travel-export-footer p { margin:8px 0 0; color:#405a46; }
