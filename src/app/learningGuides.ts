@@ -1,7 +1,7 @@
 import { copyDictionary as c } from './copyDictionary.ts'
 import { learningSources } from './learningCatalog.ts'
 export const accommodationTemplates=Object.entries(c.learningRequestDrafts).map(([id,copy])=>{
-  const exam=['extraTime','room','sign','assistant'].includes(id)
+  const exam=['extraTime','room'].includes(id)
   return {id,...copy,recipient:id==='funding'?c.learningFundingOffice:exam?c.learningExamOffice:c.learningSchoolOffice,
     leadTime:exam?c.learningLeadTimeExam:c.learningLeadTimeSchool,materials:exam?c.learningMaterialsExam:c.learningMaterialsGeneral,
     sourceUrl:exam?learningSources.exam:['description','seating','textbook'].includes(id)?learningSources.accesslaw:learningSources.education,
