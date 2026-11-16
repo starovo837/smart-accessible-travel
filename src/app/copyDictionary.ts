@@ -65,6 +65,7 @@ export const copyDictionary = {
   learningSupportStated: '来源中有说明，实际使用仍须试用。',
   learningCaptions: '字幕或文字稿',
   learningScreenReader: '朗读与读屏',
+  learningScreenTools: '查看读屏工具',
   learningSignLanguage: '手语',
   learningLargeText: '大字或字号调整',
   learningKeyboard: '键盘操作',

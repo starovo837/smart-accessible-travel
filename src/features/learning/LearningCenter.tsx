@@ -53,7 +53,7 @@ export function LearningCenter({life,setLife,modules,saved,onBack,onPrivacy,onTo
       {!rows.length&&<section className="learning-card"><h3>{c.learningNoMatch}</h3><h3>{c.learningFindOwn}</h3><ol><li><strong>{c.learningKeywords}</strong><p>{c.learningKeywordExample}</p></li><li><strong>{c.learningAskWho}</strong><p>{c.learningAskWhoText}</p><a href="tel:12385">12385</a></li><li><strong>{c.learningAskHow}</strong><p>{c.learningAskScript}</p><button onClick={async()=>setMessage(await copyText(c.learningAskScript)?c.learningCopied:c.learningCopyFailed)}>{c.learningCopy}</button></li></ol></section>}
     </>}
     {tab==='plans'&&<LearningPlans life={life} setLife={setLife} selected={selected} setSelected={setSelected} onTool={onTool} notify={setMessage}/>}
-    {(tab==='accommodations'||tab==='tutorials')&&<LearningGuides mode={tab} onTool={id=>id==='learning'?setTab('plans'):onTool(id)} notify={setMessage}/>}
+    {(tab==='accommodations'||tab==='tutorials')&&<LearningGuides mode={tab} onTool={id=>id==='learning'?setTab('plans'):onTool(id)} onResources={()=>{setFilter({category:'tools',access:'screenReader',sort:'recommended'});setTab('resources');setMessage(c.learningScreenTools)}} notify={setMessage}/>}
     <footer><p>{c.learningPrivacyNote}</p><button onClick={()=>{if(window.confirm(c.learningClearConfirm)){stopReading();setLife(current=>removeLearning(current));setSelected([]);setMessage(c.learningClearDone)}}}>{c.learningClear}</button></footer>
   </section>
 }
