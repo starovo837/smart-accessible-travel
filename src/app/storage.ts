@@ -1,4 +1,5 @@
 import { initialJourney } from './journey.ts'
+import { sanitizeLearning, removeLearning } from './learningPlan.ts'
 import { sanitizeLivingServices } from './livingServices.ts'
 import { sanitizeHelpSessions } from './liveHelp.ts'
 import { sceneSteps, type SceneId } from './livingCatalog.ts'
@@ -13,13 +14,14 @@ export interface Snapshot {
 export function scopeSnapshot(data: Omit<Snapshot, 'version' | 'savedAt' | 'expiresAt'>, now = Date.now()): Snapshot {
   const base = initialJourney(), { privacy } = data
   const settings = { ...data.settings }
+  const life = privacy.life ? { ...data.journey.life, learning: data.journey.life.learning ? sanitizeLearning(data.journey.life.learning) : undefined } : removeLearning(base.life)
   Reflect.deleteProperty(settings, 'voiceInput')
   return { ...data, settings, version: 2, savedAt: now, expiresAt: privacy.retainDays ? now + privacy.retainDays * 86400000 : null,
     modules: privacy.profile ? data.modules : [], devices: privacy.devices ? data.devices : [],
     customModes: privacy.life ? data.customModes : [], customDevices: privacy.devices ? data.customDevices : [],
     feedback: privacy.life ? data.feedback : [],
     journey: { ...base, cards: privacy.devices ? data.journey.cards : [], comparisons: privacy.devices ? data.journey.comparisons.map(product => product.insight ? { ...product, insight: { ...product.insight, sources: product.insight.sources.map(({image, text, transcript, ...source}) => ({ ...source, text: '' })), needs: privacy.life ? product.insight.needs : { oneHand: false, canFold: 'unknown' as const } } } : product) : [],
-      living: privacy.life ? data.journey.living : base.living, life: privacy.life ? { ...data.journey.life, emergency: privacy.devices ? data.journey.life.emergency : { ...data.journey.life.emergency, medicalIds: [], showMedical: false }, care: privacy.devices ? data.journey.life.care : data.journey.life.care.map(item => ({ ...item, deviceId: '' })) } : base.life,
+      living: privacy.life ? data.journey.living : base.living, life: privacy.life ? { ...life, emergency: privacy.devices ? data.journey.life.emergency : { ...data.journey.life.emergency, medicalIds: [], showMedical: false }, care: privacy.devices ? data.journey.life.care : data.journey.life.care.map(item => ({ ...item, deviceId: '' })) } : base.life,
       records: privacy.life && privacy.devices ? data.journey.records : [], shares: privacy.life ? data.journey.shares : [], packet: null },
   }
 }

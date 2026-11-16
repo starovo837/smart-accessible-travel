@@ -1,5 +1,6 @@
 import { copyDictionary } from "../app/copyDictionary.ts";
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { Modal, PageHeader, PrimaryButton, SectionTitle } from '../components/UI';
 import { ManagementBackup } from './ManagementBackup';
 import { CaseTracking } from './CaseTracking';
@@ -31,6 +32,7 @@ export function NeedsDialog({ settings, setSettings, onClose }: {
   </Modal>;
 }
 interface Props {
+    disabilityEditor: ReactNode;
     modules: ModuleId[];
     devices: Device[];
     journey: JourneyData;
@@ -53,7 +55,7 @@ interface Props {
     onDelete: (scope: 'profile' | 'devices' | 'life' | 'all') => Promise<void>;
 }
 export function ProfilePage(props: Props) {
-    const [view, setView] = useState<'privacy' | 'feedback' | null>(null);
+    const [view, setView] = useState<'privacy' | 'feedback' | 'disability' | null>(null);
     const [confirm, setConfirm] = useState<'profile' | 'devices' | 'life' | 'all' | null>(null);
     const [deleting, setDeleting] = useState(false), [deleteError, setDeleteError] = useState('');
     const [savingPrivacy, setSavingPrivacy] = useState(false);
@@ -61,7 +63,8 @@ export function ProfilePage(props: Props) {
     <PrimaryButton variant="secondary" onClick={props.onAbout}>{copyDictionary.c0ed77920b1cd8737}</PrimaryButton>
     <p className="prototype-note">{props.consent === 'granted' ? copyDictionary.c623973acda759aa6 : copyDictionary.ca839550b11812ea2}{copyDictionary.c1fc3a60272047405}</p>
     <PrimaryButton variant="secondary" onClick={props.onNeeds}>{copyDictionary.ca61502d462ac452e}</PrimaryButton>
-    <section className="profile-section"><SectionTitle title={copyDictionary.cb7489d5fe4608bbb}/><p>{props.modules.map(id => moduleMeta[id].label).join('、') || copyDictionary.cbe87d51c09448414}</p><button className="text-action" onClick={props.onModules}>{copyDictionary.ccbdcf9e5aea1edda}</button></section>
+    <section className="profile-section"><SectionTitle title={copyDictionary.cb7489d5fe4608bbb}/><p>{props.modules.map(id => moduleMeta[id].label).join('、') || copyDictionary.cbe87d51c09448414}</p><button className="text-action" onClick={() => setView('disability')}>{copyDictionary.ccbdcf9e5aea1edda}</button></section>
+    {view === 'disability' && <Modal title={copyDictionary.c73e604f285c89e61} onClose={() => setView(null)}>{props.disabilityEditor}<PrimaryButton onClick={() => setView(null)}>{copyDictionary.cc0b3fbff51ccc40b}</PrimaryButton></Modal>}
     <div className="profile-menu"><button onClick={props.onDevices}>{copyDictionary.c9c6516d13fa3ea78}<span>{props.devices.length}{copyDictionary.cdb5ed74bd688fafe}</span></button><button onClick={props.onLife}>{copyDictionary.cdb44e73ea492e0c9}</button><button onClick={props.onOffline}>{copyDictionary.c93f004ab9ea94276}</button><button onClick={() => setView('feedback')}>{copyDictionary.cb1761897488b09cd}<span>{props.feedback.length}{copyDictionary.c6fb2840d568a340f}</span></button><button onClick={() => setView('privacy')}>{copyDictionary.cd51db0e607273cd9}</button></div>
     {props.storageError && <p role="alert" className="form-error">{props.storageError}</p>}
     {view === 'privacy' && <Modal title={copyDictionary.cd51db0e607273cd9} onClose={() => { if (!savingPrivacy)

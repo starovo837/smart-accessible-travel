@@ -1,9 +1,10 @@
 import { copyDictionary } from "./copyDictionary.ts";
-import { initialJourney } from './journey';
-import { scopeSnapshot, type Snapshot } from './storage';
+import { removeLearning } from './learningPlan.ts';
+import { initialJourney } from './journey.ts';
+import { scopeSnapshot, type Snapshot } from './storage.ts';
 import type { Device, JourneyData, LifeData } from './types';
 export function exportableLife(life: LifeData): LifeData {
-    const { helpSessions, ...safe } = life;
+    const { helpSessions, ...safe } = removeLearning(life);
     return safe;
 }
 export function portableSnapshot(journey: JourneyData, devices: Device[], selection: {

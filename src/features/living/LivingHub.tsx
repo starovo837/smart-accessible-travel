@@ -2,6 +2,7 @@ import { copyDictionary } from "../../app/copyDictionary.ts";
 import { PageHeader } from '../../components/UI';
 import { Icon, type IconName } from '../../components/Icons';
 import { livingEntries, livingScenes, sceneSteps, type SceneId, type ServiceToolId, type SceneStep } from '../../app/livingCatalog';
+import { learningResources } from '../../app/learningCatalog';
 function LivingOptionIcon({ name }: {
     name: IconName;
 }) {
@@ -23,4 +24,9 @@ export function ScenePage({ scene, checked, onChecked, onAction, onBack, saved }
     onAction: (action: SceneStep['action']) => void;
     onBack: () => void;
     saved: boolean;
-}) { const meta = livingScenes.find(s => s.id === scene)!; return <section className="screen living-scene-page"><PageHeader title={meta.title} subtitle={copyDictionary.cf18f741a3b93f2a9} onBack={onBack}/><p>{copyDictionary.c0e0e8f0ec14471c6}</p>{sceneSteps[scene].map((step, i) => <article key={step.id} className="living-scene-step"><span className="living-step-number">{i + 1}</span><div><h2>{step.title}</h2><p>{step.detail}</p><button onClick={() => onAction(step.action)}>{step.button}</button><label className="switch-line"><input type="checkbox" checked={checked.includes(step.id)} onChange={e => onChecked(e.target.checked ? [...checked, step.id] : checked.filter(id => id !== step.id))}/>{copyDictionary.c205f07e7a6aa7f4f}</label></div></article>)}<p className="support-storage-note">{saved ? copyDictionary.cce48c7b201800260 : copyDictionary.c0e3dab45ce588140}</p><button onClick={() => onChecked([])}>{copyDictionary.c8be0b4a140d014c6}</button></section>; }
+}) {
+    const meta = livingScenes.find(s => s.id === scene)!;
+    return <section className="screen living-scene-page"><PageHeader title={meta.title} subtitle={copyDictionary.cf18f741a3b93f2a9} onBack={onBack}/>
+      {scene==='work'&&<section className="living-intro"><h2>{copyDictionary.learningTitle}</h2><p>{copyDictionary.learningPreview}</p><ul>{learningResources.filter(r=>['cdlvi','smartedu','cdpee'].includes(r.id)).map(r=><li key={r.id}><button onClick={()=>onAction('learning')}>{r.name}</button><p>{r.scope}</p></li>)}</ul><button onClick={()=>onAction('learning')}>{copyDictionary.learningViewAll}</button></section>}
+      <p>{copyDictionary.c0e0e8f0ec14471c6}</p>{sceneSteps[scene].map((step, i) => <article key={step.id} className="living-scene-step"><span className="living-step-number">{i + 1}</span><div><h2>{step.title}</h2><p>{step.detail}</p><button onClick={() => onAction(step.action)}>{step.button}</button><label className="switch-line"><input type="checkbox" checked={checked.includes(step.id)} onChange={e => onChecked(e.target.checked ? [...checked, step.id] : checked.filter(id => id !== step.id))}/>{copyDictionary.c205f07e7a6aa7f4f}</label></div></article>)}<p className="support-storage-note">{saved ? copyDictionary.cce48c7b201800260 : copyDictionary.c0e3dab45ce588140}</p><button onClick={() => onChecked([])}>{copyDictionary.c8be0b4a140d014c6}</button></section>;
+}

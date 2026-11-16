@@ -46,6 +46,7 @@ export const workbenchGroups: WorkbenchGroup[] = [
     },
     {
         id: 'affairs-participation', title: copyDictionary.c102a9624a5979031, items: [
+            tool('learning'),
             { ...tool('benefits'), icon: 'documents' }, { ...tool('digital-help'), icon: 'digital-form' },
             { ...tool('participation'), icon: 'book-open' },
         ],

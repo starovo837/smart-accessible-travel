@@ -178,6 +178,10 @@ export const serviceProviders: ServiceProvider[] = [
 // Validate scheme and a specific host allowlist. It is not a redirect or service
 // availability guarantee. User-entered facility notes are never put into URLs.
 const allowedHosts = new Set([
+    'app.nlc.cn', 'www.nlc.cn', 'www.ouchn.edu.cn', 'www.nxtvu.edu.cn', 'www.njou.edu.cn',
+    'chinajob.mohrss.gov.cn', 'jc.mohrss.gov.cn', 'www.moe.gov.cn', 'www.icourse163.org',
+    'www.xuetangx.com', 'www.tsinghua.edu.cn', 'www.nvaccess.org', 'www.zdsr.com',
+    'support.microsoft.com', 'www.beijing.gov.cn', 'gxca.miit.gov.cn',
     'www.amap.com', 'uri.amap.com', 'map.baidu.com', 'api.map.baidu.com',
     'gjzwfw.www.gov.cn', 'www.cdpf.org.cn', 'www.crrc.com.cn', 'www.cdpee.org.cn',
     'www.cdlvi.cn', 'cdlvi.cn', 'www.smartedu.cn', 'system.smartedu.cn',

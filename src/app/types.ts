@@ -1,6 +1,7 @@
 export type ModuleId = 'vision' | 'hearing' | 'mobility' | 'speech' | 'cognitive' | 'chronic'
-export type Screen = 'welcome' | 'select' | 'consent' | 'devices' | 'home' | 'fitting-workspace' | 'fit-shopping' | 'product-input' | 'product-result' | 'travel-input' | 'travel-result' | 'assistant' | 'profile' | 'about' | 'switch-modules' | 'privacy' | 'device-cards' | 'offline-pack' | 'life-tools' | 'support' | 'support-tool' | 'living-hub' | 'living-service' | 'living-scene'
+export type Screen = 'learning' | 'welcome' | 'select' | 'consent' | 'devices' | 'home' | 'fitting-workspace' | 'fit-shopping' | 'product-input' | 'product-result' | 'travel-input' | 'travel-result' | 'assistant' | 'profile' | 'about' | 'switch-modules' | 'privacy' | 'device-cards' | 'offline-pack' | 'life-tools' | 'support' | 'support-tool' | 'living-hub' | 'living-service' | 'living-scene'
 export type ConsentState = 'undecided' | 'granted' | 'skipped'
+export interface LifeData { learning?:import('./learningPlan').LearningData }
 export type DeviceType = string
 export type TravelMode = string
 export type Eligibility = 'allowed' | 'conditional' | 'unknown' | 'restricted'

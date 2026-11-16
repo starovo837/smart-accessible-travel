@@ -1,7 +1,7 @@
 import { copyDictionary } from "./copyDictionary.ts";
 import type { ModuleId } from './types';
 import type { IconName } from '../components/Icons';
-export type SupportToolId = import('./livingCatalog').ServiceToolId | 'vision' | 'magnifier' | 'color' | 'communication' | 'gestures' | 'steps' | 'reminders' | 'help' | 'life' | 'needs';
+export type SupportToolId = import('./livingCatalog').ServiceToolId | 'learning' | 'vision' | 'magnifier' | 'color' | 'communication' | 'gestures' | 'steps' | 'reminders' | 'help' | 'life' | 'needs';
 export interface SupportTool {
     id: SupportToolId;
     title: string;
@@ -10,6 +10,7 @@ export interface SupportTool {
     modules: ModuleId[];
 }
 export const supportTools: SupportTool[] = [
+    { id: 'learning', title: copyDictionary.learningTitle, detail: copyDictionary.learningPreview, icon: 'book-open', modules: ['vision', 'hearing', 'speech', 'mobility', 'cognitive', 'chronic'] },
     { id: 'vision', title: copyDictionary.c2f534997d0b0b0d8, detail: copyDictionary.c39932035fd35ea60, icon: 'camera', modules: ['vision', 'cognitive'] },
     { id: 'magnifier', title: copyDictionary.ca1f29d646a56b87b, detail: copyDictionary.c962446aa5270a702, icon: 'search', modules: ['vision'] },
     { id: 'color', title: copyDictionary.c1457cad0d6757fd5, detail: copyDictionary.c9bbcc0f36fbaedbc, icon: 'eye', modules: ['vision'] },
