@@ -1,15 +1,16 @@
 import { copyDictionary } from "../../app/copyDictionary.ts";
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { PageHeader, PrimaryButton } from '../../components/UI';
 import { copyText, phoneLink, readText } from '../../app/accessibility';
 import { uiCopy } from '../../app/uiCopy';
 import { getTravelMeta } from '../../app/catalog';
 import { travelActionSignature } from '../../app/travelTaskStorage';
-import { allTravelActions, type TravelTaskPlan, type TravelPlanAction } from '../../app/travelTaskTypes';
+import { allTravelActions, travelReadingText, type TravelTaskPlan, type TravelPlanAction } from '../../app/travelTaskTypes';
 import type { Device, TravelContext, TravelDeviceSpecs } from '../../app/types';
 import { TravelParameterGuide } from '../TravelParameterGuide';
 import { TravelCarryCard } from './TravelCarryCard';
 import { TravelGapEditor, type TravelGapPatch } from './TravelGapEditor';
+import {TravelSpecReview} from './TravelSpecReview';
 import '../../travel-task.css';
 import { disabilityCategories } from '../../app/disabilityProfile';
 import { disabilityNotice } from '../../app/disabilityCopy';
@@ -52,6 +53,8 @@ function ActionRow({ action, plan, done, onToggle, general, change }: {
   </article>;
 }
 interface Props {
+    legacySpecs?: boolean;
+    coverage?: ReactNode;
     plan: TravelTaskPlan;
     checked: Record<string, string>;
     onToggle: (action: TravelPlanAction) => void;
@@ -122,6 +125,7 @@ export function TravelTaskResult(props: Props) {
     const cancelEditor = () => { const gap = editor?.gap; setEditor(null); requestAnimationFrame(() => { Array.from(root.current?.querySelectorAll<HTMLButtonElement>('[data-gap-id]') ?? []).find(button => button.dataset.gapId === gap)?.focus(); }); };
     return <section ref={root} className="screen travel-task-result">
     <PageHeader title={plan.readiness === 'preparation' ? copyDictionary.c604dad45b34f0c19 : copyDictionary.c29019cc705a783b0} subtitle={getTravelMeta(plan.mode).label + copyDictionary.c589b9619949d5699} onBack={props.onBack}/>
+    {props.coverage}
     <section className="travel-task-overview" aria-label={copyDictionary.cbace92d4e9764628}>
       <h2 ref={overviewHeading} tabIndex={-1}>{plan.readiness === 'preparation' ? copyDictionary.cabbcead62c7a81ec : `${plan.route.from} → ${plan.route.to}`}</h2>
       <p className="travel-dynamic-summary" role="status">{plan.summary}</p>
@@ -129,7 +133,7 @@ export function TravelTaskResult(props: Props) {
       {completion.gaps.length > 0 && <p>{copyDictionary.c820a748cf8bd2ea8}</p>}
       {completion.gaps.length > 0 && <p className="travel-task-state">{uiCopy.missing(completion.gaps.length)}{completion.gaps.map(gap => gap.label).join('、')}。</p>}
       <p>{copyDictionary.c0aefdf6434d26e0e}{completed} / {actions.length}{copyDictionary.ca2ecf815b7fb6f3e}</p>
-      <button type="button" onClick={() => readText(plan.stages.map(stage => stage.title + '。' + stage.actions.map(action => action.title + '。' + action.detail).join('。')).join('。'))}>{uiCopy.readAll}</button>
+      <button type="button" onClick={() => void readText(travelReadingText(plan, copyDictionary.c835b700e028c9b20, copyDictionary.cf97bbbbc2c41e888))}>{uiCopy.readAll}</button>
       {!props.online && <p className="travel-task-state">{copyDictionary.c68414ac543532db5}</p>}
       <p role="status">{props.storageMessage}</p>
       <div className="travel-task-toolbar"><button onClick={props.onEdit}>{copyDictionary.c7ce97d15f35a17cc}</button><button onClick={props.onExport}>{copyDictionary.ce9698c11696db611}</button><button onClick={props.onClear}>{copyDictionary.c1ea3a4a33889671a}</button></div>
@@ -144,6 +148,7 @@ export function TravelTaskResult(props: Props) {
                 return <article className="travel-gap-card" key={gap.id}><h3>{copyDictionary.c1c64182187debf5b}{label}</h3><p>{copyDictionary.c1739d8c9466d163f}</p><button type="button" data-gap-id={gap.id} aria-label={copyDictionary.c83e147edba70c301 + label + copyDictionary.c8682ab466e619a80 + completion.locked + copyDictionary.c6bb32451f0fcbee1} aria-expanded={editor?.gap === gap.id} onClick={() => openGap(gap.id)}>{copyDictionary.c83e147edba70c301}</button></article>;
             })}</div></section>}
     {editor && <TravelGapEditor focusGap={editor.gap} focusRequest={editor.request} availableDevices={props.availableDevices} devices={props.devices} specs={props.specs} context={props.context} mode={plan.mode} gaps={completion.gaps} onApply={patch => { saveFocus.current = true; props.onCompleteGaps(patch); setEditor(null); }} onCancel={cancelEditor}/>}
+    {!editor && <TravelSpecReview devices={props.devices} specs={props.specs} onChange={props.onSpecChange} legacy={props.legacySpecs}/>}
     {plan.readiness !== 'preparation' && props.devices.length > 0 && !editor && <section className="travel-task-parameters" aria-label={copyDictionary.ceb00d20222a3df6d}><h2>{copyDictionary.cd5d1477276bb384a}</h2><p>{copyDictionary.c82612ef13c5cfc14}</p><TravelParameterGuide mode={plan.mode} devices={props.devices} specs={props.specs} onChange={props.onSpecChange} onCheck={() => jump('travel-stage-before')} invalid={false}/></section>}
     <section className="travel-task-filter"><label className="switch-line"><input type="checkbox" checked={onlyNext} onChange={event => { setShowActionId(null); setExpandedStages(new Set()); props.onOnlyNextChange(event.target.checked); }} aria-describedby={descriptionId}/>{copyDictionary.c493e833cbe9db317}</label><p id={descriptionId}>{copyDictionary.cd1a9708085361c76}</p></section>
     {actions.length > 0 && !next && <h2 ref={completeHeading} tabIndex={-1} className="travel-complete-message">{copyDictionary.c53077bd9635bc933}{completion.locked > 0 ? copyDictionary.c1a1f6f3d0815afa1 + completion.locked + copyDictionary.c09f957fca77486ff : copyDictionary.ceebe649d7f9ba9ea}</h2>}

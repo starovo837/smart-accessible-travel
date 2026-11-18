@@ -48,6 +48,7 @@ interface Props {
     onCards: () => void;
     onLife: () => void;
     onOffline: () => void;
+    onRemoveCorrection: (id: string) => void;
     onImportManagement: (cases: Feedback[], shares: import('../app/types').LocalShare[]) => void;
     onNeeds: () => void;
     onAbout: () => void;
@@ -84,7 +85,7 @@ export function ProfilePage(props: Props) {
       <p>{copyDictionary.cb60a3553835f0a44}</p><div className="profile-menu"><button onClick={() => { setView(null); setConfirm('profile'); }}>{copyDictionary.c3ff99ac16884bc24}</button><button onClick={() => { setView(null); setConfirm('devices'); }}>{copyDictionary.ceaba318f9a0d2ed3}</button><button onClick={() => { setView(null); setConfirm('life'); }}>{copyDictionary.c1db351fafd39c77a}</button><button className="danger-link" onClick={() => { setView(null); setConfirm('all'); }}>{copyDictionary.cee272e716df1413e}</button></div>
       <p className="prototype-note">{copyDictionary.c58932335742bedc5}</p>
     </Modal>}
-    {view === 'feedback' && <Modal title={copyDictionary.cb1761897488b09cd} onClose={() => setView(null)}><CaseTracking items={props.feedback}/><ManagementBackup cases={props.feedback} shares={props.journey.shares} onImport={props.onImportManagement}/><p>{copyDictionary.cb6ce16e21ed52343}</p><PrimaryButton disabled={!props.feedback.length} onClick={() => downloadText(JSON.stringify(props.feedback, null, 2), copyDictionary.ca4e313001241fef7, 'application/json')}>{copyDictionary.c77d8fadb89b738b9}</PrimaryButton></Modal>}
+    {view === 'feedback' && <Modal title={copyDictionary.cb1761897488b09cd} onClose={() => setView(null)}><CaseTracking items={props.feedback} onRemove={props.onRemoveCorrection}/><ManagementBackup cases={props.feedback} shares={props.journey.shares} onImport={props.onImportManagement}/><p>{copyDictionary.cb6ce16e21ed52343}</p><PrimaryButton disabled={!props.feedback.length} onClick={() => downloadText(JSON.stringify(props.feedback, null, 2), copyDictionary.ca4e313001241fef7, 'application/json')}>{copyDictionary.c77d8fadb89b738b9}</PrimaryButton></Modal>}
     {confirm && <Modal title={copyDictionary.caf9907d3b1338e4f} onClose={() => { if (!deleting)
         setConfirm(null); }}><p>{copyDictionary.c7dd59a9afe3d9f9d}{confirm === 'all' ? copyDictionary.caac421f5c51d969b : copyDictionary.c71b08673fb7e60d3}{copyDictionary.ced62c8901072d185}</p><div className="action-row"><PrimaryButton variant="ghost" onClick={() => setConfirm(null)}>{copyDictionary.c0c707fed9d24e011}</PrimaryButton><PrimaryButton variant="danger" disabled={deleting} onClick={async () => { setDeleting(true); setDeleteError(''); try {
         await props.onDelete(confirm);

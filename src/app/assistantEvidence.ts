@@ -1,5 +1,5 @@
 import { copyDictionary } from "./copyDictionary.ts";
-import { conflictsOf, inSelectedModel, missingQuestions, productImpacts } from './product.ts';
+import { isSampleFact, conflictsOf, inSelectedModel, missingQuestions, productImpacts } from './product.ts';
 import type { ProductAnalysis, TravelCheckResult } from './types.ts';
 import { usabilityReview } from './usability.ts';
 export interface AssistantEvidence {
@@ -19,7 +19,7 @@ export interface EvidencePack {
 }
 export function assistantEvidence(product?: ProductAnalysis, results: TravelCheckResult[] = []): AssistantEvidence[] {
     const insight = product?.insight;
-    const items: AssistantEvidence[] = insight ? insight.facts.filter(fact => inSelectedModel(insight, fact)).map(fact => ({ id: fact.id, label: fact.label, text: fact.verification === 'unverified' ? copyDictionary.ce3b0c44298fc1c14 + fact.label + copyDictionary.c2e1f8d302086419e + (fact.validationNote ?? '') : copyDictionary.cff4e90e23476d047 + fact.label + copyDictionary.cf114611cd61000bf + fact.value + copyDictionary.c36a9e7f1c95b82ff + fact.unit + copyDictionary.ceb0d5884569b398e + (fact.verification === 'image' ? copyDictionary.c515c13d29c1326fd : copyDictionary.c08ae22ba2c4e71ce) + copyDictionary.ceb0d5884569b398e + (fact.confirmed ? copyDictionary.c88f9e99179f87b72 : copyDictionary.c03556d6376b36b3c) + copyDictionary.ceb0d5884569b398e, quote: fact.quote, source: insight.sources.find(source => source.id === fact.sourceId)?.name ?? copyDictionary.c4e63cb7988f5bc30, kind: 'fact' })) : [];
+    const items: AssistantEvidence[] = insight ? insight.facts.filter(fact => inSelectedModel(insight, fact)).map(fact => ({ id: fact.id, label: fact.label, text: (isSampleFact(insight,fact)?copyDictionary.travelSampleFact:'') + (fact.verification === 'unverified' ? copyDictionary.ce3b0c44298fc1c14 + fact.label + copyDictionary.c2e1f8d302086419e + (fact.validationNote ?? '') : copyDictionary.cff4e90e23476d047 + fact.label + copyDictionary.cf114611cd61000bf + fact.value + copyDictionary.c36a9e7f1c95b82ff + fact.unit + copyDictionary.ceb0d5884569b398e + (fact.verification === 'image' ? copyDictionary.c515c13d29c1326fd : copyDictionary.c08ae22ba2c4e71ce) + copyDictionary.ceb0d5884569b398e + (fact.confirmed && !isSampleFact(insight,fact) ? copyDictionary.c88f9e99179f87b72 : copyDictionary.c03556d6376b36b3c) + copyDictionary.ceb0d5884569b398e), quote: fact.quote, source: insight.sources.find(source => source.id === fact.sourceId)?.name ?? copyDictionary.c4e63cb7988f5bc30, kind: 'fact' })) : [];
     if (insight?.needs.oneHand)
         items.push({ id: 'need-onehand', label: copyDictionary.ca0a1f5ab062ff8fa, text: copyDictionary.c961990796b7c2a70, source: copyDictionary.ce601024261409d07 });
     if (insight?.needs.doorCm)

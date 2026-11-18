@@ -2,7 +2,7 @@ import { copyDictionary } from "../app/copyDictionary.ts";
 import { useState, type Dispatch, type SetStateAction } from 'react';
 import { readText, stopReading } from '../app/accessibility';
 import { checkEnumClaim, checkNumericClaim } from '../app/evidence';
-import { inSelectedModel, type ProductFact } from '../app/product';
+import { isSampleFact, inSelectedModel, type ProductFact } from '../app/product';
 import type { ProductAnalysis } from '../app/types';
 export function EvidenceReview({ product, setProduct }: {
     product: ProductAnalysis;
@@ -11,10 +11,10 @@ export function EvidenceReview({ product, setProduct }: {
     const insight = product.insight!, [factId, setFactId] = useState(''), [method, setMethod] = useState(copyDictionary.c5a08fe1ddb71411b), [basis, setBasis] = useState(''), [notice, setNotice] = useState('');
     const groups = [...new Set(insight.facts.map(fact => fact.modelKey || ''))];
     const images = insight.sources.filter(source => source.image || source.transcript);
-    const candidates = insight.facts.filter(fact => inSelectedModel(insight, fact) && fact.verification === 'image');
+    const candidates = insight.facts.filter(fact => inSelectedModel(insight, fact) && !isSampleFact(insight,fact) && fact.verification === 'image');
     const fact = candidates.find(item => item.id === factId);
     const confirm = () => {
-        if (!fact || !basis.trim())
+        if (!fact || isSampleFact(insight,fact) || !basis.trim())
             return;
         const numeric = /Cm$|Kg$|Wh$/.test(fact.field) || fact.field === 'batteryCount';
         const matches = numeric ? checkNumericClaim(fact.field, fact.value, fact.unit, basis).ok : checkEnumClaim(fact.field, fact.value, basis);

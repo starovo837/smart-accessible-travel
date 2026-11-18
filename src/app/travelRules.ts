@@ -1,6 +1,7 @@
 import { copyDictionary } from "./copyDictionary.ts";
 import type { Device, TravelCheckResult, TravelContext, TravelDeviceSpecs, TravelMode } from './types';
 import { ruleCatalog, ruleCurrent, rulesFor, type RuleDocument } from './ruleCatalog.ts';
+import {confirmedTravelSpecs} from './travelSpecEvidence.ts';
 export const largeDeviceTypes = new Set(['wheelchair', 'manual-wheelchair', 'mobility-scooter', 'walker', 'rollator', 'transfer-board']);
 const poweredTypes = new Set(['wheelchair', 'mobility-scooter', 'hearing-aid', 'oxygen', 'pump', 'electronic-cane', 'magnifier', 'braille-display', 'reading-device', 'cochlear-processor', 'hearing-transmitter', 'vibration-alert', 'aac-device', 'electrolarynx', 'reminder', 'cpap', 'nebulizer', 'glucose-monitor', 'suction-device']);
 const medicalTypes = new Set(['oxygen', 'pump', 'cpap', 'nebulizer', 'suction-device']);
@@ -13,9 +14,9 @@ export function buildTravelResults(mode: TravelMode, devices: Device[], specs: R
     const applicable = rulesFor(mode, context, documents), current = applicable.filter(rule => ruleCurrent(rule, Math.max(now, Date.parse(context.journeyDate || '') || 0)));
     const active = (id: string) => current.some(rule => rule.id === id);
     return devices.map((device) => {
-        const detail = specs[device.id] ?? {};
+        const detail = confirmedTravelSpecs(specs[device.id],device);
         const large = largeDeviceTypes.has(device.type);
-        const powered = poweredTypes.has(device.type) || (device.battery.trim() !== '' && device.battery.trim() !== copyDictionary.c484d55613910eb8c) || (detail.batteryType && !['none', 'unknown'].includes(detail.batteryType));
+        const powered = poweredTypes.has(device.type) || (detail.batteryType && !['none', 'unknown'].includes(detail.batteryType));
         const electronic = powered || detail.batteryType === 'lithium';
         const medical = medicalTypes.has(device.type);
         const checks: string[] = [];

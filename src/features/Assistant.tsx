@@ -140,11 +140,9 @@ export function AssistantPage({ readAloud, evidence, preferBrowser, contextKey, 
         setComplete(result.complete);
         setDraft('');
         setStatus('');
-        if (readAloud && !readText(result.text, slow ? 0.75 : 1))
-            setStatus(copyDictionary.c257687ee65f211e7);
+        if (readAloud) void readText(result.text, slow ? 0.75 : 1);
     };
-    const repeat = (rate: number) => { if (!readText(latest, rate))
-        setStatus(copyDictionary.cb636cd52e358467f); };
+    const repeat = (rate: number) => void readText(latest, rate);
     const interrupt = () => { epoch.current++; request.current?.abort(); setBusy(false); stopReading(); setStatus(copyDictionary.cec354ec8a199d2d3); };
     return <section className="screen assistant-screen corrected-assistant">
     <PageHeader title={copyDictionary.c613f4eaa42519a01} subtitle={copyDictionary.c4135ae0c522a9724} onBack={onBack}/>

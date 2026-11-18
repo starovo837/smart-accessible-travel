@@ -6,6 +6,8 @@ import { catalogDevice, extraEquipment, getTravelMeta, makeCustomId, normalizeLa
 import { deviceMeta } from '../app/mock';
 import { TravelParameterGuide } from './TravelParameterGuide';
 import { largeDeviceTypes } from '../app/travelRules';
+import {sampleDeviceField,updateTravelSpec} from '../app/travelSpecEvidence';
+import {TravelSpecReview} from './travel/TravelSpecReview';
 import type { CustomTravelDevice, CustomTravelMode, Device, TravelContext, TravelDeviceSpecs, TravelMode } from '../app/types';
 export function travelOptions(devices: Device[], custom: CustomTravelDevice[]) {
     return [...devices.map(device => ({ ...device, icon: deviceMeta[device.type]?.icon ?? 'settings' as IconName })),
@@ -81,14 +83,14 @@ export function TravelQuery(props: Props) {
         setNewDevice('');
         setDeviceSearch('');
     };
-    const update = (id: string, field: keyof TravelDeviceSpecs, value: unknown) => setSpecs({ ...specs, [id]: { ...specs[id], [field]: value } });
+    const update = (id: string, field: keyof TravelDeviceSpecs, value: unknown) => setSpecs({ ...specs, [id]: updateTravelSpec(specs[id],field,value) });
     const numberValue = (value: string) => value === '' ? undefined : Number(value);
     const invalid = chosen.some(item => Object.values(specs[item.id] ?? {}).some(value => typeof value === 'number' && (!Number.isFinite(value) || value <= 0))) || Object.entries(context).some(([key, value]) => ['availableLengthCm', 'availableWidthCm', 'availableHeightCm', 'doorWidthCm', 'availableWeightKg'].includes(key) && value !== undefined && (typeof value !== 'number' || !Number.isFinite(value) || value <= 0));
     const show = (n: number) => step === n;
     return <section className="screen travel-query">
     <PageHeader level={props.embedded ? 2 : 1} title={copyDictionary.c6e7604f9408c6b81} subtitle={copyDictionary.c4384ca763e3ff214} onBack={props.onBack}/>
     {props.livePreview}
-    <details><summary>{copyDictionary.cb6acb299fa4315f6}</summary>{props.coverage}</details>
+    <details open><summary>{copyDictionary.cb6acb299fa4315f6}</summary>{props.coverage}</details>
     {<div className="guided-progress" aria-live="polite"><h2 ref={heading} tabIndex={-1}>{copyDictionary.caf50a0fe2a50a3d1}{step}{copyDictionary.c13e0a70c74079bd8}{[copyDictionary.c06e4cefb3309b6cf, copyDictionary.cb629bdddb965f0fd, copyDictionary.cc345745cff60e066][step - 1]}</h2><p>{step === 1 ? copyDictionary.c0d72b2463830d479 : step === 2 ? copyDictionary.cb549f7990250b223 : copyDictionary.c99855c09676d8e73}</p></div>}
     {show(1) && <section className="query-section" aria-label={copyDictionary.ce9b0e57eec5b8a99}><h2>{copyDictionary.c716b5a1f16ea6c78}</h2>
       <label className="catalog-search"><Icon name="search" size={18}/><input aria-label={copyDictionary.c18ea22328ed60d49} value={modeSearch} onChange={e => setModeSearch(e.target.value)} placeholder={copyDictionary.c18ea22328ed60d49}/></label>
@@ -111,6 +113,7 @@ export function TravelQuery(props: Props) {
     </section>}
     {show(3) && <section className="query-section" aria-label={copyDictionary.ce161143f3ee2bc33}><h2>{copyDictionary.c3d513e8a39b9ffcb}</h2><p className="catalog-hint">{copyDictionary.c822e9c8d23ead0a6}</p>
       {chosen.length === 0 && <p>{copyDictionary.c49ed8a3303ba7e99}</p>}
+      <TravelSpecReview devices={chosen} specs={specs} onChange={update}/>
       {chosen.length > 0 && <TravelParameterGuide mode={mode} devices={chosen} specs={specs} onChange={update} onCheck={props.onStart} invalid={invalid}/>}
       <details><summary>{copyDictionary.c26d08befb271bc7a}</summary>
       {chosen.map(item => item.type === 'guide-dog' ? <fieldset className="transport-specs" key={item.id}><legend>{item.name}</legend><p>{copyDictionary.c6e2644ff5a52b534}</p></fieldset> : <fieldset className="transport-specs" key={item.id}><legend>{item.name}</legend>
@@ -119,7 +122,7 @@ export function TravelQuery(props: Props) {
         <label className="travel-field">{copyDictionary.c8c3461725ed3e3f8}<select aria-label={copyDictionary.ce3b0c44298fc1c14 + item.name + copyDictionary.c1a745390e3e4f8c2} value={specs[item.id]?.folded ?? 'unknown'} onChange={e => update(item.id, 'folded', e.target.value)}><option value="unknown">{copyDictionary.c8b9bc177d5663856}</option><option value="yes">{copyDictionary.c8f70d047ab6f0630}</option><option value="no">{copyDictionary.c6ef03cc71e8b36fc}</option></select></label>
         </details><label className="travel-field">{copyDictionary.ccc64d927855b9fde}<select aria-label={copyDictionary.ce3b0c44298fc1c14 + item.name + copyDictionary.ccc64d927855b9fde} value={specs[item.id]?.batteryType ?? 'unknown'} onChange={e => update(item.id, 'batteryType', e.target.value)}><option value="unknown">{copyDictionary.cc098e854e60b951a}</option><option value="none">{copyDictionary.cd0b98b6b5127b3fd}</option><option value="lithium">{copyDictionary.c0cad03728e492a1a}</option><option value="other">{copyDictionary.caa467456270985d6}</option></select></label>
         {specs[item.id]?.batteryType === 'lithium' && <div className="field-grid two"><label>{copyDictionary.c11e56f44f01e541d}<input aria-label={copyDictionary.ce3b0c44298fc1c14 + item.name + copyDictionary.cef3077b434e69a44} type="number" min="0.01" step="any" value={specs[item.id]?.batteryWh ?? ''} onChange={e => update(item.id, 'batteryWh', numberValue(e.target.value))}/></label><label>{copyDictionary.cc0c73dc664361a97}<select aria-label={copyDictionary.ce3b0c44298fc1c14 + item.name + copyDictionary.c7111167bc565a5c0} value={specs[item.id]?.batteryCount ?? ''} onChange={e => update(item.id, 'batteryCount', e.target.value ? Number(e.target.value) : undefined)}><option value="">{copyDictionary.cc098e854e60b951a}</option><option value={1}>{copyDictionary.c61e4a1d39b982d87}</option><option value={2}>{copyDictionary.cc5ffa29b91ea521f}</option></select></label><label>{copyDictionary.cd06fab1cad7bc932}<select aria-label={copyDictionary.ce3b0c44298fc1c14 + item.name + copyDictionary.ca237c132cc1845a6} value={specs[item.id]?.removable ?? 'unknown'} onChange={e => update(item.id, 'removable', e.target.value)}><option value="unknown">{copyDictionary.cc098e854e60b951a}</option><option value="yes">{copyDictionary.c653483205eea16ee}</option><option value="no">{copyDictionary.cb98f332026c596bb}</option></select></label></div>}
-        {item.dimensions && <p className="catalog-hint">{copyDictionary.c9bfc56e1dc835795}{item.dimensions} · {item.weight} · {item.battery}{copyDictionary.cc9cb6ab59dbd1850}</p>}
+        {item.dimensions && !sampleDeviceField(item) && <p className="catalog-hint">{copyDictionary.c9bfc56e1dc835795}{item.dimensions} · {item.weight} · {item.battery}{copyDictionary.cc9cb6ab59dbd1850}</p>}
         <PrimaryButton variant="ghost" disabled={!specs[item.id] || invalid} onClick={() => { props.onRemember?.(item, specs[item.id]); setSaveStatus(item.name + copyDictionary.c977fe381f602f6f5); }}>{copyDictionary.c07e6b6703f637476}</PrimaryButton>
       </fieldset>)}
       {chosen.some(item => largeDeviceTypes.has(item.type)) && <fieldset className="transport-specs"><legend>{copyDictionary.c3729177e82fba8a2}</legend><p>{copyDictionary.ceee4511098124757}</p><div className="field-grid two">{([['availableLengthCm', copyDictionary.cfb33f8b91d02c9ee], ['availableWidthCm', copyDictionary.c48a0ee5d9c69e912], ['availableHeightCm', copyDictionary.c531532937111e72a], ['doorWidthCm', copyDictionary.c9f9ccffa13aefcd8], ['availableWeightKg', copyDictionary.c1ac4b0641c30288a]] as const).map(([field, label]) => <label key={field}>{label}<input aria-label={label} type="number" min="0.01" step="any" value={context[field] ?? ''} onChange={e => setContext({ ...context, [field]: numberValue(e.target.value) })}/></label>)}</div></fieldset>}

@@ -16,8 +16,13 @@ export interface AIStatus {
     reason?: string;
     deployment?: string;
 }
+export class SessionRateLimitError extends Error {
+    constructor() { super(copyDictionary.sessionRateLimited); }
+}
 export async function readAIStatus(): Promise<AIStatus> {
     const response = await apiFetch('/api/status', { credentials: 'same-origin', cache: 'no-store' });
+    if (response.status === 429)
+        throw new SessionRateLimitError();
     if (!response.ok)
         throw Error(copyDictionary.cbb9ea7c986783628);
     const status: AIStatus = await response.json();

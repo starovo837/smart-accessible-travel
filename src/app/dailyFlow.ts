@@ -2,6 +2,7 @@ import { copyDictionary } from "./copyDictionary.ts";
 import { chosenFact, conflictsOf, missingQuestions, productImpacts, type FactField } from './product.ts';
 import type { Device, ProductAnalysis, TravelCheckResult, TravelDeviceSpecs } from './types.ts';
 import { largeDeviceTypes } from './travelRules.ts';
+import {confirmedTravelSpecs,sampleDeviceField} from './travelSpecEvidence.ts';
 export function productFocus(product: ProductAnalysis) {
     const insight = product.insight;
     if (!insight)
@@ -30,9 +31,9 @@ export interface TravelQuestion {
 }
 export function travelQuestions(mode: string, devices: Device[], specs: Record<string, TravelDeviceSpecs>): TravelQuestion[] {
     return devices.flatMap(device => {
-        if (device.type === 'guide-dog')
+        if (device.type === 'guide-dog' || sampleDeviceField(device))
             return [];
-        const values = specs[device.id] ?? {}, large = largeDeviceTypes.has(device.type), rows: TravelQuestion[] = [];
+        const values = confirmedTravelSpecs(specs[device.id],device), large = largeDeviceTypes.has(device.type), rows: TravelQuestion[] = [];
         const add = (field: keyof TravelDeviceSpecs, label: string, hint: string, choices?: [
             string,
             string

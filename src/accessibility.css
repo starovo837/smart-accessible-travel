@@ -96,3 +96,23 @@ html { scroll-padding-bottom: calc(var(--result-footer-height, 100px) + 24px); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .storage-error { margin: 12px; padding: 12px; border: 2px solid #a7382b; }
 @media (max-width: 360px) { .screen { padding-left: 18px; padding-right: 18px; } .field-grid.two { grid-template-columns: 1fr; } .modal { padding: 18px; } .action-row > * { min-width: 0; } .home-header { gap: 10px; } }
+.reading-fallback {
+  position: fixed;
+  z-index: 80;
+  inset: auto max(0.5rem, calc((100vw - 44rem) / 2)) 0.5rem;
+  max-block-size: min(55dvh, 26rem);
+  overflow: auto;
+  padding: 0.75rem;
+  border: 2px solid #245174;
+  border-radius: 0.75rem;
+  background: #fff;
+  color: #122c43;
+  overflow-wrap: anywhere;
+}
+
+.modal .reading-fallback { position: static; }
+.reading-fallback p { margin: 0.5rem 0; }
+.reading-fallback button { min-height: 48px; }
+.reading-fallback-text { font-size: 1.25rem; line-height: 1.6; white-space: pre-wrap; }
+.daily-phrase-entry { display: flex; flex-wrap: wrap; gap: 0.5rem; min-width: 0; max-width: 100%; }
+.daily-phrase-entry button { max-width: 100%; overflow-wrap: anywhere; }

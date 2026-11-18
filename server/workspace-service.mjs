@@ -23,7 +23,7 @@ export function createWorkspaceService({directory=defaultDirectory,now=()=>Date.
   const purgeTimer=setInterval(()=>void mutate(()=>({purged:true})).catch(()=>{}),3600000);purgeTimer.unref()
   const event=(actor,text,status)=>({at:new Date(now()).toISOString(),actor,text,status})
   const publicCase=record=>{const{capHash,...visible}=record;return visible}
-  const authCase=(data,key,secret)=>{const record=data.cases.find(item=>item.id===key&&(!item.expiresAt||item.expiresAt>now()));if(!record||!secretMatches(secret,record.capHash))fail('没有访问这条纠错记录的权限，或记录已到期。',403);return record}
+  const authCase=(data,key,secret)=>{const record=data.cases.find(item=>item.id===key&&(!item.expiresAt||item.expiresAt>now()));if(!record||!secretMatches(secret,record.capHash))fail('没有访问这条纠错记录的权限，或记录已到期。',record?403:404);return record}
   const authShare=(data,key,secret,owner=false)=>{const record=data.shares.find(item=>item.id===key);if(!record||!secretMatches(secret,owner?record.ownerHash:record.viewHash))fail('分享凭据无效。',403);if(record.revoked||record.expiresAt<=now())fail('分享已到期或撤销。',410);return record}
   const publicShare=record=>({id:record.id,recipient:record.recipient,expiresAt:record.expiresAt,revision:record.revision,payload:record.payload,proposals:record.proposals,updatedAt:record.updatedAt,permissions:record.permissions})
   const payloadOf=(input,scopes)=>{

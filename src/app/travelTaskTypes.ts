@@ -80,6 +80,15 @@ export interface TravelTaskPlan {
   stages: { id: TravelStageId; title: string; actions: TravelPlanAction[]; emptyReason?: string }[]
   contacts: { name: string; phone: string; url: string }[]
 }
+export function travelReadingText(plan: TravelTaskPlan, generalTitle: string, contactsTitle: string): string {
+  const actionText = (action: TravelPlanAction) => [action.title, action.detail]
+  return [
+    plan.summary,
+    ...plan.stages.flatMap(stage => [stage.title, stage.emptyReason, ...stage.actions.flatMap(actionText)]),
+    ...(plan.generalActions?.length ? [generalTitle, ...plan.generalActions.flatMap(actionText)] : []),
+    ...(plan.contacts.length ? [contactsTitle, ...plan.contacts.flatMap(contact => [contact.name, contact.phone])] : []),
+  ].filter(Boolean).join('。')
+}
 export function allTravelActions(plan: TravelTaskPlan): TravelPlanAction[] {
   const actions=[...plan.stages.flatMap(stage => stage.actions), ...(plan.generalActions ?? [])]
   if(!plan.disabilityProfile)return actions

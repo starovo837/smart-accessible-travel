@@ -1,6 +1,8 @@
 import { spawn } from 'node:child_process'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, access } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
 import { LOCAL_MODEL } from '../../server/local-ai.mjs'
+import { initializeRuleFile } from '../../server/rule-service.mjs'
 
 // Model inference uses a loopback engine in this container. No paid model API.
 process.env.SAI_DEPLOYMENT='studio'
@@ -9,6 +11,12 @@ process.env.SAI_DATA_DIR||='/mnt/workspace/smart-accessible/data'
 process.env.OLLAMA_MODELS||='/opt/smart-models'
 Object.assign(process.env,{OLLAMA_HOST:'127.0.0.1:11434',OLLAMA_NO_CLOUD:'1',OLLAMA_NUM_PARALLEL:'1',OLLAMA_MAX_LOADED_MODELS:'1',OLLAMA_CONTEXT_LENGTH:'16384',OLLAMA_DEBUG:'0'})
 await Promise.all([mkdir(process.env.SAI_DATA_DIR,{recursive:true}),mkdir(process.env.OLLAMA_MODELS,{recursive:true})])
+// The uploader mirrors only the validated, optional review file into server/.
+// That directory is already carried by the Docker allowlist. No wider COPY.
+const directReviewFile=fileURLToPath(new URL('./rules.verified.json',import.meta.url))
+let bundledFile=directReviewFile
+try{await access(directReviewFile)}catch(error){if(error.code==='ENOENT')bundledFile=fileURLToPath(new URL('../../server/bundled-rules.verified.json',import.meta.url))}
+await initializeRuleFile({bundledFile,dataDirectory:process.env.SAI_DATA_DIR})
 const children=new Set()
 let stopping=false
 function stop(code=0){

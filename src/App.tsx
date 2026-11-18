@@ -1,6 +1,5 @@
 import { copyDictionary } from "./app/copyDictionary.ts";
 import { LearningCenter } from './features/learning/LearningCenter';
-import { removeLearning } from './app/learningPlan';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, PrimaryButton } from './components/UI';
 import { isStudio } from './app/deployment';
@@ -9,7 +8,7 @@ import { TravelQuery, travelOptions } from './features/TravelQuery';
 import { TravelTaskResult } from './features/travel/TravelTaskResult';
 import type { TravelGapPatch } from './features/travel/TravelGapEditor';
 import { buildTravelTaskPlan } from './app/travelPlan';
-import { readTravelTask, writeTravelTask, clearTravelTask, storedDeviceSpecs, travelActionSignature, exportTravelTask, type TravelTaskSnapshot } from './app/travelTaskStorage';
+import { readTravelTask, writeTravelTask, clearTravelTask, clearTravelProfileStorage, scopeTravelProfile, storedDeviceSpecs, travelActionSignature, exportTravelTask, type TravelTaskSnapshot } from './app/travelTaskStorage';
 import { canonicalTripKey } from './app/travelTripIdentity';
 import { allTravelActions, type TravelTaskPlan } from './app/travelTaskTypes';
 import { diffTravelPlans, noTravelChanges } from './app/travelPlanDiff';
@@ -43,11 +42,12 @@ import { normalizeDisabilityProfile, type DisabilityProfile } from './app/disabi
 import { analyzeInBrowser } from './app/browserAI';
 import { assistantEvidence, packEvidence } from './app/assistantEvidence';
 import { ruleCatalog, ruleDocumentsFromResponse, type RuleDocument } from './app/ruleCatalog';
+import {sampleDeviceField,updateTravelSpec} from './app/travelSpecEvidence';
 import { prepareService, service } from './app/service';
 import { productAnalysis } from './app/mock';
 import { buildTravelResults } from './app/travelRules';
 import { deviceCard, initialJourney, rememberTravelSpecs } from './app/journey';
-import { readSnapshot, scopeSnapshot, STORAGE_KEY } from './app/storage';
+import { readSnapshot, scopeSnapshot, STORAGE_KEY, canSaveDisabilityProfile, restoreDisabilityProfile, persistDisabilityProfile, clearProfileStorage, sharesForPrivacyWithdrawal, withoutLifeAssistance, writeScopedSnapshot } from './app/storage';
 import { QuickProductIntake as ProductIntake } from './features/QuickProductIntake';
 import type { IntakeDraft } from './app/intake';
 import { TravelCoverage } from './features/TravelCoverage';
@@ -72,21 +72,20 @@ catch {
     return null;
 } }
 export default function App() {
-    const [disabilityProfile, setDisabilityProfile] = useState<DisabilityProfile>(() => { try {
-        return normalizeDisabilityProfile(JSON.parse(localStorage.getItem('smart-accessible-disability-v1') ?? 'null'));
-    }
-    catch {
-        return { selections: [] };
-    } });
+    const [saved, setSaved] = useState(load);
+    const [profileState,setProfileState] = useState(()=>restoreDisabilityProfile(saved));
+    const {profile:disabilityProfile,error:profileError}=profileState;
+    const setDisabilityProfile=(profile:DisabilityProfile)=>setProfileState(current=>({...current,profile}));
+    const setProfileError=(error:string)=>setProfileState(current=>({...current,error}));
     const moduleForCategory = { vision: 'vision', hearing: 'hearing', speech: 'speech', physical: 'mobility', intellectual: 'cognitive', mental: 'chronic' } as const;
-    const changeDisabilityProfile = (value: DisabilityProfile) => { setDisabilityProfile(value); setModules(value.selections.map(item => moduleForCategory[item.category])); try {
-        localStorage.setItem('smart-accessible-disability-v1', JSON.stringify(value));
+    const changeDisabilityProfile = (value: DisabilityProfile) => { const profile=normalizeDisabilityProfile(value);setDisabilityProfile(profile); setModules(profile.selections.map(item => moduleForCategory[item.category])); try {
+        persistDisabilityProfile(profile,consent,privacy);setProfileError('');
     }
     catch {
-        setStorageError(copyDictionary.cdd6c78eb915c2ea9);
+        setProfileError(canSaveDisabilityProfile(consent,privacy)?copyDictionary.profileSaveFailed:copyDictionary.profileStartupCleanupFailed);
     } };
     const fitting = useFittingDraft();
-    const [travelSaved, setTravelSaved] = useState(readTravelTask);
+    const [travelSaved, setTravelSaved] = useState(()=>readTravelTask({profileAllowed:canSaveDisabilityProfile(saved?.consent,saved?.privacy)}));
     const [travelChecked, setTravelChecked] = useState<Record<string, string>>(travelSaved?.checked ?? {});
     const [travelPersistence, setTravelPersistence] = useState(true), [travelSaveMessage, setTravelSaveMessage] = useState(''), [travelOnline, setTravelOnline] = useState(navigator.onLine);
     useEffect(() => { const update = () => setTravelOnline(navigator.onLine); window.addEventListener('online', update); window.addEventListener('offline', update); return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update); }; }, []);
@@ -98,7 +97,6 @@ export default function App() {
     }>('rules').then(value => setRuleDocuments(ruleDocumentsFromResponse(value))).catch(() => setRuleMessage(copyDictionary.cf3b18ec47d1ceca2)); }, []);
     const requestVersion = useRef(0);
     const productRequest = useRef<AbortController | null>(null);
-    const [saved, setSaved] = useState(load);
     const [screen, setScreen] = useState<Screen>(() => hashScreens[location.hash] ?? 'home'), [modules, setModules] = useState<ModuleId[]>(disabilityProfile.selections.map(item => moduleForCategory[item.category]));
     useEffect(() => { const navigate = () => { const next = hashScreens[location.hash]; if (next) {
         if (next === 'living-service') {
@@ -119,6 +117,12 @@ export default function App() {
         setScreen(next);
     } }; window.addEventListener('hashchange', navigate); return () => window.removeEventListener('hashchange', navigate); }, []);
     const [consent, setConsent] = useState<ConsentState>(saved?.consent ?? 'undecided'), [privacy, setPrivacy] = useState<PrivacyPreferences>(saved?.privacy ?? initialPrivacy);
+    const profileAllowed=canSaveDisabilityProfile(consent,privacy);
+    useEffect(()=>{
+        if(profileAllowed)return;
+        try{clearProfileStorage();clearTravelProfileStorage();setProfileError('');}
+        catch{setProfileError(copyDictionary.profileStartupCleanupFailed);}
+    },[profileAllowed]);
     const [devices, setDevices] = useState<Device[]>(saved?.devices ?? []), [journey, setJourney] = useState<JourneyData>(saved?.journey ?? initialJourney);
     const [settings, setSettings] = useState<AppSettings>(() => { const stored = saved?.settings, migrated = stored?.travelDisplayVersion === 2 || travelSaved?.displayVersion === 2; return { ...defaultSettings(), ...(stored ?? {}), travelSingleStep: migrated ? (travelSaved?.onlyNext ?? stored?.travelSingleStep ?? false) : false, travelDisplayVersion: 2 }; }), [customModes, setCustomModes] = useState<CustomTravelMode[]>(travelSaved?.customModes ?? saved?.customModes ?? []), [customDevices, setCustomDevices] = useState<CustomTravelDevice[]>(travelSaved?.customDevices ?? saved?.customDevices ?? []);
     const [feedback, setFeedback] = useState<Feedback[]>(saved?.feedback ?? []), [storageError, setStorageError] = useState(''), [savedAt, setSavedAt] = useState<number | null>(saved?.savedAt ?? null);
@@ -171,18 +175,18 @@ export default function App() {
         if (patch.mode)
             setTravelMode(patch.mode);
     };
-    const travelSnapshot: TravelTaskSnapshot = { version: 1, mode: travelMode, selected, specs, context, devices: chosenTravelDevices.map(({ id, name, type, battery, dimensions, weight, source }) => ({ id, name, type, battery, dimensions, weight, source })), customModes, customDevices, plan: taskPlan, checked: travelChecked, savedAt: taskPlan.generatedAt, inputKey: travelInputKey, onlyNext: settings.travelSingleStep === true, displayVersion: 2, lastViewedPlan: lastViewedPlan ?? undefined };
+    const travelSnapshot: TravelTaskSnapshot = { version: 1, mode: travelMode, selected, specs, context, devices: chosenTravelDevices.map(device => ({ id:device.id,name:device.name,type:device.type,battery:device.battery,dimensions:device.dimensions,weight:device.weight,source:device.source,sample:sampleDeviceField(device) })), customModes, customDevices, plan: taskPlan, checked: travelChecked, savedAt: taskPlan.generatedAt, inputKey: travelInputKey, onlyNext: settings.travelSingleStep === true, displayVersion: 2, lastViewedPlan: lastViewedPlan ?? undefined };
     useEffect(() => {
         if (!travelPersistence || (!['travel-input', 'travel-result'].includes(screen) && !travelSaved))
             return;
         try {
-            writeTravelTask(travelSnapshot);
+            writeTravelTask(travelSnapshot,{profileAllowed});
             setTravelSaveMessage(copyDictionary.c8f2e5dfdea439d70);
         }
         catch {
             setTravelSaveMessage(copyDictionary.ca70f56ef9cf83fe3);
         }
-    }, [screen, taskPlan, travelChecked, travelPersistence, customModes, customDevices, settings.travelSingleStep, lastViewedPlan]);
+    }, [screen, taskPlan, specs, travelChecked, travelPersistence, customModes, customDevices, settings.travelSingleStep, lastViewedPlan, profileAllowed]);
     const clearTravel = () => { try {
         clearTravelTask();
         previousTaskPlan.current = null;
@@ -280,13 +284,18 @@ export default function App() {
         setChecklist([]);
         setJourney(current => ({ ...current, cards: current.cards.filter(item => item.id !== id), life: { ...current.life, care: current.life.care.filter(item => item.deviceId !== id), emergency: { ...current.life.emergency, medicalIds: current.life.emergency.medicalIds?.filter(key => key !== id) } }, packet: null, records: [], shares: [] }));
     };
+    const resetProfileMemory = (keepTrip=true) => {
+        setDisabilityProfile({selections:[]});setModules([]);setSaved(null);
+        const clean=scopeTravelProfile(travelSnapshot,false);
+        setTravelChecked(keepTrip?clean.checked:{});setTravelSaved(current=>keepTrip&&current?scopeTravelProfile(current,false):null);
+        previousTaskPlan.current=null;setLastViewedPlan(null);setTravelHasBaseline(false);setTravelChanges(noTravelChanges());
+        setResults([]);setChecklist([]);if(assistantContext==='travel')setAssistantContext('none');
+    };
+    const eraseProfileData = (all=false) => {
+        try{clearTravelProfileStorage();clearProfileStorage({all});setProfileError('');}
+        catch{setProfileError(copyDictionary.profileCleanupFailed);throw Error(copyDictionary.profileCleanupFailed);}
+    };
     const deleteScope = async (scope: 'profile' | 'devices' | 'life' | 'all') => {
-        if (scope === 'profile' || scope === 'all') {
-            localStorage.removeItem('smart-accessible-disability-v1');
-            setDisabilityProfile({ selections: [] });
-        }
-        if (scope === 'profile' || scope === 'all')
-            fitting.clear();
         if (scope === 'life' || scope === 'all')
             for (const item of journey.life.helpSessions ?? []) {
                 if (item.lastStatus !== 'revoked')
@@ -301,6 +310,7 @@ export default function App() {
                     await service('cases/' + item.serverId, undefined, item.accessToken, undefined, 'DELETE');
                 }
         }
+        if (scope === 'profile' || scope === 'all')eraseProfileData(scope==='all');
         if (scope === 'devices' || scope === 'life' || scope === 'all') {
             clearTravelTask();
             previousTaskPlan.current = null;
@@ -320,7 +330,7 @@ export default function App() {
         setProductLoading(false);
         setSaved(null);
         if (scope === 'profile' || scope === 'all') {
-            setModules([]);
+            resetProfileMemory(scope!=='all');fitting.clear();
             setPrivacy(current => ({ ...current, profile: false }));
         }
         if (scope === 'devices' || scope === 'all') {
@@ -365,12 +375,6 @@ export default function App() {
             setProductError('');
             setShoppingQuery(copyDictionary.c4157eed714966bbc);
             setTravelMode('rail');
-            try {
-                localStorage.removeItem(STORAGE_KEY);
-            }
-            catch {
-                setStorageError(copyDictionary.c06996404c40c26d0);
-            }
         }
     };
     const cancelProduct = () => { requestVersion.current++; productRequest.current?.abort(); setProductLoading(false); setAiProgress(''); };
@@ -409,6 +413,12 @@ export default function App() {
         }
         return false;
     };
+    const refreshRuleRecords = async () => {
+        setRuleLoading(true);
+        try { await prepareService(); setRuleDocuments(ruleDocumentsFromResponse(await service('rules'))); setRuleMessage(copyDictionary.ruleRefreshSuccess); }
+        catch { setRuleMessage(copyDictionary.ruleRefreshFailed); }
+        finally { setRuleLoading(false); }
+    };
     const runTravel = () => { setTravelCompletionUpdate(false); setTravelPersistence(true); setResults(buildTravelResults(travelMode, chosenTravelDevices, specs, context, ruleDocuments)); setAssistantContext('travel'); setAssistantDevice('*'); setScreen('travel-result'); };
     const openService = (id: ServiceToolId) => { setServiceTool(id); setScreen('living-service'); };
     const openScene = (id: SceneId) => { setLivingScene(id); setScreen('living-scene'); };
@@ -437,25 +447,64 @@ export default function App() {
     else
         openSupportTool(id); };
     const encouragementContext: EncouragementContext | null = screen === 'home' ? 'home' : screen === 'support' ? 'support' : screen === 'living-hub' ? 'services' : screen === 'living-scene' ? 'scene' : screen === 'living-service' ? (serviceTool === 'healthcare' ? 'hospital' : 'services') : screen === 'fitting-workspace' ? 'fitting' : screen.startsWith('product') || screen === 'fit-shopping' ? 'shopping' : screen.startsWith('travel') ? 'travel' : screen === 'life-tools' || screen === 'support-tool' ? 'daily' : screen === 'assistant' ? 'assistant' : ['profile', 'devices', 'device-cards', 'offline-pack'].includes(screen) ? 'profile' : null;
+    const removeCorrection = (id: string) => {
+        const nextFeedback = feedback.filter(item => item.id !== id);
+        if (consent === 'granted' && privacy.life) {
+            writeScopedSnapshot({ modules, devices, consent, settings, customModes, customDevices, journey, privacy, feedback: nextFeedback });
+        }
+        setFeedback(nextFeedback);
+    };
     const changePrivacy = async (value: PrivacyPreferences) => { try {
+        const withdrawal = { devices: privacy.devices && !value.devices, life: !value.life };
+        const affected = sharesForPrivacyWithdrawal(journey.shares, withdrawal);
+        for (const item of affected) {
+            if (!item.serverId) continue;
+            if (!item.ownerToken) throw Error(copyDictionary.sharingRevokeFailed + ' ' + copyDictionary.managementCredentialMissing);
+            try {
+                const result = await service<{ deleted: boolean }>('shares/' + item.serverId + '/owner', undefined, item.ownerToken, undefined, 'DELETE');
+                if (result.deleted !== true) throw Error();
+            } catch {
+                throw Error(copyDictionary.sharingRevokeFailed);
+            }
+        }
+        let nextJourney = journey;
+        let nextFeedback = feedback;
         if (!value.life) {
             for (const item of journey.life.helpSessions ?? []) {
                 if (item.lastStatus !== 'revoked')
                     await service('help/' + item.id + '/owner', undefined, item.ownerToken, undefined, 'DELETE');
             }
-            for (const item of journey.shares.filter(item => item.serverId && item.ownerToken))
-                await service('shares/' + item.serverId + '/owner', undefined, item.ownerToken, undefined, 'DELETE');
             for (const item of feedback.filter(item => item.serverId && item.accessToken))
                 await service('cases/' + item.serverId, undefined, item.accessToken, undefined, 'DELETE');
-            setJourney(current => ({ ...current, shares: [], life: { ...removeLearning(current.life), helpSessions: (current.life.helpSessions ?? []).map(item => ({ ...item, lastStatus: 'revoked' as const })) } }));
-            setFeedback(current => current.filter(item => !item.serverId));
+            nextJourney = { ...journey, shares: [], life: { ...withoutLifeAssistance(journey.life), helpSessions: (journey.life.helpSessions ?? []).map(item => ({ ...item, lastStatus: 'revoked' as const })) } };
+            nextFeedback = feedback.filter(item => !item.serverId);
+        } else if (withdrawal.devices) {
+            nextJourney = { ...journey, shares: journey.shares.map(item => affected.includes(item) ? { ...item, revoked: true } : item) };
         }
+        if(value.profile){
+            if(!profileAllowed)eraseProfileData();
+            try{persistDisabilityProfile(disabilityProfile,'granted',value);setProfileError('');}
+            catch{setProfileError(copyDictionary.profileSaveFailed);throw Error(copyDictionary.profileSaveFailed);}
+        }else{eraseProfileData();if(profileAllowed)resetProfileMemory();}
+        if (consent === 'granted' && (withdrawal.devices || privacy.life && !value.life)) {
+            try {
+                writeScopedSnapshot({ modules, devices, consent, settings, customModes, customDevices, journey: nextJourney, privacy: value, feedback: nextFeedback });
+            } catch {
+                throw Error(copyDictionary.privacyCleanupFailed);
+            }
+        }
+        if (nextJourney !== journey) setJourney(nextJourney);
+        if (nextFeedback !== feedback) setFeedback(nextFeedback);
+        setStorageError('');
         setPrivacy(value);
         setConsent('granted');
+        return true;
     }
     catch (error) {
         setStorageError(copyDictionary.c3518f978b2155a72 + (error as Error).message);
+        return false;
     } };
+    const visibleStorageError=profileError||storageError;
     return <main className={`app-shell ${settings.elderMode ? 'elder-mode' : ''} ${screen === 'fitting-workspace' ? 'fit-wide-shell' : ''}`}><a className="skip-content" href="#main-content">{copyDictionary.c006bef4da739a57b}</a><div className="app-frame" id="main-content">
     {['fitting-workspace', 'fit-shopping', 'product-input', 'product-result', 'travel-input', 'travel-result'].includes(screen) && <FeatureNav active={screen === 'home' ? 'home' : screen === 'fitting-workspace' ? 'fitting' : screen.startsWith('travel') ? 'travel' : 'shop'} onHome={() => setScreen('home')} onFitting={() => setScreen('fitting-workspace')} onShop={() => setScreen('product-input')} onTravel={() => { setTravelEntryStep(1); setScreen('travel-input'); }}/>}
     {isStudio && screen !== 'home' && <aside className="prototype-note" aria-label={copyDictionary.cc4d85f9c3ddebc0f}><strong>{copyDictionary.ce2bdd89ad4a0a9c8}</strong><p>{copyDictionary.c39df7b0795734442}</p></aside>}
@@ -464,7 +513,7 @@ export default function App() {
     {document.getElementById('portable-data') && <p className="prototype-note">{copyDictionary.ca397d2dca2905ce7}</p>}
     {screen === 'welcome' && <Welcome onSelect={() => setScreen('select')}/>}
     {(screen === 'select' || screen === 'switch-modules') && <PrimaryButton onClick={() => setScreen(screen === 'switch-modules' ? 'profile' : 'consent')}>{copyDictionary.c7c9691192f1b7340}</PrimaryButton>}
-    {screen === 'consent' && <Consent modules={modules} privacy={privacy} setPrivacy={setPrivacy} onConsent={() => { setConsent('granted'); setScreen('devices'); }} onSkip={() => { setConsent('skipped'); setPrivacy(initialPrivacy()); setScreen('devices'); }} onBack={() => setScreen('select')}/>}
+    {screen === 'consent' && <Consent modules={modules} privacy={privacy} setPrivacy={setPrivacy} onConsent={async () => { if(await changePrivacy(privacy))setScreen('devices'); }} onSkip={() => { try{eraseProfileData();if(profileAllowed)resetProfileMemory();setConsent('skipped');setPrivacy(initialPrivacy());setScreen('devices');}catch{/* The profile error remains visible. */} }} onBack={() => setScreen('select')}/>}
     {(screen === 'devices' || screen === 'device-cards') && <Equipment devices={allDevices} cards={journey.cards} onSave={saveCard} onRemove={removeDevice} onTravel={travelWithCard} onBack={() => setScreen('home')}/>}
     {screen === 'home' && <Home modules={modules} settings={settings} encouragement={<Encouragement context='home' enabled={settings.encouragement !== false} onDismiss={() => setSettings(current => ({ ...current, encouragement: false }))}/>} onFitting={() => setScreen('fitting-workspace')} onProduct={() => setScreen('product-input')} onTravel={() => { setTravelEntryStep(1); setScreen('travel-input'); }} onAssistant={() => setScreen('assistant')} onProfile={() => setScreen('profile')} onDevices={() => setScreen('devices')} onOffline={() => setScreen('offline-pack')} onChoose={() => setScreen('profile')} onAbout={() => setScreen('about')} onTool={openSupportTool}/>}
     {screen === 'learning' && <LearningCenter life={journey.life} setLife={updateLife} modules={modules} saved={consent === 'granted' && privacy.life} onBack={() => setScreen('home')} onPrivacy={() => setScreen('profile')} onTool={openSupportTool}/>}
@@ -481,27 +530,27 @@ export default function App() {
         await prepareService();
         const data = await service<{
             documents: RuleDocument[];
-        }>('rules/refresh', {});
+        }>('rules');
         setRuleDocuments(ruleDocumentsFromResponse(data));
-        setRuleMessage(copyDictionary.c516483c16a3e3710);
+        setRuleMessage(copyDictionary.ruleRefreshSuccess);
     }
     catch {
-        setRuleMessage(copyDictionary.c9d8fde0cddb0324d);
+        setRuleMessage(copyDictionary.ruleRefreshFailed);
     }
     finally {
         setRuleLoading(false);
     } }}/>} mode={travelMode} setMode={setTravelMode} devices={travelDevices} customModes={customModes} setCustomModes={setCustomModes} customDevices={customDevices} setCustomDevices={setCustomDevices} selected={selected} setSelected={selectDevices} specs={specs} setSpecs={setSpecs} context={context} setContext={setContext} stepMode={settings.stepMode} loading={false} onRemember={(device, value) => saveCard(rememberTravelSpecs(journey.cards.find(card => card.id === device.id) ?? deviceCard(device), value))} onStart={runTravel} onBack={() => setScreen('home')}/>}
-    {screen === 'travel-result' && <TravelTaskResult plan={taskPlan} checked={travelChecked} onToggle={action => setTravelChecked(current => ({ ...current, [action.id]: current[action.id] === travelActionSignature(action, taskPlan) ? '' : travelActionSignature(action, taskPlan) }))} devices={chosenTravelDevices} specs={specs} onSpecChange={(id, field, value) => { setTravelCompletionUpdate(true); setTravelPersistence(true); setSpecs(current => ({ ...current, [id]: { ...current[id], [field]: value } })); }} storageMessage={travelSaveMessage} online={travelOnline} onBack={() => setScreen('home')} onEdit={() => { setTravelEntryStep(1); setScreen('travel-input'); }} onChooseDevice={() => { setTravelEntryStep(2); setScreen('travel-input'); }} changes={travelChanges} hasBaseline={travelHasBaseline} completionUpdate={travelCompletionUpdate} availableDevices={travelOptions(travelDevices, customDevices)} context={context} onCompleteGaps={completeTravelGaps} onlyNext={settings.travelSingleStep === true} onOnlyNextChange={value => setSettings(current => ({ ...current, travelSingleStep: value, travelDisplayVersion: 2 }))} onExport={() => downloadText(JSON.stringify(exportTravelTask(travelSnapshot), null, 2), copyDictionary.c04cc49dca6e24d76, 'application/json')} onClear={clearTravel} onHelp={() => setHelp(true)} onReport={() => setReport(copyDictionary.cfd277b9fe1ae7043 + taskPlan.route.from + '→' + taskPlan.route.to)} onAssistant={() => { setResults(buildTravelResults(travelMode, chosenTravelDevices, specs, context, ruleDocuments).map(result => ({ ...result, summary: taskPlan.summary, nextSteps: allTravelActions(taskPlan).map(action => action.title + '：' + action.detail) }))); setAssistantContext('travel'); setScreen('assistant'); }}/>}
+    {screen === 'travel-result' && <TravelTaskResult legacySpecs={travelSaved?.needsSpecReview} coverage={<TravelCoverage mode={travelMode} context={context} documents={ruleDocuments} loading={ruleLoading} message={ruleMessage} onRefresh={refreshRuleRecords}/>} plan={taskPlan} checked={travelChecked} onToggle={action => setTravelChecked(current => ({ ...current, [action.id]: current[action.id] === travelActionSignature(action, taskPlan) ? '' : travelActionSignature(action, taskPlan) }))} devices={chosenTravelDevices} specs={specs} onSpecChange={(id, field, value) => { setTravelCompletionUpdate(true); setTravelPersistence(true); setSpecs(current => ({ ...current, [id]: updateTravelSpec(current[id],field,value) })); }} storageMessage={travelSaveMessage} online={travelOnline} onBack={() => setScreen('home')} onEdit={() => { setTravelEntryStep(1); setScreen('travel-input'); }} onChooseDevice={() => { setTravelEntryStep(2); setScreen('travel-input'); }} changes={travelChanges} hasBaseline={travelHasBaseline} completionUpdate={travelCompletionUpdate} availableDevices={travelOptions(travelDevices, customDevices)} context={context} onCompleteGaps={completeTravelGaps} onlyNext={settings.travelSingleStep === true} onOnlyNextChange={value => setSettings(current => ({ ...current, travelSingleStep: value, travelDisplayVersion: 2 }))} onExport={() => downloadText(JSON.stringify(exportTravelTask(travelSnapshot), null, 2), copyDictionary.c04cc49dca6e24d76, 'application/json')} onClear={clearTravel} onHelp={() => setHelp(true)} onReport={() => setReport(copyDictionary.cfd277b9fe1ae7043 + taskPlan.route.from + '→' + taskPlan.route.to)} onAssistant={() => { setResults(buildTravelResults(travelMode, chosenTravelDevices, specs, context, ruleDocuments).map(result => ({ ...result, summary: taskPlan.summary, nextSteps: allTravelActions(taskPlan).map(action => action.title + '：' + action.detail) }))); setAssistantContext('travel'); setScreen('assistant'); }}/>}
     {screen === 'assistant' && <AssistantPage onProduct={query => { setShoppingQuery(query); setScreen('product-input'); }} readAloud={settings.readAloud} preferBrowser={product.insight?.engine === 'webllm'} evidence={evidencePack.items} contextKey={assistantKey} contextLabel={contextLabel} omitted={evidencePack.omitted} evidenceTotal={evidencePack.total} requiresNarrowing={evidencePack.requiresNarrowing} contextControls={<section className="task-panel"><label>{copyDictionary.cfd6fb66978a90c0e}<select value={assistantContext} onChange={e => { setAssistantContext(e.target.value as typeof assistantContext); setAssistantDevice('*'); }}><option value="none">{copyDictionary.c7e2b699176c3f30a}</option>{product.insight && <option value="product">{copyDictionary.cd76bd260f588f7be}{product.title}</option>}{results.length > 0 && <option value="travel">{copyDictionary.ce00dda94f63f0330}</option>}</select></label>{assistantContext === 'travel' && results.length > 1 && <label>{copyDictionary.c0ab94185e5877cbb}<select value={assistantDevice} onChange={e => setAssistantDevice(e.target.value)}><option value="*">{copyDictionary.c0e8a6e4a4fd1d650}</option>{results.map(item => <option key={item.deviceId} value={item.deviceId}>{item.deviceName}</option>)}</select></label>}</section>} onBack={() => setScreen('home')} onTravel={slots => { if (slots.mode)
         setTravelMode(slots.mode); const option = travelOptions(allDevices, customDevices).find(item => slots.device && item.name.includes(slots.device)); selectDevices(option ? [option.id] : []); setTravelEntryStep(1); setScreen('travel-input'); }}/>}
-    {screen === 'profile' && <ProfilePage disabilityEditor={<DisabilitySelector value={disabilityProfile} onChange={changeDisabilityProfile} devices={allDevices}/>} onImportManagement={(cases, shares) => { setFeedback(current => [...current, ...cases.filter(item => !current.some(row => row.serverId === item.serverId))]); setJourney(current => ({ ...current, shares: [...current.shares, ...shares.filter(item => !current.shares.some(row => row.serverId === item.serverId))] })); }} modules={modules} devices={allDevices} journey={journey} consent={consent} privacy={privacy} settings={settings} feedback={feedback} storageError={storageError} savedAt={savedAt} onBack={() => setScreen('home')} onModules={() => setScreen('switch-modules')} onDevices={() => setScreen('device-cards')} onCards={() => setScreen('device-cards')} onLife={() => setScreen('life-tools')} onOffline={() => setScreen('offline-pack')} onNeeds={() => setNeeds(true)} onAbout={() => setScreen('about')} onPrivacy={changePrivacy} onDelete={deleteScope}/>}
+    {screen === 'profile' && <ProfilePage disabilityEditor={<DisabilitySelector value={disabilityProfile} onChange={changeDisabilityProfile} devices={allDevices}/>} onRemoveCorrection={removeCorrection} onImportManagement={(cases, shares) => { setFeedback(current => [...current, ...cases.filter(item => !current.some(row => row.serverId === item.serverId))]); setJourney(current => ({ ...current, shares: [...current.shares, ...shares.filter(item => !current.shares.some(row => row.serverId === item.serverId))] })); }} modules={modules} devices={allDevices} journey={journey} consent={consent} privacy={privacy} settings={settings} feedback={feedback} storageError={visibleStorageError} savedAt={savedAt} onBack={() => setScreen('home')} onModules={() => setScreen('switch-modules')} onDevices={() => setScreen('device-cards')} onCards={() => setScreen('device-cards')} onLife={() => setScreen('life-tools')} onOffline={() => setScreen('offline-pack')} onNeeds={() => setNeeds(true)} onAbout={() => setScreen('about')} onPrivacy={async value=>{await changePrivacy(value);}} onDelete={deleteScope}/>}
     {screen === 'about' && <AboutPage onBack={() => setScreen('home')}/>}
     {screen === 'life-tools' && <LifeTools saved={consent === 'granted' && privacy.life} onPrivacy={() => setScreen('profile')} life={journey.life} setLife={updateLife} journey={journey} setJourney={setJourney} devices={allDevices} onBack={() => setScreen('home')} onHelp={() => setHelp(true)} onOffline={() => setScreen('offline-pack')}/>}
     {screen === 'offline-pack' && <OfflineWorkspace journey={journey} devices={allDevices} onBack={() => setScreen('home')}/>}
     {encouragementContext && screen !== 'home' && <div className="page-encouragement"><Encouragement key={screen + ':' + supportTool + ':' + serviceTool} context={encouragementContext} enabled={settings.encouragement !== false} onDismiss={() => setSettings(current => ({ ...current, encouragement: false }))}/></div>}
     {productLoading && aiProgress && screen === 'product-result' && <p className="operation-status" role="status">{aiProgress}</p>}
     {(screen === 'home' || screen === 'living-hub' || screen === 'support' || screen === 'profile') && <BottomNav active={screen} onNavigate={setScreen}/>}
-    {storageError && screen !== 'profile' && <p className="storage-error" role="alert">{storageError}</p>}
+    {visibleStorageError && screen !== 'profile' && <p className="storage-error" role="alert">{visibleStorageError}</p>}
   </div>
     {help && <HelpCard life={journey.life} setLife={updateLife} devices={allDevices} onClose={() => setHelp(false)}/>}
     {needs && <NeedsDialog settings={settings} setSettings={setSettings} onClose={() => setNeeds(false)}/>}

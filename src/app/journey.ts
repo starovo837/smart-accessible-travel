@@ -1,9 +1,11 @@
 import { copyDictionary } from "./copyDictionary.ts";
 import type { CardField, Device, DeviceCard, FieldEvidence, JourneyData, LivingProfile, LocalShare, OfflinePacket, ProductAnalysis, TravelDeviceSpecs } from './types';
+import {confirmedTravelSpecs,deviceTravelSpecs} from './travelSpecEvidence.ts';
 export const fieldLabels: Record<CardField, string> = {
     lengthCm: copyDictionary.c3a592cee8d3f0c05, widthCm: copyDictionary.c2ebf6e1616732254, heightCm: copyDictionary.c2bec041336da3f26, weightKg: copyDictionary.c0939e081280f022c,
     foldLengthCm: copyDictionary.c49cdd2d88bdb85ea, foldWidthCm: copyDictionary.cea0bdf5ad3586095, foldHeightCm: copyDictionary.ce0b5f28c3b8f9a1e,
     batteryWh: copyDictionary.c9e42f5952acf95f5, batteryType: copyDictionary.ccc64d927855b9fde, removable: copyDictionary.c4be862ee5fc50de2, batteryCount: copyDictionary.cc0c73dc664361a97,
+    folded: copyDictionary.travelFoldedLabel,
 };
 export const originLabels: Record<FieldEvidence['origin'], string> = { merchant: copyDictionary.cffb531b16fc798cf, plate: copyDictionary.c2bc413f7ee4ced05, measurement: copyDictionary.cab8f7e84918500c3, reply: copyDictionary.c5a7fbd07e26f0516 };
 export function formatCardValue(field: CardField, value?: string) {
@@ -13,6 +15,7 @@ export function formatCardValue(field: CardField, value?: string) {
         return ({ none: copyDictionary.caf0bea91f489b74c, lithium: copyDictionary.c0cad03728e492a1a, other: copyDictionary.c417bdbecdc24f0d5, unknown: copyDictionary.ca8b0bd9c65f7fad5 } as Record<string, string>)[value] ?? value;
     if (field === 'removable')
         return ({ yes: copyDictionary.c18fbe3aef725614b, no: copyDictionary.cb98f332026c596bb, unknown: copyDictionary.ca8b0bd9c65f7fad5 } as Record<string, string>)[value] ?? value;
+    if (field === 'folded') return value === 'yes' ? copyDictionary.travelFoldedYes : value === 'no' ? copyDictionary.travelFoldedNo : copyDictionary.travelDraftReview;
     return value;
 }
 export function initialJourney(): JourneyData { return { cards: [], living: { canFold: 'unknown', usualModes: ['rail'] }, comparisons: [], records: [], packet: null, shares: [], life: { home: { lighting: 'unknown', alarm: 'unknown' }, daily: { energy: 'good', pain: 'none', companion: false, note: '' }, routes: [], care: [], emergency: { helpText: copyDictionary.c93d418488d0d5ac4, caregiver: '', phone: '', showMedical: false, offlineReady: false }, caregiverHelp: false } }; }
@@ -33,20 +36,17 @@ export function deviceCard(device: Device): DeviceCard {
         values.weightKg = weight[1];
     if (device.battery === copyDictionary.c484d55613910eb8c)
         values.batteryType = 'none';
-    return { ...device, prospective: false, values, evidence: Object.fromEntries(Object.keys(values).map(field => [field, { origin: device.source === 'plate' ? 'plate' : 'measurement', confirmed: device.source !== 'plate', note: device.source === 'plate' ? copyDictionary.c6dde0037aa5ea19c : copyDictionary.c050b1a3fd1a05565 }])) };
+    return { ...device, prospective: false, values, evidence: Object.fromEntries(Object.keys(values).map(field => [field, { origin: device.source === 'plate' ? 'plate' : 'measurement', confirmed: false, note: device.source === 'plate' ? copyDictionary.c6dde0037aa5ea19c : copyDictionary.c050b1a3fd1a05565 }])) };
 }
 export function validCard(card: DeviceCard) {
-    return Object.entries(card.values).every(([field, value]) => !value || (field === 'batteryCount' ? ['1', '2'].includes(value) : field === 'batteryType' ? ['none', 'lithium', 'other', 'unknown'].includes(value) : field === 'removable' ? ['yes', 'no', 'unknown'].includes(value) : Number.isFinite(Number(value)) && Number(value) > 0)) && Boolean(card.name.trim());
+    return Object.entries(card.values).every(([field, value]) => !value || (field === 'batteryCount' ? ['1', '2'].includes(value) : field === 'batteryType' ? ['none', 'lithium', 'other', 'unknown'].includes(value) : ['removable','folded'].includes(field) ? ['yes', 'no', 'unknown'].includes(value) : Number.isFinite(Number(value)) && Number(value) > 0)) && Boolean(card.name.trim());
 }
 export function confirmedSpecs(card: DeviceCard): TravelDeviceSpecs {
-    const get = (field: CardField) => card.evidence[field]?.confirmed ? card.values[field] : undefined;
-    const num = (field: CardField) => get(field) && Number(get(field)) > 0 ? Number(get(field)) : undefined;
-    const folded = card.transportState !== 'use' && ['foldLengthCm', 'foldWidthCm', 'foldHeightCm'].every(field => num(field as CardField) !== undefined);
-    return { lengthCm: num(folded ? 'foldLengthCm' : 'lengthCm'), widthCm: num(folded ? 'foldWidthCm' : 'widthCm'), heightCm: num(folded ? 'foldHeightCm' : 'heightCm'), weightKg: num('weightKg'), folded: folded ? 'yes' : 'unknown', batteryWh: num('batteryWh'), batteryType: (get('batteryType') ?? 'unknown') as TravelDeviceSpecs['batteryType'], removable: (get('removable') ?? 'unknown') as TravelDeviceSpecs['removable'], batteryCount: num('batteryCount') as 1 | 2 | undefined };
+    return confirmedTravelSpecs(deviceTravelSpecs(card),card);
 }
 export function rememberTravelSpecs(card: DeviceCard, specs: TravelDeviceSpecs): DeviceCard {
     const values = { ...card.values }, evidence = { ...card.evidence };
-    for (const field of ['lengthCm', 'widthCm', 'heightCm', 'weightKg', 'batteryWh', 'batteryType', 'removable', 'batteryCount'] as const) {
+    for (const field of ['lengthCm', 'widthCm', 'heightCm', 'weightKg', 'batteryWh', 'batteryType', 'removable', 'batteryCount', 'folded'] as const) {
         const key: CardField = specs.folded === 'yes' && ['lengthCm', 'widthCm', 'heightCm'].includes(field) ? ('fold' + field[0].toUpperCase() + field.slice(1)) as CardField : field;
         const value = specs[field];
         if (value === undefined || value === 'unknown') {
@@ -55,7 +55,8 @@ export function rememberTravelSpecs(card: DeviceCard, specs: TravelDeviceSpecs):
             continue;
         }
         values[key] = String(value);
-        evidence[key] = { origin: 'measurement', confirmed: true, note: copyDictionary.cf6de573332ee95bd };
+        const sampled=card.sample===true||evidence[key]?.sample===true||specs.sampleFields?.[field]===true;
+        evidence[key] = { origin: 'measurement', confirmed: !sampled&&specs.confirmed?.[field]===true, sample:sampled, note: copyDictionary.cf6de573332ee95bd };
     }
     return { ...card, values, evidence, transportState: specs.folded === 'yes' ? 'folded' : 'use' };
 }

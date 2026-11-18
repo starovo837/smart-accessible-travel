@@ -1,6 +1,7 @@
 import { copyDictionary } from "./copyDictionary.ts";
 import type { Device, TravelContext, TravelDeviceSpecs } from './types';
 import { normalizeDisabilityProfile, type DisabilityProfile } from './disabilityProfile.ts';
+import {confirmedTravelSpecs} from './travelSpecEvidence.ts';
 /** System placeholders are never allowed to become staff-facing copy. */
 export function safeTripText(value: unknown, fallback = ''): string {
     if (typeof value !== 'string')
@@ -12,6 +13,7 @@ const positive = (value: unknown) => typeof value === 'number' && Number.isFinit
 export function normalizeTripSpecs(device: Device, supplied: TravelDeviceSpecs = {}): TravelDeviceSpecs {
     if (device.type === 'guide-dog')
         return { batteryType: 'none' };
+    supplied = confirmedTravelSpecs(supplied,device);
     const result: TravelDeviceSpecs = {};
     for (const key of ['lengthCm', 'widthCm', 'heightCm', 'weightKg', 'batteryWh'] as const) {
         const value = positive(supplied[key]);
@@ -26,8 +28,6 @@ export function normalizeTripSpecs(device: Device, supplied: TravelDeviceSpecs =
         result.removable = supplied.removable;
     if (supplied.batteryCount === 1 || supplied.batteryCount === 2)
         result.batteryCount = supplied.batteryCount;
-    if (!result.batteryType && safeTripText(device.battery) === copyDictionary.c484d55613910eb8c)
-        result.batteryType = 'none';
     return result;
 }
 export function normalizeTripContext(context: TravelContext): TravelContext & {

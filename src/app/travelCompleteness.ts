@@ -1,5 +1,6 @@
 import { copyDictionary } from "./copyDictionary.ts";
 import { normalizeTripSpecs, safeTripText } from './travelTripIdentity.ts';
+import {travelSpecFields} from './travelSpecEvidence.ts';
 import type { TravelCompleteness, TravelCompletionGap, TravelPlanInput, TravelTaskPlan, TravelTaskDevice, TravelStageId } from './travelTaskTypes';
 type RawPlan = Omit<TravelTaskPlan, 'completion'>;
 const dimensionTypes = new Set(['wheelchair', 'manual-wheelchair', 'mobility-scooter', 'walker', 'rollator', 'transfer-board', 'oxygen', 'cpap', 'nebulizer', 'suction-device']);
@@ -16,10 +17,11 @@ export function travelEquipmentGaps(devices: TravelTaskDevice[]): TravelCompleti
 }
 /** A capacity probe only. Its invented values must never be used as actual equipment or action copy. */
 export function travelCapacityInput(input: TravelPlanInput): TravelPlanInput {
-    const devices = input.devices.length ? input.devices.map(device => ({ ...device, type: !safeTripText(device.type) || ['other', 'unknown'].includes(device.type) ? 'wheelchair' : device.type })) : [{ id: 'capacity-only', name: copyDictionary.c01980d7dd3be97b9, type: 'wheelchair', battery: '', dimensions: '', weight: '', source: 'manual' as const }];
+    // Synthetic devices exist only to count potential actions. Never return their specs as user data.
+    const devices = input.devices.length ? input.devices.map(device => ({ id:device.id,name:device.name,battery:'',dimensions:'',weight:'',source:'manual' as const,type: !safeTripText(device.type) || ['other', 'unknown'].includes(device.type) ? 'wheelchair' : device.type })) : [{ id: 'capacity-only', name: copyDictionary.c01980d7dd3be97b9, type: 'wheelchair', battery: '', dimensions: '', weight: '', source: 'manual' as const }];
     return { ...input, mode: safeTripText(input.mode, 'rail'), devices, context: { ...input.context, from: safeTripText(input.context.from, copyDictionary.cd82a07365225b51e), to: safeTripText(input.context.to, copyDictionary.cdfddc47f6caa7728) }, specs: Object.fromEntries(devices.map(device => {
             const actual = normalizeTripSpecs(device, input.specs[device.id]);
-            return [device.id, { ...actual, ...(requiresTravelDimensions(device.type) ? { lengthCm: actual.lengthCm ?? 120, widthCm: actual.widthCm ?? 68, heightCm: actual.heightCm ?? 95 } : {}), batteryType: requiresTravelBattery(device.type) ? (['none', 'lithium', 'other'].includes(actual.batteryType ?? '') ? actual.batteryType : 'lithium') : 'none' }];
+            return [device.id, { ...actual, ...(requiresTravelDimensions(device.type) ? { lengthCm: actual.lengthCm ?? 120, widthCm: actual.widthCm ?? 68, heightCm: actual.heightCm ?? 95 } : {}), batteryType: requiresTravelBattery(device.type) ? (['none', 'lithium', 'other'].includes(actual.batteryType ?? '') ? actual.batteryType : 'lithium') : actual.batteryType, confirmed: Object.fromEntries(travelSpecFields.map(field=>[field,true])) }];
         })) };
 }
 export function travelCompleteness(plan: RawPlan, capacity: RawPlan): TravelCompleteness {

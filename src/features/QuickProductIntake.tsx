@@ -1,7 +1,7 @@
 import { copyDictionary } from "../app/copyDictionary.ts";
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal, PageHeader, PrimaryButton } from '../components/UI';
-import { ProductIntake as AdvancedIntake, readAIStatus } from './ProductIntake';
+import { ProductIntake as AdvancedIntake, readAIStatus, SessionRateLimitError } from './ProductIntake';
 import { isStudio, processingNotice } from '../app/deployment';
 import { RuntimeReadiness } from './RuntimeReadiness';
 import { browserAIAvailable } from '../app/browserAI';
@@ -89,7 +89,7 @@ export function QuickProductIntake(props: Props) {
         }
         catch (error) {
             if (mounted.current) {
-                if (browserAIAvailable() && !next.some(source => source.image))
+                if (!(error instanceof SessionRateLimitError) && browserAIAvailable() && !next.some(source => source.image))
                     setBrowserConsent(next);
                 else
                     setNotice((error as Error).message);

@@ -6,10 +6,13 @@ export type DeviceType = string
 export type TravelMode = string
 export type Eligibility = 'allowed' | 'conditional' | 'unknown' | 'restricted'
 export interface TravelDeviceSpecs {
+  confirmed?: Partial<Record<TravelSpecField, boolean>>;
+  sampleFields?: Partial<Record<TravelSpecField, boolean>>;
   lengthCm?: number; widthCm?: number; heightCm?: number; weightKg?: number;
   folded?: 'yes' | 'no' | 'unknown'; batteryType?: 'none' | 'lithium' | 'other' | 'unknown';
   batteryWh?: number; removable?: 'yes' | 'no' | 'unknown'; batteryCount?: 1 | 2;
 }
+export type TravelSpecField = 'lengthCm' | 'widthCm' | 'heightCm' | 'weightKg' | 'folded' | 'batteryType' | 'batteryWh' | 'removable' | 'batteryCount'
 export interface TravelContext {
   carrier: 'unspecified' | 'airchina' | 'ceair' | 'csair' | 'other'; city?: string; line?: string; journeyDate?: string;
   from?: string; to?: string;
@@ -19,9 +22,9 @@ export interface TravelContext {
 }
 export interface CustomTravelMode { id: TravelMode; label: string; icon: import('../components/Icons').IconName; contact: string }
 export interface CustomTravelDevice { id: string; name: string; type: DeviceType; icon: import('../components/Icons').IconName }
-export interface Device { id: string; type: DeviceType; name: string; battery: string; dimensions: string; weight: string; source: 'manual' | 'plate' }
-export type CardField = 'lengthCm' | 'widthCm' | 'heightCm' | 'weightKg' | 'foldLengthCm' | 'foldWidthCm' | 'foldHeightCm' | 'batteryWh' | 'batteryType' | 'removable' | 'batteryCount'
-export interface FieldEvidence { origin: 'merchant' | 'plate' | 'measurement' | 'reply'; confirmed: boolean; note: string }
+export interface Device { id: string; type: DeviceType; name: string; battery: string; dimensions: string; weight: string; source: 'manual' | 'plate'; sample?: boolean }
+export type CardField = 'lengthCm' | 'widthCm' | 'heightCm' | 'weightKg' | 'foldLengthCm' | 'foldWidthCm' | 'foldHeightCm' | 'batteryWh' | 'batteryType' | 'removable' | 'batteryCount' | 'folded'
+export interface FieldEvidence { origin: 'merchant' | 'plate' | 'measurement' | 'reply'; confirmed: boolean; note: string; sample?: boolean }
 export interface DeviceCard extends Device {
   values: Partial<Record<CardField, string>>;
   evidence: Partial<Record<CardField, FieldEvidence>>;

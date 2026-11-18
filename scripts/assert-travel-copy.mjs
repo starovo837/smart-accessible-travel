@@ -1,3 +1,4 @@
+const confirmedGuardSpecs = raw => ({...raw,confirmed:Object.fromEntries(Object.keys(raw).map(field=>[field,true]))}) // Reviewed synthetic guard fixtures only.
 import assert from 'node:assert/strict'
 import {pathToFileURL} from 'node:url'
 import {travelCarryCardContent} from '../src/app/travelCarryCard.ts'
@@ -165,10 +166,10 @@ const now = Date.parse('2026-11-07T02:00:00Z')
 export const travelCopyFixtures = [
   {name: 'empty', preparation: true, input: {mode: '', devices: [], specs: {}, context: {carrier: 'unspecified'}, now}},
   {name: 'station-only', preparation: false, compare: false, input: {mode: 'rail', devices: [], specs: {}, context: {carrier: 'unspecified', from: '上海虹桥', to: '杭州东'}, documents:ruleCatalog, now}},
-  {name: 'rail-electric-wheelchair', input: {mode: 'rail', devices: [device('guard-electric', 'wheelchair', '电动轮椅')], specs: {'guard-electric': {lengthCm: 120, widthCm: 68, heightCm: 95, batteryType: 'lithium', batteryWh: 288, batteryCount: 1, removable: 'no'}}, context: {carrier: 'unspecified', from: '上海虹桥', to: '杭州东', journeyDate: '2026-11-07', companionCount: 1}, now}},
-  {name: 'plane-unfoldable-manual-wheelchair', input: {mode: 'plane', devices: [device('guard-manual', 'manual-wheelchair', '不可折叠手动轮椅')], specs: {'guard-manual': {lengthCm: 110, widthCm: 70, heightCm: 95, batteryType: 'none', folded: 'no'}}, context: {carrier: 'unspecified', from: '上海浦东国际机场', to: '北京首都国际机场', journeyDate: '2026-11-07', companionCount: 1}, now}},
-  {name: 'metro-cane-guide-dog', preparation: true, compare: true, input: {mode: 'metro', devices: [device('guard-cane', 'cane', '盲杖'), device('guard-dog', 'guide-dog', '导盲犬')], specs: {'guard-cane': {batteryType: 'none'}, 'guard-dog': {batteryType: 'none'}}, context: {carrier: 'unspecified', city: '上海'}, now}},
-  {name: 'metro-cane-guide-dog-with-stations', compare: false, input: {mode: 'metro', devices: [device('guard-cane', 'cane', '盲杖'), device('guard-dog', 'guide-dog', '导盲犬')], specs: {'guard-cane': {batteryType: 'none'}, 'guard-dog': {batteryType: 'none'}}, context: {carrier: 'unspecified', city: '上海', line: '2号线', from: '虹桥火车站', to: '人民广场', journeyDate: '2026-11-07', companionCount: 0}, now}},
+  {name: 'rail-electric-wheelchair', input: {mode: 'rail', devices: [device('guard-electric', 'wheelchair', '电动轮椅')], specs: {'guard-electric': confirmedGuardSpecs({lengthCm: 120, widthCm: 68, heightCm: 95, batteryType: 'lithium', batteryWh: 288, batteryCount: 1, removable: 'no'})}, context: {carrier: 'unspecified', from: '上海虹桥', to: '杭州东', journeyDate: '2026-11-07', companionCount: 1}, now}},
+  {name: 'plane-unfoldable-manual-wheelchair', input: {mode: 'plane', devices: [device('guard-manual', 'manual-wheelchair', '不可折叠手动轮椅')], specs: {'guard-manual': confirmedGuardSpecs({lengthCm: 110, widthCm: 70, heightCm: 95, batteryType: 'none', folded: 'no'})}, context: {carrier: 'unspecified', from: '上海浦东国际机场', to: '北京首都国际机场', journeyDate: '2026-11-07', companionCount: 1}, now}},
+  {name: 'metro-cane-guide-dog', preparation: true, compare: true, input: {mode: 'metro', devices: [device('guard-cane', 'cane', '盲杖'), device('guard-dog', 'guide-dog', '导盲犬')], specs: {'guard-cane': confirmedGuardSpecs({batteryType: 'none'}), 'guard-dog': confirmedGuardSpecs({batteryType: 'none'})}, context: {carrier: 'unspecified', city: '上海'}, now}},
+  {name: 'metro-cane-guide-dog-with-stations', compare: false, input: {mode: 'metro', devices: [device('guard-cane', 'cane', '盲杖'), device('guard-dog', 'guide-dog', '导盲犬')], specs: {'guard-cane': confirmedGuardSpecs({batteryType: 'none'}), 'guard-dog': confirmedGuardSpecs({batteryType: 'none'})}, context: {carrier: 'unspecified', city: '上海', line: '2号线', from: '虹桥火车站', to: '人民广场', journeyDate: '2026-11-07', companionCount: 0}, now}},
 ]
 
 /** Build-time gate: pure synthetic inputs only; errors contain schema paths, never supplied text. */

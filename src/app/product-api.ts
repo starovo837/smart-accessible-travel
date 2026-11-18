@@ -2,7 +2,10 @@ import { copyDictionary } from "./copyDictionary.ts";
 import type { ProductAnalysis } from './types';
 import type { ProductSource } from './product';
 import { runInference } from './inference';
+import { service } from './service';
 export async function analyzeSources(sources: ProductSource[], signal: AbortSignal, onProgress?: (message: string) => void): Promise<ProductAnalysis> {
+    // The user may have spent longer than the unused session lifetime preparing the material.
+    await service('status', undefined, undefined, signal);
     const payload = await runInference<{
         analysis?: ProductAnalysis;
         error?: string;

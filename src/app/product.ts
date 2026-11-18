@@ -57,7 +57,7 @@ export interface ProductNeeds {
 }
 export const initialNeeds = (): ProductNeeds => ({ oneHand: false, canFold: 'unknown' });
 export const sourceNames: Record<SourceKind, string> = { merchant: copyDictionary.c8c091c69ffb991f0, manual: copyDictionary.c66a7d5999c16d155, reply: copyDictionary.ce16a7c13f2d95ef0, review: copyDictionary.c647fdd9ede1a876f };
-export const factLabels: Record<FactField, string> = { lengthCm: copyDictionary.c218e03a4a652dfe8, widthCm: copyDictionary.c4708ed5e63ca5c84, heightCm: copyDictionary.c6cfe0ede7ddda492, weightKg: copyDictionary.c7e9a5a3a38e22286, foldLengthCm: copyDictionary.c0d22f90fbbb1f56c, foldWidthCm: copyDictionary.c87ab19387bfcf368, foldHeightCm: copyDictionary.cdc351fc1ec8f2ec5, batteryWh: copyDictionary.ca60db8fb09c3cea4, batteryType: copyDictionary.ccc64d927855b9fde, removable: copyDictionary.c1f9ff8e586f064f7, batteryCount: copyDictionary.cc0c73dc664361a97, foldHands: copyDictionary.c099130ab548fe1db, weightIncludesBattery: copyDictionary.cd237f2bff56baf2d, batteryWeightKg: copyDictionary.cd3292d94245bce7f, foldable: copyDictionary.c83d18a1c90dc0446, operation: copyDictionary.ce3a9570558b3a518, compatibility: copyDictionary.cc222c7e2d567b13d };
+export const factLabels: Record<FactField, string> = { folded:copyDictionary.travelFoldedLabel, lengthCm: copyDictionary.c218e03a4a652dfe8, widthCm: copyDictionary.c4708ed5e63ca5c84, heightCm: copyDictionary.c6cfe0ede7ddda492, weightKg: copyDictionary.c7e9a5a3a38e22286, foldLengthCm: copyDictionary.c0d22f90fbbb1f56c, foldWidthCm: copyDictionary.c87ab19387bfcf368, foldHeightCm: copyDictionary.cdc351fc1ec8f2ec5, batteryWh: copyDictionary.ca60db8fb09c3cea4, batteryType: copyDictionary.ccc64d927855b9fde, removable: copyDictionary.c1f9ff8e586f064f7, batteryCount: copyDictionary.cc0c73dc664361a97, foldHands: copyDictionary.c099130ab548fe1db, weightIncludesBattery: copyDictionary.cd237f2bff56baf2d, batteryWeightKg: copyDictionary.cd3292d94245bce7f, foldable: copyDictionary.c83d18a1c90dc0446, operation: copyDictionary.ce3a9570558b3a518, compatibility: copyDictionary.cc222c7e2d567b13d };
 export const productCategories = ['wheelchair', 'manual-wheelchair', 'mobility-scooter', 'cane', 'electronic-cane', 'hearing-aid', 'oxygen', 'pump', 'walker', 'rollator', 'crutches', 'communication-board', 'aac-device', 'magnifier', 'braille-display', 'reading-device', 'cpap', 'other'] as const;
 export function conflictsOf(insight: ProductInsight): ProductConflict[] {
     return (Object.keys(factLabels) as FactField[]).flatMap(field => {
@@ -147,7 +147,7 @@ export function preserveConfirmations(previous: ProductAnalysis, next: ProductAn
     if (!previous.insight || !next.insight)
         return next;
     const same = (a: ProductFact, b: ProductFact) => a.field === b.field && a.sourceId === b.sourceId && a.value === b.value && a.quote === b.quote && a.modelKey === b.modelKey;
-    const facts = next.insight.facts.map(fact => ({ ...fact, confirmed: fact.verification !== 'unverified' && previous.insight!.facts.some(old => same(old, fact) && old.confirmed) }));
+    const facts = next.insight.facts.map(fact => ({ ...fact, confirmed: !isSampleFact(next.insight!,fact) && fact.verification !== 'unverified' && previous.insight!.facts.some(old => same(old, fact) && old.confirmed && !isSampleFact(previous.insight!,old)) }));
     const resolutions: ProductInsight['resolutions'] = {};
     for (const [field, id] of Object.entries(previous.insight.resolutions)) {
         const prior = previous.insight.facts.find(fact => fact.id === id), replacement = prior ? facts.find(fact => same(fact, prior)) : undefined;
@@ -206,6 +206,7 @@ export function normalizeAnalysis(raw: unknown, sources: ProductSource[], mode: 
     const deviceType = productCategories.includes(value.category as typeof productCategories[number]) ? String(value.category) : 'other';
     return { id: 'analysis-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7), title: typeof value.title === 'string' ? value.title.slice(0, 160) : copyDictionary.c918e37a3998b5ac4, deviceType, sourceLabel: sources.map(source => source.name).join('、'), width: number('widthCm'), length: number('lengthCm'), weight: number('weightKg'), merchantClaims: facts.filter(fact => sources.find(source => source.id === fact.sourceId)?.kind !== 'review').map(fact => fact.quote), userFeedback: facts.filter(fact => sources.find(source => source.id === fact.sourceId)?.kind === 'review').map(fact => fact.quote), conclusion: copyDictionary.c8ad0ab0117b845ee, evidence: facts.map(fact => copyDictionary.ce3b0c44298fc1c14 + fact.label + copyDictionary.cf114611cd61000bf + fact.value + fact.unit + copyDictionary.cda047c04c9b5e27e + fact.location + copyDictionary.c744024cba4084c8b), nextSteps: [], insight };
 }
+export const isSampleFact = (insight:ProductInsight,fact:ProductFact) => insight.mode==='sample'||insight.sources.find(source=>source.id===fact.sourceId)?.sample===true;
 export function insightCard(product: ProductAnalysis): DeviceCard {
     const insight = product.insight!, values: DeviceCard['values'] = {}, evidence: DeviceCard['evidence'] = {};
     for (const field of ['lengthCm', 'widthCm', 'heightCm', 'weightKg', 'foldLengthCm', 'foldWidthCm', 'foldHeightCm', 'batteryWh', 'batteryType', 'removable', 'batteryCount'] as CardField[]) {
@@ -215,9 +216,10 @@ export function insightCard(product: ProductAnalysis): DeviceCard {
         values[field] = fact.value;
         const source = insight.sources.find(item => item.id === fact.sourceId)!;
         const excludesBattery = field === 'weightKg' && chosenFact(insight, 'weightIncludesBattery')?.value === 'no';
-        evidence[field] = { origin: source.kind === 'reply' ? 'reply' : 'merchant', confirmed: fact.confirmed && !excludesBattery, note: `${source.name} · ${fact.location}：${fact.quote}${source.sample ? copyDictionary.c16febcb7f2806ae6 : ''}${excludesBattery ? copyDictionary.ce92937463c741e7c : ''}` };
+        const sample=isSampleFact(insight,fact);
+        evidence[field] = { origin: source.kind === 'reply' ? 'reply' : 'merchant', confirmed: fact.confirmed && !excludesBattery && !sample, sample, note: `${source.name} · ${fact.location}：${fact.quote}${sample ? copyDictionary.c16febcb7f2806ae6 : ''}${excludesBattery ? copyDictionary.ce92937463c741e7c : ''}` };
     }
-    return { id: 'card-' + product.id, type: product.deviceType ?? 'other', name: product.title, battery: values.batteryType === 'none' ? copyDictionary.c484d55613910eb8c : values.batteryWh ? values.batteryWh + ' Wh' : '', dimensions: [values.lengthCm ?? '?', values.widthCm ?? '?', values.heightCm ?? '?'].join(' × ') + ' cm', weight: values.weightKg ? values.weightKg + ' kg' : '', source: 'manual', prospective: true, productId: product.id, values, evidence };
+    return { id: 'card-' + product.id, type: product.deviceType ?? 'other', name: product.title, battery: values.batteryType === 'none' ? copyDictionary.c484d55613910eb8c : values.batteryWh ? values.batteryWh + ' Wh' : '', dimensions: [values.lengthCm ?? '?', values.widthCm ?? '?', values.heightCm ?? '?'].join(' × ') + ' cm', weight: values.weightKg ? values.weightKg + ' kg' : '', source: 'manual', prospective: true, productId: product.id, sample:insight.mode==='sample', values, evidence };
 }
 export const sampleBundles: {
     id: string;

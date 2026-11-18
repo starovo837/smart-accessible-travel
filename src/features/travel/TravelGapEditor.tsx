@@ -3,6 +3,8 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { travelModes } from '../../app/catalog';
 import { requiresTravelBattery, requiresTravelDimensions } from '../../app/travelCompleteness';
 import { storedDeviceSpecs } from '../../app/travelTaskStorage';
+import {updateTravelSpec} from '../../app/travelSpecEvidence';
+import {TravelSpecReview} from './TravelSpecReview';
 import type { Device, TravelContext, TravelDeviceSpecs } from '../../app/types';
 export interface TravelGapPatch {
     deviceIds: string[];
@@ -42,7 +44,7 @@ export function TravelGapEditor(props: Props) {
             ?? form.current?.querySelector<HTMLElement>('input,select');
         target?.focus();
     }, [props.focusGap, props.focusRequest]);
-    const update = (deviceId: string, field: keyof TravelDeviceSpecs, value: unknown) => setSpecs(current => ({ ...current, [deviceId]: { ...current[deviceId], [field]: value } }));
+    const update = (deviceId: string, field: keyof TravelDeviceSpecs, value: unknown) => setSpecs(current => ({ ...current, [deviceId]: updateTravelSpec(current[deviceId],field,value) }));
     return <form ref={form} className="travel-gap-editor" aria-labelledby={id + '-heading'} onSubmit={event => { event.preventDefault(); props.onApply({ deviceIds, specs, context, mode }); }}>
     <h2 id={id + '-heading'}>{copyDictionary.c0564bf96f77b2515}</h2>
     <p>{copyDictionary.cad267c9d4e7e31b4}</p>
@@ -62,6 +64,7 @@ export function TravelGapEditor(props: Props) {
       {requiresTravelDimensions(device.type) ? <div className="field-grid two">{([['lengthCm', copyDictionary.c597ae23d84d4eac2], ['widthCm', copyDictionary.c8dd966ad496e83c7], ['heightCm', copyDictionary.cb1c27820fec23edb]] as const).map(([field, label]) => <label key={field} htmlFor={id + '-' + device.id + '-' + field}>{device.name}{label}（cm）<input id={id + '-' + device.id + '-' + field} data-gap-field="dimensions" type="number" min="0.01" step="any" inputMode="decimal" value={specs[device.id]?.[field] ?? ''} onChange={event => update(device.id, field, event.target.value === '' ? undefined : Number(event.target.value))}/></label>)}</div> : <p>{device.type === 'guide-dog' ? copyDictionary.c415c867841549afd : copyDictionary.c136a6aed9f4ed6c0}</p>}
       {requiresTravelBattery(device.type) ? <label htmlFor={id + '-' + device.id + '-battery'}>{device.name}{copyDictionary.ccc64d927855b9fde}<select id={id + '-' + device.id + '-battery'} data-gap-field="batteryType" value={specs[device.id]?.batteryType ?? ''} onChange={event => update(device.id, 'batteryType', event.target.value || undefined)}><option value="">{copyDictionary.c2320b479db733c07}</option><option value="none">{copyDictionary.cd0b98b6b5127b3fd}</option><option value="lithium">{copyDictionary.c0cad03728e492a1a}</option><option value="other">{copyDictionary.c417bdbecdc24f0d5}</option></select></label> : <p>{copyDictionary.cefb44ca848ba622a}</p>}
     </fieldset>)}
+    <TravelSpecReview devices={selected} specs={specs} onChange={update}/>
     <p role="status">{message}</p>
     <div className="travel-task-toolbar"><button type="submit" className="button-primary">{copyDictionary.c376a60ddcf09d5bb}</button><button type="button" onClick={props.onCancel}>{copyDictionary.c5273f07529d1482d}</button></div>
   </form>;
