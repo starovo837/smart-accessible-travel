@@ -37,6 +37,7 @@ export function Consent({ modules, onConsent, onSkip, onBack, privacy, setPrivac
     return <section className="screen"><PageHeader title={copyDictionary.c1a5644fda8a75a43} subtitle={copyDictionary.c00fef93e89f57472} onBack={onBack}/><ProgressDots step={2}/><div className="consent-hero"><div className="privacy-symbol"><Icon name="lock" size={44}/></div><h2>{copyDictionary.c863640b9298bd56a}</h2><p>{copyDictionary.c0c61dc897994a9db}</p></div><div className="consent-summary"><span>{copyDictionary.c19b9a0d14d49ccfc}</span><div>{modules.map((id) => <span className="soft-chip" key={id}>{moduleMeta[id].label}</span>)}</div></div><PrivacyOptions value={privacy} onChange={setPrivacy}/><div className="consent-actions"><PrimaryButton icon="lock" onClick={onConsent}>{copyDictionary.ceedb104981a0ffb9}</PrimaryButton><PrimaryButton variant="ghost" onClick={onSkip}>{copyDictionary.c5933b79d59e1515a}</PrimaryButton></div></section>;
 }
 interface HomeProps {
+    playWater: boolean;
     modules: ModuleId[];
     settings: AppSettings;
     encouragement?: import('react').ReactNode;
@@ -51,7 +52,7 @@ interface HomeProps {
     onAbout: () => void;
     onTool: (id: SupportToolId) => void;
 }
-export function Home({ modules, settings, encouragement, onFitting, onProduct, onTravel, onAssistant, onProfile, onDevices, onOffline, onChoose, onAbout, onTool }: HomeProps) {
+export function Home({ modules, settings, playWater, encouragement, onFitting, onProduct, onTravel, onAssistant, onProfile, onDevices, onOffline, onChoose, onAbout, onTool }: HomeProps) {
     const onAction = (target: WorkbenchTarget) => {
         switch (target) {
             case 'fitting':
@@ -84,7 +85,7 @@ export function Home({ modules, settings, encouragement, onFitting, onProduct, o
             default: onTool(target);
         }
     };
-    return <Workbench modules={modules} settings={settings} encouragement={encouragement} onAction={onAction}/>;
+    return <Workbench modules={modules} settings={settings} playWater={playWater} encouragement={encouragement} onAction={onAction}/>;
 }
 export function ProductInput({ input, setInput, value, setValue, error, loading, onStart, onBack, initialQuery }: {
     input: 'link' | 'image';

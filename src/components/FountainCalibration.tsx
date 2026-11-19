@@ -1,8 +1,47 @@
-import { useRef, useState, type PointerEvent } from 'react'
-import { campusPhoto, fountainBounds, type FountainBounds } from '../app/campusScene'
+import { useEffect, useRef, useState, type PointerEvent } from 'react'
+import { campusPhoto, coverFountain, fountainBounds, heroWindow, type FountainBounds } from '../app/campusScene'
+import { copyDictionary as copy } from '../app/copyDictionary'
+import { HomeWaterWindow } from './HomeWaterWindow'
 import './FountainCalibration.css'
 
+function BandCalibration() {
+  const preview = useRef<HTMLDivElement>(null)
+  const [positionY, setPositionY] = useState(heroWindow.positionY)
+  const [size, setSize] = useState({ width: 0, height: 0 })
+  useEffect(() => {
+    const node = preview.current
+    if (!node) return
+    const measure = () => setSize({ width: node.clientWidth, height: node.clientHeight })
+    const observer = new ResizeObserver(measure)
+    observer.observe(node)
+    measure()
+    return () => observer.disconnect()
+  }, [])
+  const bounds = coverFountain(size.width, size.height, fountainBounds, positionY)
+  return <main className="fountain-calibration">
+    <h1>{copy.fountainBandPreview}</h1>
+    <div ref={preview} className="fountain-band-preview">
+      <HomeWaterWindow playing={false} positionY={positionY}/>
+      <div className="fountain-calibration-box" aria-hidden="true"
+        style={{ left: bounds.x, top: bounds.y, width: bounds.w, height: bounds.h }}>
+        <span className="fountain-calibration-origin"/><span className="fountain-calibration-ripple"/>
+      </div>
+    </div>
+    <label>{copy.fountainBandPosition}
+      <input type="range" min="0" max="1" step=".001" value={positionY}
+        onChange={event => setPositionY(event.target.valueAsNumber)}/>
+    </label>
+    <label>{copy.fountainBandValues}
+      <textarea readOnly value={JSON.stringify({ height: heroWindow.height, positionY })} rows={2}/>
+    </label>
+  </main>
+}
+
 export default function FountainCalibration() {
+  return new URLSearchParams(location.search).get('band') === '1' ? <BandCalibration/> : <OriginalCalibration/>
+}
+
+function OriginalCalibration() {
   const frame = useRef<HTMLDivElement>(null)
   const [bounds, setBounds] = useState(fountainBounds)
   const [copied, setCopied] = useState(false)

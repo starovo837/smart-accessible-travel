@@ -9,3 +9,5 @@
 .fountain-calibration-values { display: flex; flex-wrap: wrap; gap: 12px; }
 .fountain-calibration-values input { display: block; width: 8rem; }
 .fountain-calibration textarea { display: block; width: 100%; }
+.fountain-band-preview { position: relative; width: min(100%, 460px); overflow: hidden; }
+.fountain-band-preview .fountain-calibration-box { pointer-events: none; }

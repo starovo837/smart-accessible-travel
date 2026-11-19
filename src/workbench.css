@@ -1,13 +1,20 @@
 .screen.workbench-screen {
-  padding: 0 12px 112px;
+  --workbench-gutter: 12px;
+  padding: 0 var(--workbench-gutter) 112px;
   color: #123f32;
   background: transparent;
   overflow: visible;
 }
 
 .workbench-heading {
-  padding: 28px 8px 30px;
+  margin-inline: calc(-1 * var(--workbench-gutter));
+  padding: 18px 24px 14px;
   min-width: 0;
+  background: rgb(var(--campus-paper));
+}
+
+.workbench-screen > .home-water-window {
+  margin: 0 calc(-1 * var(--workbench-gutter)) 14px;
 }
 
 .workbench-heading h1 {
@@ -158,7 +165,7 @@
 }
 
 @media (max-width: 360px) {
-  .screen.workbench-screen { padding-inline: 8px; }
+  .screen.workbench-screen { --workbench-gutter: 8px; }
   .workbench-grid { padding-inline: 8px; }
   .workbench-group h2 { padding-inline: 13px; }
 }
@@ -167,26 +174,16 @@
   .workbench-icon { transition: none; }
 }
 
-/* The first-open header shows the real campus scene at a readable crop. */
-.workbench-heading {
-  margin: 0 -12px 14px;
-  padding: 24px 24px 30px;
-  min-height: 202px;
-  background-image: linear-gradient(90deg, rgba(251,253,248,.92), rgba(251,253,248,.48) 62%, rgba(251,253,248,.22)), var(--campus-image);
-  background-size: cover;
-  background-position: center 56%;
-}
-.workbench-brand { display:flex; align-items:center; gap:9px; margin-bottom:19px; color:#164532; font-size:1.05rem; font-weight:700; }
+.workbench-brand { display:flex; align-items:center; gap:9px; margin-bottom:8px; color:#164532; font-size:1.05rem; font-weight:700; }
 .workbench-brand .app-mark { width:32px; height:34px; border-radius:10px; box-shadow:none; }
 .workbench-brand .app-mark svg { width:21px; height:21px; }
 .workbench-heading h1 { letter-spacing:normal; font-size:2.05rem; }
 .workbench-item-label { font-size:.9rem; }
-@media(max-width:360px){.workbench-heading{margin-inline:-8px;padding-inline:21px;}}
-@media(forced-colors:active){.workbench-heading{background-image:none;}}
+@media(max-width:360px){.workbench-heading{padding-inline:21px;}}
 
 .workbench-item-label { text-wrap: balance; }
 
-.workbench-encouragement{margin:0 0 18px}.workbench-encouragement:empty{display:none}.profile-screen{padding-bottom:110px}
+.workbench-encouragement:empty{display:none}.profile-screen{padding-bottom:110px}
 
 .workbench-about-link{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:56px;margin:16px 0 0;padding:12px 14px;border:1px solid #c6d8c7;border-radius:14px;background:rgba(255,255,252,.96);color:#173f31;text-align:left}
 .workbench-about-link span{color:#486657;font-size:.84rem;line-height:1.5;text-align:right}

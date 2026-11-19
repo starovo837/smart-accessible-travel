@@ -3,14 +3,15 @@ export const campusPhotoSize = { width: 4320, height: 3240 }
 export type FountainBounds = { x: number; y: number; w: number; h: number }
 // Calibrated on the original photo using the 900 × 675 development preview.
 export const fountainBounds: FountainBounds = { x: 0.37556, y: 0.31111, w: 0.19667, h: 0.60889 }
+export const heroWindow = { height: 'clamp(140px, 26vw, 200px)', positionY: .8 }
 
-export function coverFountain(width: number, height: number, bounds = fountainBounds) {
+export function coverFountain(width: number, height: number, bounds = fountainBounds, positionY = 0) {
   const scale = Math.max(width / campusPhotoSize.width, height / campusPhotoSize.height)
   const photoWidth = campusPhotoSize.width * scale
   const photoHeight = campusPhotoSize.height * scale
   return {
     x: (width - photoWidth) / 2 + bounds.x * photoWidth,
-    y: bounds.y * photoHeight,
+    y: (height - photoHeight) * positionY + bounds.y * photoHeight,
     w: bounds.w * photoWidth,
     h: bounds.h * photoHeight,
   }
@@ -23,14 +24,14 @@ export function waterMotionAllowed({
 }
 
 export function fountainPainter(context: CanvasRenderingContext2D) {
-  const count = 140
+  const count = 120
   const phases = new Float32Array(count), durations = new Float32Array(count), spread = new Float32Array(count)
   for (let i = 0; i < count; i++) {
     phases[i] = Math.random()
     durations[i] = 1.65 + Math.random() * .75
     spread[i] = Math.random() - .5
   }
-  const jetWidth = [-.045, .003, .048]
+  const jetWidth = [-.21, .003, .24]
 
   return (time: number, bounds: FountainBounds, width: number, height: number, particleCount: number) => {
     context.clearRect(0, 0, width, height)
@@ -55,12 +56,12 @@ export function fountainPainter(context: CanvasRenderingContext2D) {
     }
 
     const ripple = time % 4 / 4
-    context.globalAlpha = Math.sin(ripple * Math.PI) * .32
+    context.globalAlpha = Math.sin(ripple * Math.PI) * .54
     context.strokeStyle = '#dcf5ee'
     context.lineWidth = 1
     context.beginPath()
     context.ellipse(bounds.x + bounds.w * .735, bounds.y + bounds.h * .90,
-      3 + bounds.w * .22 * ripple, 1 + bounds.h * .035 * ripple, 0, 0, Math.PI * 2)
+      3 + bounds.w * .34 * ripple, 1 + bounds.h * .035 * ripple, 0, 0, Math.PI * 2)
     context.stroke()
     context.restore()
   }

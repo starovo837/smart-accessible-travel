@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { copyDictionary } from '../src/app/copyDictionary.ts'
 
-const banned = /核验|复核|快照|闭环|赋能|抓手|颗粒度|适用范围/u
+const banned = /核验|复核|快照|闭环|赋能|抓手|颗粒度|适用范围|依据与行动如何区分|超出依据限制时需选择单台|来源筛选/u
 export const plainCopyExceptions = Object.freeze({
   ruleReviewWritten: '本机条款审查命令的终端输出',
   ruleBundleTooLarge: '仅部署时校验文件的终端错误',

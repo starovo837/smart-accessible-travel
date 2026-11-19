@@ -1,8 +1,8 @@
 import { copyDictionary } from "./copyDictionary.ts";
 import { ruleCatalog } from './ruleCatalog.ts';
 import { travelPlanSources } from './travelPlanSources.ts';
-export const ABOUT_VERSION = '0.5.0';
-export const ABOUT_UPDATED_AT = '2026-11-16';
+export const ABOUT_VERSION = '0.6.0';
+export const ABOUT_UPDATED_AT = '2026-11-19';
 const sourceCount = ruleCatalog.length + Object.keys(travelPlanSources).length;
 export const aboutSections = [
     {
@@ -44,6 +44,7 @@ export const aboutSections = [
     },
 ] as const;
 export const updateHistory = [
+    { version: ABOUT_VERSION, date: ABOUT_UPDATED_AT, change: copyDictionary.campusVersionChange, reason: copyDictionary.campusVersionReason },
     { version: copyDictionary.learningVersionName, date: '2026-11-16', change: copyDictionary.learningVersionChange, reason: copyDictionary.learningVersionReason },
     { version: copyDictionary.c3b5340343166af94, date: '2026-11-13', change: copyDictionary.cf50bb27ed5de4790, reason: copyDictionary.c0b63ada0ca51f347 },
     { version: copyDictionary.c9fa90bb0c1e0f6a7, date: '2026-11-08', change: copyDictionary.cb7134d975ec813fe, reason: copyDictionary.c4e76af57a6a30dd3 },

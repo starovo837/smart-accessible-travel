@@ -109,14 +109,15 @@ export function createRequestSessions(policy, now = Date.now) {
         pending.delete(key)
       }
     }
-    const waiting = [...pending].filter(([, entry]) => entry.address === address)
-    if (!sharedGateway && !paired && waiting.length >= perAddress) {
-      throw rateError(Math.ceil((Math.min(...waiting.map(([, entry]) => entry.until)) - at) / 1000))
-    }
-    const ownSessions = [...sessions.values()].filter(entry => entry.address === address)
-    if (ownSessions.length >= maxSessionsPerAddress) {
-      if (sharedGateway && waiting.length) evictPending(waiting[0][0])
-      else throw rateError(Math.ceil((Math.min(...ownSessions.map(entry => entry.until)) - at) / 1000))
+    if (!sharedGateway) {
+      const waiting = [...pending.values()].filter(entry => entry.address === address)
+      if (!paired && waiting.length >= perAddress) {
+        throw rateError(Math.ceil((Math.min(...waiting.map(entry => entry.until)) - at) / 1000))
+      }
+      const ownSessions = [...sessions.values()].filter(entry => entry.address === address)
+      if (ownSessions.length >= maxSessionsPerAddress) {
+        throw rateError(Math.ceil((Math.min(...ownSessions.map(entry => entry.until)) - at) / 1000))
+      }
     }
     // Leave room for new visitors while protecting sessions already used by the app.
     if (pending.size && ((!paired && pending.size >= maxPending) || sessions.size >= maxSessions)) {
@@ -141,5 +142,13 @@ export function createRequestSessions(policy, now = Date.now) {
     return wait === 0
   }
 
-  return { resolve, issue, hit, markUsed, issuanceStats: () => ({ ...issuance }) }
+  return {
+    resolve, issue, hit, markUsed,
+    issuanceStats: () => {
+      const at = now()
+      let active = 0
+      for (const entry of sessions.values()) if (entry.until > at) active++
+      return { ...issuance, sessions: active }
+    },
+  }
 }
