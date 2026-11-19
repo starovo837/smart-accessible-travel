@@ -1,4 +1,5 @@
 import { copyDictionary } from "../../app/copyDictionary.ts";
+import { publicSourceDate } from '../../app/sourceDate';
 import { useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { Modal, PageHeader } from '../../components/UI';
 import { copyText, downloadText, phoneLink, readText, stopReading } from '../../app/accessibility';
@@ -36,7 +37,7 @@ export function LivingServicesPage({ tool, data, onChange, onTool, onBack, saved
         setDraft(current => ({ ...current, providerId, openedAt: now(), confirmation: undefined })); setMessage(copyDictionary.c415de28134ceea12); };
     const providerSource = (provider: ServiceProvider) => {
         const source = safeServiceUrl(provider.sourceUrl);
-        return <p className="living-meta">{copyDictionary.providerCheckedAt} <time dateTime={provider.verifiedAt}>{provider.verifiedAt}</time>
+        return <p className="living-meta">{copyDictionary.providerCheckedAt}<time dateTime={provider.verifiedAt}>{publicSourceDate(provider.verifiedAt)}</time>。
             {source && <> · <a href={source} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">{copyDictionary.c5427ca6314a90735}</a></>}</p>;
     };
     const providers = (category: ServiceProvider['category'], recordId?: string) => {

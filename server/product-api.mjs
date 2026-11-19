@@ -35,7 +35,11 @@ export function validateSources(input) {
 }
 
 const isLocal = req => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress)&&/^(127\.0\.0\.1|localhost|\[::1\])(?::\d+)?$/i.test(req.headers.host??'')
-function send(res, status, data) { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(data)) }
+function send(res, status, data) {
+  if ((status === 401 || status === 429) && !res.hasHeader('Retry-After')) res.setHeader('Retry-After', '1')
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' })
+  res.end(JSON.stringify(data))
+}
 async function body(req) {
   let size = 0; const chunks = []
   for await (const chunk of req) { size += chunk.length; if (size > 12 * 1024 * 1024) throw Object.assign(Error('资料过大，请减少图片或文字后重试。'), { status: 413 }); chunks.push(chunk) }
@@ -43,7 +47,7 @@ async function body(req) {
 }
 
 export function createProductApi({ status = localAIStatus, generate = generateLocalProduct, start = ensureLocalAI,workspace=workspaceService,rules=ruleService,answer=answerLocalQuestion,vision=describeLocalImage,help=helpService,facilities=createFacilityService(),hospitals=createHospitalService(),policy=studioPolicy(),sessionClock=Date.now } = {}) {
-  const {resolve:sessionId,issue:session,hit:countRequest,markUsed} = createRequestSessions(policy,sessionClock)
+  const {resolve:sessionId,issue:session,hit:countRequest,markUsed,issuanceStats} = createRequestSessions(policy,sessionClock)
   const pairCodes = new Map(), jobs = createInferenceJobs()
   let active = false
   const authorized = req => Boolean(sessionId(req))
@@ -57,7 +61,7 @@ export function createProductApi({ status = localAIStatus, generate = generateLo
       })
     }
     const hit = (request, route, max) => {
-      if (!countRequest(request, route, max)) return false
+      if (!countRequest(request, route, max, res)) return false
       markOnSuccess(sessionId(request))
       return true
     }
@@ -76,7 +80,7 @@ export function createProductApi({ status = localAIStatus, generate = generateLo
         let access=sessionId(req)
         if ((policy.enabled||isLocal(req)) && !access) access=session(req,res)
         await start()
-        send(res, 200, { ...await status(), deployment:policy.enabled?'studio':'local', authorized:policy.enabled?true:isLocal(req) || authorized(req),...(policy.enabled?{session:access,processingLocation:'创空间服务端开源模型'}:{}) }); return true
+        send(res, 200, { ...await status(), deployment:policy.enabled?'studio':'local', authorized:policy.enabled?true:isLocal(req) || authorized(req),...(policy.enabled?{session:access,sessionIssuance:issuanceStats(),processingLocation:'创空间服务端开源模型'}:{}) }); return true
       }
       const jobMatch = pathname.match(/^\/api\/inference-jobs\/([a-f0-9]{48})$/)
       if (jobMatch) {
@@ -93,7 +97,7 @@ export function createProductApi({ status = localAIStatus, generate = generateLo
       if(pathname==='/api/facilities/query'&&req.method==='POST'){if(!authorized(req)||!hit(req,'facility-query',6)){send(res,403,{error:'请先授权当前设备，或稍后再查询。'});return true}send(res,200,await facilities(await body(req)));return true}
       if(pathname==='/api/healthcare/nearby'&&req.method==='POST'){if(!authorized(req)){send(res,403,{error:'请先打开当前应用会话，再查询附近医院。'});return true}if(!hit(req,'hospital-query',6)){send(res,429,{error:'附近医院查询较频繁，请稍后再试。'});return true}send(res,200,await hospitals(await body(req)));return true}
       if(pathname==='/api/rules'&&req.method==='GET'){send(res,200,{documents:await rules.get()});return true}
-      if(pathname==='/api/rules/refresh'&&req.method==='POST'){if(!authorized(req)||!hit(req,'rules',3)){send(res,403,{error:'请先授权，并稍后再核验来源。'});return true}send(res,200,{documents:await rules.refresh()});return true}
+      if(pathname==='/api/rules/refresh'&&req.method==='POST'){if(!authorized(req)||!hit(req,'rules',3)){send(res,403,{error:'请先授权，稍后再查看原文。'});return true}send(res,200,{documents:await rules.refresh()});return true}
       if(pathname==='/api/cases'&&req.method==='POST'){if(!authorized(req)||!hit(req,'case-create',5)){send(res,403,{error:'请先授权当前设备或稍后再提交。'});return true}send(res,201,await workspace.createCase(await body(req)));return true}
       const caseMatch=pathname.match(/^\/api\/cases\/([a-z0-9-]+)(\/reply)?$/)
       if(caseMatch){if(method==='GET')send(res,200,await workspace.getCase(caseMatch[1],secret));else if(method==='DELETE')send(res,200,await workspace.deleteCase(caseMatch[1],secret));else if(method==='POST'&&caseMatch[2])send(res,200,await workspace.replyCase(caseMatch[1],secret,await body(req)));else send(res,405,{error:'不支持此操作。'});return true}

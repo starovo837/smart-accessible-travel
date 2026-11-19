@@ -4,6 +4,7 @@ import App from './App'
 import { FamilyViewer } from './features/LiveSharing'
 import {LiveHelpViewer} from './features/living/LiveHelp'
 import { ReadingFallback } from './features/ReadingFallback'
+import { CampusScene } from './components/CampusScene'
 import './styles.css'
 import './accessibility.css'
 import './product.css'
@@ -16,11 +17,16 @@ import './campus-theme.css'
 function RootView(){
  const [hash,setHash]=useState(location.hash)
  useEffect(()=>{const change=()=>setHash(location.hash);window.addEventListener('hashchange',change);return()=>window.removeEventListener('hashchange',change)},[])
- if(hash.match(/^#help\/(help-[a-f0-9]{24})\/([A-Za-z0-9_-]+)$/))return <LiveHelpViewer id={hash.split('/')[1]} token={hash.split('/')[2]}/>
- if(hash.match(/^#family\/([a-z0-9-]+)\/([A-Za-z0-9_-]+)$/))return <FamilyViewer id={hash.split('/')[1]} token={hash.split('/')[2]}/>
+ if(hash.match(/^#help\/(help-[a-f0-9]{24})\/([A-Za-z0-9_-]+)$/))return <><CampusScene/><LiveHelpViewer id={hash.split('/')[1]} token={hash.split('/')[2]}/></>
+ if(hash.match(/^#family\/([a-z0-9-]+)\/([A-Za-z0-9_-]+)$/))return <><CampusScene/><FamilyViewer id={hash.split('/')[1]} token={hash.split('/')[2]}/></>
  return <App/>
 }
-createRoot(document.getElementById('root')!).render(<StrictMode><RootView/><ReadingFallback/></StrictMode>)
+const root = createRoot(document.getElementById('root')!)
+if (import.meta.env.DEV && new URLSearchParams(location.search).get('calibrate') === 'fountain') {
+  void import('./components/FountainCalibration').then(({ default: Calibration }) => root.render(<Calibration/>))
+} else {
+  root.render(<StrictMode><RootView/><ReadingFallback/></StrictMode>)
+}
 
 // Cache the application shell only. User records remain governed by category consent.
 if (import.meta.env.PROD && window.isSecureContext && 'serviceWorker' in navigator) {

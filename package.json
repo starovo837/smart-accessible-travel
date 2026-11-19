@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/assert-travel-copy.mjs && tsc -b && vite build && node scripts/build-offline.mjs",
+    "build": "node scripts/assert-plain-copy.mjs && node scripts/assert-travel-copy.mjs && tsc -b && vite build && node scripts/build-offline.mjs",
     "check:travel-copy": "node scripts/assert-travel-copy.mjs",
-    "build:studio": "tsc -b && node scripts/build-studio.mjs",
+    "build:studio": "node scripts/assert-plain-copy.mjs && tsc -b && node scripts/build-studio.mjs",
     "prepare:studio": "node scripts/prepare-studio.mjs",
     "test": "node --test tests/*.test.mjs",
     "evaluate:ai": "node scripts/evaluate-ai.mjs",

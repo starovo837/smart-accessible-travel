@@ -1,4 +1,5 @@
 import { copyDictionary } from "../../app/copyDictionary.ts";
+import { publicSourceDate } from '../../app/sourceDate';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { PageHeader, PrimaryButton } from '../../components/UI';
 import { copyText, phoneLink, readText } from '../../app/accessibility';
@@ -19,7 +20,7 @@ function dateLabel(value?: string | null) {
     if (!value)
         return copyDictionary.c82f562a3c50336ba;
     const date = new Date(value);
-    return Number.isFinite(date.getTime()) ? date.toLocaleDateString('zh-CN') : value.replace(/\d{4}-\d{2}-\d{2}T[\d:.]+Z/g, stamp => new Date(stamp).toLocaleString('zh-CN'));
+    return Number.isFinite(date.getTime()) ? publicSourceDate(value) : value.replace(/\d{4}-\d{2}-\d{2}T[\d:.]+Z/g, stamp => new Date(stamp).toLocaleString('zh-CN'));
 }
 interface TravelChanges {
     added: string[];
@@ -45,7 +46,7 @@ function ActionRow({ action, plan, done, onToggle, general, change }: {
     {action.applicableCategories?.length ? <div className="disability-badges">{action.applicableCategories.map(category => <span key={category}>{disabilityCategories.find(item => item.id === category)!.name}</span>)}</div> : null}
     {action.combined && <aside className="travel-replaced-advice"><p>{copyDictionary.c62ce327a2a8d1c5e}{action.combined.replacedTitles.join('；')}。</p></aside>}
     {!general && action.anchors?.length > 0 && <p className="travel-anchor-summary">{copyDictionary.c2b0257013a50be65}{[...new Set(action.anchors.filter(anchor => anchor.kind !== 'mode').map(anchor => anchor.label ? anchor.label + ' ' + anchor.value : anchor.value))].slice(0, 4).join(' · ')}</p>}
-    <div className="travel-task-evidence"><span>{evidenceLabels[evidence.level]}</span><span>{evidence.level === 'inference' ? uiCopy.recorded : copyDictionary.c7153f0918a937aac}：{dateLabel(evidence.updatedAt)}</span><a href={evidence.officialUrl} target="_blank" rel="noopener noreferrer">{evidence.officialLabel || copyDictionary.cb269e548f439c520} ↗</a></div>
+    <div className="travel-task-evidence"><span>{evidenceLabels[evidence.level]}{evidence.updatedAt ? <>。{evidence.level === 'inference' ? <>{uiCopy.recorded}<time dateTime={evidence.updatedAt}>{dateLabel(evidence.updatedAt)}</time></> : evidence.updatedAt.replace(/\d{4}-\d{2}-\d{2}/g, publicSourceDate)}。</> : null}</span><a href={evidence.officialUrl} target="_blank" rel="noopener noreferrer">{evidence.officialLabel || copyDictionary.cb269e548f439c520} ↗</a></div>
     {evidence.level === 'inference' && <p className="travel-task-note">{uiCopy.verify}</p>}
     {(historical || evidence.status !== 'current') && <p className="travel-task-state">{historical ? copyDictionary.cb14e9a4cc9172010 : copyDictionary.cccf9206892f889b7}</p>}
     {action.verification && <div className="travel-task-question"><p><strong>{copyDictionary.c42742c6ee2ebbd99}</strong>{action.verification.contact} {phoneLink(action.verification.phone) && <a href={phoneLink(action.verification.phone)}>{copyDictionary.cd92c3bb46b1083b8}{action.verification.phone}</a>}</p><p><strong>{copyDictionary.cd5fefeee517f3b43}</strong>{action.verification.question}</p><button type="button" onClick={async () => setCopyStatus(await copyText(action.verification!.question) ? copyDictionary.c8ad55b21ac030ec5 : copyDictionary.c26c9ce501bce4ae7)}>{copyDictionary.cd62e87e750a4e365}</button>{copyStatus && <p role="status">{copyStatus}</p>}</div>}

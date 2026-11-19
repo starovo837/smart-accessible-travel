@@ -61,7 +61,7 @@ export interface TravelCheckResult {
 export interface ChecklistItem { id: string; label: string; detail: string; checked: boolean }
 export interface AppointmentScript { subject: string; body: string }
 export interface AssistantTurn { speaker: 'assistant' | 'user'; text: string; confidence?: 'high' | 'low'; citations?:import('./assistantEvidence').AssistantEvidence[] }
-export interface AppSettings { elderMode: boolean; stepMode: boolean; readAloud: boolean; largeText?: boolean; textOnly?: boolean; reducedMotion?: boolean; encouragement?: boolean; travelSingleStep?: boolean; travelDisplayVersion?: 2 }
+export interface AppSettings { elderMode: boolean; stepMode: boolean; readAloud: boolean; largeText?: boolean; textOnly?: boolean; reducedMotion?: boolean; fountainMotion?: boolean; encouragement?: boolean; travelSingleStep?: boolean; travelDisplayVersion?: 2 }
 export interface Feedback { id: string; subject: string; text: string; createdAt?: string; status?: 'local-pending' | 'submitted'; serverId?:string; accessToken?:string }
 export interface PrivacyPreferences { profile: boolean; devices: boolean; life: boolean; retainDays: 7 | 30 | 0 }
 export interface AppData {

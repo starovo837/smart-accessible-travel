@@ -1,9 +1,8 @@
 /* Shared campus scenery stays behind content; never reduce text opacity. */
 :root {
   font-family: 'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', sans-serif;
-  --campus-image: url('/images/seu-sipailou-fountain.jpg');
-  --campus-wash: .88;
-  --campus-paper: 248 251 246;
+  --campus-wash: .90;
+  --campus-paper: 250 253 248;
   --campus-card: rgb(255 255 251 / .96);
   --campus-ink: #173f30;
   --campus-muted: #3e5748;
@@ -13,23 +12,26 @@
 
 html, body { background-color: #edf2e9; }
 
-.app-shell {
-  background-color: #edf2e9;
-  background-image: linear-gradient(rgb(var(--campus-paper) / .82), rgb(var(--campus-paper) / .82)), var(--campus-image);
-  background-position: center top;
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-attachment: scroll;
+.app-shell { position: relative; isolation: isolate; background: transparent; }
+
+.campus-scene {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  isolation: isolate;
 }
+.campus-scene img, .campus-scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.campus-scene img { object-fit: cover; object-position: 50% 0%; }
+.campus-scene canvas { mix-blend-mode: screen; opacity: .5; }
+.campus-scene::after { content: ''; position: absolute; inset: 0; background: rgb(var(--campus-paper) / .22); }
 
 .app-shell .app-frame,
 .app-shell.fit-wide-shell .app-frame {
-  background-color: #f8fbf6;
-  background-image: linear-gradient(rgb(var(--campus-paper) / var(--campus-wash)), rgb(var(--campus-paper) / var(--campus-wash))), var(--campus-image);
-  background-position: center top;
-  background-size: auto, auto max(800px, 100svh);
-  background-repeat: no-repeat, repeat-y;
-  background-attachment: scroll;
+  position: relative;
+  z-index: 1;
+  background: rgb(var(--campus-paper) / var(--campus-wash));
   border-color: rgb(255 255 251 / .85);
 }
 
@@ -61,7 +63,7 @@ html, body { background-color: #edf2e9; }
   color: var(--campus-muted);
 }
 
-.app-shell .feature-header,
+.app-shell .feature-header { background-color: #fffffb; }
 .support-bottom-nav,
 .modal,
 .modal .modal-header {
@@ -80,20 +82,8 @@ html, body { background-color: #edf2e9; }
   background-color: #e9e5dc;
 }
 
-@media (max-width: 650px) {
-  .app-shell {
-    background-color: #edf2e9;
-    background-image: linear-gradient(rgb(var(--campus-paper) / .82), rgb(var(--campus-paper) / .82)), var(--campus-image);
-    background-attachment: scroll;
-  }
-  .app-shell .app-frame,
-  .app-shell.fit-wide-shell .app-frame {
-    background-size: auto, auto max(760px, 100svh);
-    background-attachment: scroll;
-  }
-}
-
 @media (forced-colors: active) {
+  .campus-scene { display: none; }
   .app-shell,
   .app-shell .app-frame,
   .app-shell.fit-wide-shell .app-frame {

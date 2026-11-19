@@ -8,6 +8,7 @@ const pendingLifetime = 5 * minute
 const maxSessions = 2000
 const maxPending = 500
 const perAddress = 6
+const studioGatewayPerAddress = 60
 const maxSessionsPerAddress = 64
 const maxRateKeys = 10_000
 
@@ -48,21 +49,22 @@ function usesHttps(req, policy) {
 export function createRequestSessions(policy, now = Date.now) {
   const sessions = new Map()
   const pending = new Map()
+  const issuanceLimits = new Map()
   const limits = new Map()
-  let sweepAt = 0
+  const sweepAt = new Map()
+  const issuance = { issued: 0, evictedPending: 0, limited: 0 }
 
-  function consume(address, route, max, at = now()) {
-    if (at >= sweepAt) {
-      for (const [key, entry] of limits) if (entry.until <= at) limits.delete(key)
-      sweepAt = at + minute
+  function consume(pool, key, max, at = now()) {
+    if (at >= (sweepAt.get(pool) ?? 0)) {
+      for (const [key, entry] of pool) if (entry.until <= at) pool.delete(key)
+      sweepAt.set(pool, at + minute)
     }
-    const key = `${route}:${address}`
-    const prior = limits.get(key)
+    const prior = pool.get(key)
     const entry = prior?.until > at ? prior : { until: at + minute, count: 0 }
-    if (!prior && limits.size >= maxRateKeys) return Math.ceil((sweepAt - at) / 1000)
+    if (!prior && pool.size >= maxRateKeys) return Math.ceil((sweepAt.get(pool) - at) / 1000)
     if (entry.count >= max) return Math.ceil((entry.until - at) / 1000)
     entry.count++
-    limits.set(key, entry)
+    pool.set(key, entry)
     return 0
   }
 
@@ -81,7 +83,14 @@ export function createRequestSessions(policy, now = Date.now) {
   }
 
   function rateError(seconds) {
+    issuance.limited++
     return Object.assign(Error(copy.sessionRateLimited), { status: 429, retryAfter: Math.max(1, seconds) })
+  }
+
+  function evictPending(token) {
+    pending.delete(token)
+    sessions.delete(token)
+    issuance.evictedPending++
   }
 
   function issue(req, res, paired = false) {
@@ -91,7 +100,8 @@ export function createRequestSessions(policy, now = Date.now) {
       return existing
     }
     const at = now(), address = clientAddress(req, policy)
-    const wait = consume(address, 'session-issue', perAddress, at)
+    const sharedGateway = policy.enabled && !trustedPeer(req, policy)
+    const wait = consume(issuanceLimits, address, sharedGateway ? studioGatewayPerAddress : perAddress, at)
     if (wait) throw rateError(wait)
     for (const [key, entry] of sessions) {
       if (entry.until <= at) {
@@ -99,19 +109,18 @@ export function createRequestSessions(policy, now = Date.now) {
         pending.delete(key)
       }
     }
-    const waiting = [...pending.values()].filter(entry => entry.address === address)
-    if (!paired && waiting.length >= perAddress) {
-      throw rateError(Math.ceil((Math.min(...waiting.map(entry => entry.until)) - at) / 1000))
+    const waiting = [...pending].filter(([, entry]) => entry.address === address)
+    if (!sharedGateway && !paired && waiting.length >= perAddress) {
+      throw rateError(Math.ceil((Math.min(...waiting.map(([, entry]) => entry.until)) - at) / 1000))
     }
     const ownSessions = [...sessions.values()].filter(entry => entry.address === address)
     if (ownSessions.length >= maxSessionsPerAddress) {
-      throw rateError(Math.ceil((Math.min(...ownSessions.map(entry => entry.until)) - at) / 1000))
+      if (sharedGateway && waiting.length) evictPending(waiting[0][0])
+      else throw rateError(Math.ceil((Math.min(...ownSessions.map(entry => entry.until)) - at) / 1000))
     }
     // Leave room for new visitors while protecting sessions already used by the app.
     if (pending.size && ((!paired && pending.size >= maxPending) || sessions.size >= maxSessions)) {
-      const oldest = pending.keys().next().value
-      pending.delete(oldest)
-      sessions.delete(oldest)
+      evictPending(pending.keys().next().value)
     }
     if (sessions.size >= maxSessions) {
       const earliest = Math.min(...Array.from(sessions.values(), entry => entry.until))
@@ -121,13 +130,16 @@ export function createRequestSessions(policy, now = Date.now) {
     const entry = { address, issuedAt: at, until: at + (paired ? lifetime : pendingLifetime) }
     sessions.set(token, entry)
     if (!paired) pending.set(token, entry)
+    issuance.issued++
     res.setHeader('Set-Cookie', `sai_session=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200${usesHttps(req, policy) ? '; Secure' : ''}`)
     return token
   }
 
-  function hit(req, route, max) {
-    return consume(clientAddress(req, policy), route, max) === 0
+  function hit(req, route, max, res) {
+    const wait = consume(limits, `${route}:${clientAddress(req, policy)}`, max)
+    if (wait) res?.setHeader('Retry-After', String(wait))
+    return wait === 0
   }
 
-  return { resolve, issue, hit, markUsed }
+  return { resolve, issue, hit, markUsed, issuanceStats: () => ({ ...issuance }) }
 }

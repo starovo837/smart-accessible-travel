@@ -33,6 +33,39 @@ button:focus-visible, input:focus-visible { outline: 3px solid #e29c3f; outline-
 .app-shell { min-height: 100vh; padding: 24px; background: #e7eef3; }
 .app-frame { width: min(100%, 460px); min-height: calc(100vh - 48px); margin: 0 auto; background: var(--paper); border: 1px solid rgba(18,59,99,.12); border-radius: 30px; box-shadow: 0 28px 70px rgba(18, 59, 99, .18); overflow: hidden; }
 .screen { min-height: calc(100vh - 48px); padding: 24px 22px 36px; position: relative; overflow: hidden; }
+
+/* A fixed footer or 3D stage keeps its viewport containing block. */
+.app-shell[data-page-motion] :is(.app-frame > .screen, .shopping-page > .screen) {
+  --page-entry-duration: 240ms;
+}
+.app-shell[data-page-motion] :is(.app-frame > .screen, .shopping-page > .screen):is(.travel-query, .product-intake) {
+  --page-entry-duration: 160ms;
+}
+.app-shell[data-page-motion] :is(.app-frame > .screen, .shopping-page > .screen):not(.fitting-workspace:not(.fit-shopping-page), :has(.result-disclaimer)),
+.app-shell[data-page-motion] :is(.assistant-screen, .product-insight) > :not(.result-disclaimer) {
+  animation: page-enter var(--page-entry-duration, 240ms) cubic-bezier(.22,.61,.36,1);
+}
+.app-shell[data-page-motion] :is(.app-frame > .screen, .shopping-page > .screen):not(.fitting-workspace:not(.fit-shopping-page))::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  inset-inline: 0;
+  inset-block-start: max(0px, calc(min(100%, 100svh) - 7rem));
+  block-size: 7rem;
+  opacity: 0;
+  background: radial-gradient(ellipse at center bottom, #e6fff2, transparent 72%) center bottom / 100% 100% no-repeat;
+  animation: page-water-glow 600ms ease-out;
+}
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes page-water-glow {
+  0% { opacity: 0; background-size: 18% 20%; }
+  32% { opacity: .08; }
+  100% { opacity: 0; background-size: 100% 100%; }
+}
 .elder-mode { --paper: #fff; --ink: #122a42; --muted: #38546a; --line: #b9cbd8; }
 .elder-mode .screen { font-size: 1.12rem; }
 .elder-mode .page-heading h1, .elder-mode .home-header h1 { font-size: 1.65rem; letter-spacing: -.03em; }
