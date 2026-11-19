@@ -7,13 +7,24 @@
 }
 
 .workbench-heading {
-  margin-inline: calc(-1 * var(--workbench-gutter));
-  padding: 18px 24px 14px;
+  position: relative;
+  isolation: isolate;
+  z-index: 1;
+  margin: 0;
+  padding: 12px 18px 16px;
   min-width: 0;
-  background: rgb(var(--campus-paper));
+  max-width: min(80%, 338px);
+}
+.workbench-heading::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0 -12px 0 0;
+  background: linear-gradient(to right, rgb(var(--campus-paper) / .89) calc(100% - 16px), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 12px);
 }
 
-.workbench-screen > .home-water-window {
+.workbench-screen > .home-cover {
   margin: 0 calc(-1 * var(--workbench-gutter)) 14px;
 }
 
@@ -31,6 +42,7 @@
   color: #315e4d;
   font-size: .96rem;
   line-height: 1.7;
+  text-wrap: balance;
 }
 
 .workbench-groups {
@@ -177,9 +189,14 @@
 .workbench-brand { display:flex; align-items:center; gap:9px; margin-bottom:8px; color:#164532; font-size:1.05rem; font-weight:700; }
 .workbench-brand .app-mark { width:32px; height:34px; border-radius:10px; box-shadow:none; }
 .workbench-brand .app-mark svg { width:21px; height:21px; }
+.workbench-brand .campus-emblem { width: 44px; height: 44px; padding: 4px; }
 .workbench-heading h1 { letter-spacing:normal; font-size:2.05rem; }
 .workbench-item-label { font-size:.9rem; }
 @media(max-width:360px){.workbench-heading{padding-inline:21px;}}
+@media(forced-colors:active){
+  .workbench-heading { max-width: 100%; background: Canvas; color: CanvasText; }
+  .workbench-heading::before { display: none; }
+}
 
 .workbench-item-label { text-wrap: balance; }
 

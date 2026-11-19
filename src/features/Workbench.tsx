@@ -3,7 +3,7 @@ import { Fragment, useId, type ReactNode } from 'react';
 import { Icon } from '../components/Icons';
 import { AppMark } from '../components/UI';
 import { CampusEmblem } from '../components/CampusEmblem';
-import { HomeWaterWindow } from '../components/HomeWaterWindow';
+import { HomeCover } from '../components/HomeCover';
 import type { AppSettings, ModuleId } from '../app/types';
 import { workbenchGroups, type WorkbenchItem, type WorkbenchTarget } from '../app/workbench';
 import '../workbench.css';
@@ -22,8 +22,9 @@ function WorkbenchIcon({ item }: {
 export function Workbench({ onAction, modules, settings, playWater, encouragement }: WorkbenchProps) {
     const descriptionId = useId();
     return <section className="screen workbench-screen" aria-label={copyDictionary.cf9e02d3c13aaa72c} aria-describedby={descriptionId} data-large-text={Boolean(settings.largeText || settings.elderMode)}>
-    <header className="workbench-heading"><div className="workbench-brand"><AppMark /><span>{copyDictionary.c4ec7c5b9618b5554}</span><CampusEmblem /></div><h1>{copyDictionary.cf9e02d3c13aaa72c}</h1><p>{copyDictionary.c8323ab3d6e326e53}</p></header>
-    <HomeWaterWindow playing={playWater}/>
+    <HomeCover playing={playWater}>
+      <header className="workbench-heading"><div className="workbench-brand"><AppMark /><span>{copyDictionary.c4ec7c5b9618b5554}</span><CampusEmblem /></div><h1>{copyDictionary.cf9e02d3c13aaa72c}</h1><p>{copyDictionary.c8323ab3d6e326e53}</p></header>
+    </HomeCover>
     <p id={descriptionId} className="sr-only">{copyDictionary.c3f4ebc4aad9793b6}{modules.length}{copyDictionary.c85fd5b143dc5c320}</p>
     <div className="workbench-groups">{workbenchGroups.map(group => <Fragment key={group.id}>
       <section className="workbench-group" aria-labelledby={'workbench-group-' + group.id}>

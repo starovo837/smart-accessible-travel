@@ -1,13 +1,33 @@
 .fountain-calibration { width: min(900px, 96vw); margin: 1rem auto; }
-.fountain-calibration-photo { position: relative; }
-.fountain-calibration-photo img { display: block; width: 100%; }
-.fountain-calibration-box { position: absolute; border: 2px solid #ffdf43; cursor: move; touch-action: none; }
-.fountain-calibration-box span { position: absolute; width: 10px; height: 10px; border-radius: 50%; transform: translate(-50%, -50%); border: 2px solid #fff; }
-.fountain-calibration-origin { left: 39%; top: 49%; background: #de473d; }
-.fountain-calibration-ripple { left: 73.5%; top: 90%; background: #0848cd; }
-.fountain-calibration-box button { position: absolute; bottom: -12px; right: -12px; cursor: nwse-resize; min-width: 24px; min-height: 24px; width: 24px; height: 24px; background: #ffdf43; touch-action: none; }
-.fountain-calibration-values { display: flex; flex-wrap: wrap; gap: 12px; }
-.fountain-calibration-values input { display: block; width: 8rem; }
+.fountain-calibration-photo { position: relative; overflow: hidden; }
+.fountain-calibration-photo img { display: block; width: 100%; height: auto; }
+.fountain-point-handle, .fountain-basin-handle {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  touch-action: none;
+}
+.fountain-point-handle, .fountain-preview-point { transform: translate(-50%, -50%); }
+.fountain-point-handle { display: grid; place-items: center; width: 42px; height: 42px; cursor: move; }
+.fountain-point-handle span, .fountain-preview-point {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ffe16d;
+  color: #1d200c;
+  box-shadow: 0 0 0 1px #1d200c;
+  font: 700 13px/1 system-ui, sans-serif;
+}
+.fountain-basin-handle { inset-inline: 0; width: 100%; height: 28px; transform: translateY(-50%); cursor: ns-resize; }
+.fountain-basin-handle::after { content: ''; position: absolute; inset: 50% 0 auto; border-top: 2px dashed #ffdf43; }
+.fountain-calibration-values { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-block: 1rem; }
+.fountain-calibration-values fieldset { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.fountain-calibration-values :is(input:not([type='checkbox']), select) { display: block; }
+.fountain-calibration-values input[type='number'] { max-width: 7rem; }
 .fountain-calibration textarea { display: block; width: 100%; }
-.fountain-band-preview { position: relative; width: min(100%, 460px); overflow: hidden; }
-.fountain-band-preview .fountain-calibration-box { pointer-events: none; }
+.fountain-cover-preview { position: relative; max-width: 100%; overflow: hidden; margin-block: 1rem; }
+.fountain-preview-guides { position: absolute; inset: 0; pointer-events: none; }
+.fountain-preview-point { position: absolute; }

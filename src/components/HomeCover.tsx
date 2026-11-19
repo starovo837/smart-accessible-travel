@@ -1,7 +1,11 @@
-import { useEffect, useRef } from 'react'
-import { campusPhoto, coverFountain, fountainPainter, heroWindow } from '../app/campusScene'
+import { useEffect, useRef, type ReactNode } from 'react'
+import { campusPhoto, fountainPainter, heroWindow, particleCountForCover, projectFountain, type FountainCalibration } from '../app/campusScene'
 
-export function HomeWaterWindow({ playing, positionY = heroWindow.positionY }: { playing: boolean; positionY?: number }) {
+export function HomeCover({ playing, calibration = heroWindow, children }: {
+  playing: boolean
+  calibration?: FountainCalibration
+  children?: ReactNode
+}) {
   const layer = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
@@ -17,8 +21,8 @@ export function HomeWaterWindow({ playing, positionY = heroWindow.positionY }: {
     let startedAt: number | undefined
     let lastPaint = -Infinity
     let inView = typeof IntersectionObserver === 'undefined'
-    let bounds = coverFountain(0, 0)
-    let particles = 80
+    let projection = projectFountain(0, 0, calibration)
+    let particles = 180
     const ready = () => inView && !document.hidden && width > 0 && height > 0
     const stop = () => {
       cancelAnimationFrame(frame)
@@ -32,7 +36,7 @@ export function HomeWaterWindow({ playing, positionY = heroWindow.positionY }: {
       if (stamp - lastPaint >= 1000 / 30) {
         startedAt ??= stamp
         lastPaint = stamp
-        paint((stamp - startedAt) / 1000, bounds, width, height, particles)
+        paint((stamp - startedAt) / 1000, projection, width, height, particles)
       }
       frame = requestAnimationFrame(tick)
     }
@@ -41,14 +45,15 @@ export function HomeWaterWindow({ playing, positionY = heroWindow.positionY }: {
       else if (!frame) frame = requestAnimationFrame(tick)
     }
     const resize = () => {
-      width = host.clientWidth
-      height = host.clientHeight
+      const bounds = host.getBoundingClientRect()
+      width = bounds.width
+      height = bounds.height
       const dpr = Math.min(2, window.devicePixelRatio || 1)
       drawing.width = Math.round(width * dpr)
       drawing.height = Math.round(height * dpr)
       context.setTransform(drawing.width / Math.max(1, width), 0, 0, drawing.height / Math.max(1, height), 0, 0)
-      bounds = coverFountain(width, height, undefined, positionY)
-      particles = Math.min(120, Math.max(80, Math.round(80 + (width - 320) * 40 / 140)))
+      projection = projectFountain(width, height, calibration)
+      particles = particleCountForCover(width, height)
       sync()
     }
     const sizeObserver = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(resize)
@@ -70,10 +75,13 @@ export function HomeWaterWindow({ playing, positionY = heroWindow.positionY }: {
       window.removeEventListener('resize', resize)
       document.removeEventListener('visibilitychange', sync)
     }
-  }, [playing, positionY])
+  }, [playing, calibration])
 
-  return <div className="home-water-window" ref={layer} aria-hidden="true" style={{ height: heroWindow.height }}>
-    <img src={campusPhoto} alt="" style={{ objectPosition: `50% ${positionY * 100}%` }}/>
-    {playing && <canvas ref={canvas} aria-hidden="true" role="presentation"/>}
+  return <div className="home-cover" style={{ minHeight: calibration.height }}>
+    <div className="home-cover-scene" ref={layer} aria-hidden="true">
+      <img src={campusPhoto} alt="" style={{ objectPosition: `50% ${calibration.positionY * 100}%` }}/>
+      {playing && <canvas ref={canvas} aria-hidden="true" role="presentation"/>}
+    </div>
+    {children}
   </div>
 }

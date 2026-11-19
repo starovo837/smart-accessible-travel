@@ -26,23 +26,32 @@ html, body { background-color: #edf2e9; }
 .campus-scene img { object-fit: cover; object-position: 50% 0%; }
 .campus-scene::after { content: ''; position: absolute; inset: 0; background: rgb(var(--campus-paper) / .22); }
 
-.home-water-window {
+.home-cover {
   position: relative;
   isolation: isolate;
+  display: grid;
+  align-items: end;
+  justify-items: start;
   overflow: hidden;
-  border-radius: 18px;
-  pointer-events: none;
   background: rgb(var(--campus-paper));
 }
-.home-water-window :is(img, canvas) { position: absolute; inset: 0; width: 100%; height: 100%; }
-.home-water-window img { object-fit: cover; }
-.home-water-window canvas { mix-blend-mode: screen; opacity: .86; }
-.home-water-window::after {
+.home-cover-scene, .home-cover-scene :is(img, canvas) { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.home-cover-scene { isolation: isolate; z-index: 0; }
+.home-cover-scene img { object-fit: cover; }
+.home-cover-scene canvas { mix-blend-mode: screen; opacity: .66; }
+.home-cover-scene::before, .home-cover-scene::after {
   content: '';
   position: absolute;
   inset: auto 0 0;
-  height: 24px;
-  background: linear-gradient(to bottom, transparent 18%, rgb(var(--campus-paper) / .14) 60%, rgb(var(--campus-paper)));
+  z-index: 1;
+}
+.home-cover-scene::before {
+  height: 40%;
+  background: linear-gradient(to bottom, transparent, rgb(var(--campus-paper) / .18) 62%, rgb(var(--campus-paper) / .96));
+}
+.home-cover-scene::after {
+  height: 48px;
+  background: linear-gradient(to bottom, transparent, rgb(var(--campus-paper)));
 }
 
 .app-shell .app-frame,
@@ -102,7 +111,7 @@ html, body { background-color: #edf2e9; }
 
 @media (forced-colors: active) {
   .campus-scene { display: none; }
-  .home-water-window canvas, .home-water-window::after { display: none; }
+  .home-cover-scene canvas, .home-cover-scene::before, .home-cover-scene::after { display: none; }
   .app-shell,
   .app-shell .app-frame,
   .app-shell.fit-wide-shell .app-frame {
