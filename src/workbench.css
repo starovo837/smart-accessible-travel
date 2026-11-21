@@ -11,29 +11,30 @@
   isolation: isolate;
   z-index: 1;
   margin: 0;
-  padding: 12px 18px 16px;
+  padding: 12px 0 16px 18px;
   min-width: 0;
-  max-width: min(80%, 338px);
+  width: 100%;
 }
 .workbench-heading::before {
   content: '';
   position: absolute;
   z-index: -1;
-  inset: 0 -12px 0 0;
-  background: linear-gradient(to right, rgb(var(--campus-paper) / .89) calc(100% - 16px), transparent);
+  inset: 0;
+  background: linear-gradient(to right, rgb(var(--campus-paper) / .94), rgb(var(--campus-paper) / .72));
   mask-image: linear-gradient(to bottom, transparent, #000 12px);
 }
 
 .workbench-screen > .home-cover {
-  margin: 0 calc(-1 * var(--workbench-gutter)) 14px;
+  margin: 0 calc(-1 * var(--workbench-gutter)) 8px;
 }
+
+.workbench-heading :is(h1, p) { padding-right: 18px; }
 
 .workbench-heading h1 {
   margin: 0 0 10px;
   color: #103e30;
   font-size: 2.15rem;
   font-weight: 750;
-  letter-spacing: -.035em;
   line-height: 1.25;
 }
 
@@ -47,7 +48,7 @@
 
 .workbench-groups {
   display: grid;
-  gap: 14px;
+  gap: 8px;
 }
 
 .workbench-group {
@@ -61,7 +62,7 @@
 
 .workbench-group h2 {
   margin: 0;
-  padding: 11px 15px 10px;
+  padding: 5px 15px;
   color: #173f31;
   background: linear-gradient(90deg, rgba(233, 244, 234, .92), rgba(248, 251, 246, .7));
   font-size: 1.02rem;
@@ -75,7 +76,7 @@
   gap: 6px;
   list-style: none;
   margin: 0;
-  padding: 7px 10px 12px;
+  padding: 2px 10px 4px;
 }
 
 .workbench-grid > li {
@@ -134,7 +135,7 @@
   max-width: 100%;
   min-height: 2.8em;
   color: #244a3b;
-  font-size: .875rem;
+  font-size: .9rem;
   font-weight: 550;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -186,15 +187,13 @@
   .workbench-icon { transition: none; }
 }
 
-.workbench-brand { display:flex; align-items:center; gap:9px; margin-bottom:8px; color:#164532; font-size:1.05rem; font-weight:700; }
+.workbench-brand { display:flex; width:100%; align-items:center; justify-content:space-between; gap:9px; margin-bottom:8px; color:#164532; font-size:1.05rem; font-weight:700; }
 .workbench-brand .app-mark { width:32px; height:34px; border-radius:10px; box-shadow:none; }
 .workbench-brand .app-mark svg { width:21px; height:21px; }
-.workbench-brand .campus-emblem { width: 44px; height: 44px; padding: 4px; }
-.workbench-heading h1 { letter-spacing:normal; font-size:2.05rem; }
-.workbench-item-label { font-size:.9rem; }
-@media(max-width:360px){.workbench-heading{padding-inline:21px;}}
+.workbench-brand .campus-emblem { flex: none; width: 44px; height: 44px; padding: 4px; }
+.workbench-brand .campus-emblem:focus-visible { outline-offset: -3px; }
 @media(forced-colors:active){
-  .workbench-heading { max-width: 100%; background: Canvas; color: CanvasText; }
+  .workbench-heading { background: Canvas; color: CanvasText; }
   .workbench-heading::before { display: none; }
 }
 

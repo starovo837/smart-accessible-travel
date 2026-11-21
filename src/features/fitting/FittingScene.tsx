@@ -5,14 +5,17 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { aidOptions, filledMeasurements, type FittingDraft } from '../../app/fitting';
 import { createFittingModel, disposeModel } from './scene';
-import { realisticHuman } from './realisticHuman';
+import { realisticHuman, type LegDiagnostics } from './realisticHuman';
 function download(blob: Blob, name: string) { const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
 interface Props {
     draft: FittingDraft;
     onView: (view: FittingDraft['view']) => void;
     onDimensions: () => void;
+    onTogglePose: (seated: boolean) => void;
 }
-export default function FittingScene({ draft, onView, onDimensions }: Props) {
+export default function FittingScene({ draft, onView, onDimensions, onTogglePose }: Props) {
+    const wheelchair = draft.aids.includes('wheelchair');
+    const seated = draft.pose === 'seated' || draft.pose === 'auto' && wheelchair;
     const host = useRef<HTMLDivElement>(null), runtime = useRef<{
         renderer: THREE.WebGLRenderer;
         scene: THREE.Scene;
@@ -71,12 +74,12 @@ export default function FittingScene({ draft, onView, onDimensions }: Props) {
         scene.add(fill);
         const floor = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), new THREE.ShadowMaterial({ opacity: .14 }));
         floor.rotation.x = -Math.PI / 2;
-        floor.position.y = -.02;
+        floor.position.y = 0;
         floor.receiveShadow = true;
         scene.add(floor);
         const ground = new THREE.Mesh(new THREE.CircleGeometry(5, 72), new THREE.MeshStandardMaterial({ color: 0xe1ddd2, roughness: 1 }));
         ground.rotation.x = -Math.PI / 2;
-        ground.position.y = -.025;
+        ground.position.y = -.0005;
         ground.receiveShadow = true;
         scene.add(ground);
         const render = () => renderer.render(scene, camera), saveView = () => onViewRef.current({ azimuth: controls.getAzimuthalAngle(), polar: controls.getPolarAngle(), distance: camera.position.distanceTo(controls.target) });
@@ -109,7 +112,10 @@ export default function FittingScene({ draft, onView, onDimensions }: Props) {
         rt.controls.target.y = Math.max(.65, model.center.y);
         let cancelled = false;
         setHumanStatus('loading');
-        realisticHuman(draft, model.anchors, model.seated).then(human => { if (cancelled || runtime.current !== rt) {
+        const diagnostics = import.meta.env.DEV && new URLSearchParams(window.location.search).get('fitDebug') === '1'
+            ? (legs: LegDiagnostics[]) => console.table(legs)
+            : undefined;
+        realisticHuman(draft, model.anchors, model.seated, diagnostics).then(human => { if (cancelled || runtime.current !== rt) {
             disposeModel(human);
             return;
         } model.root.remove(model.placeholder); disposeModel(model.placeholder); model.root.add(human); const bounds = new THREE.Box3().setFromObject(model.root), size = bounds.getSize(new THREE.Vector3()), center = bounds.getCenter(new THREE.Vector3()), distance = rt.camera.position.distanceTo(rt.controls.target), fitDistance = Math.max(size.y, size.x / rt.camera.aspect) / (2 * Math.tan(THREE.MathUtils.degToRad(35 / 2))) * 1.25 + size.z * .35; rt.controls.target.copy(center); rt.camera.position.copy(new THREE.Vector3().setFromSpherical(new THREE.Spherical(Math.max(distance, fitDistance), view.current.polar, view.current.azimuth)).add(center)); rt.controls.update(); setHumanStatus('ready'); rt.render(); }).catch(() => { if (!cancelled)
@@ -140,11 +146,12 @@ export default function FittingScene({ draft, onView, onDimensions }: Props) {
         event.preventDefault();
         changeView(rt.controls.getAzimuthalAngle() + (event.key === 'ArrowLeft' ? -.15 : event.key === 'ArrowRight' ? .15 : 0), rt.controls.getPolarAngle() + (event.key === 'ArrowUp' ? -.12 : event.key === 'ArrowDown' ? .12 : 0), ['+', '='].includes(event.key) ? .88 : event.key === '-' ? 1.12 : 1);
     } }} tabIndex={0} aria-describedby="fit-scene-instructions">
-      <div className="fit-stage-label"><strong>{filledMeasurements(draft.body) ? copyDictionary.c8f3899a2679841a0 + filledMeasurements(draft.body) + copyDictionary.cd28f507c378bda7a : copyDictionary.cd823b8321fd32376}</strong><span>{draft.pose === 'seated' || draft.pose === 'auto' && draft.aids.includes('wheelchair') ? copyDictionary.c9f5a6eca33997fcf : copyDictionary.c2c61b1b954017a17} · {labels}</span></div>
+      <div className="fit-stage-label"><strong>{filledMeasurements(draft.body) ? copyDictionary.c8f3899a2679841a0 + filledMeasurements(draft.body) + copyDictionary.cd28f507c378bda7a : copyDictionary.cd823b8321fd32376}</strong><span>{seated ? (wheelchair ? copyDictionary.fittingWheelchairPose : copyDictionary.c9f5a6eca33997fcf) : copyDictionary.c2c61b1b954017a17} · {labels}</span></div>
       {draft.showDimensions && <span className="fit-dimension-label">{copyDictionary.ce300d30f3ee35678}{draft.body.hipWidthCm ? draft.body.hipWidthCm + copyDictionary.c9c049b764b7ce8e5 : copyDictionary.c39c2d154f265d62c}</span>}
       {error && <div className="fit-render-fallback"><strong>{copyDictionary.c8b0af74ae57ea3db}</strong><p>{error}</p><button onClick={() => setEpoch(n => n + 1)}>{copyDictionary.ccf06137e9b79ddf2}</button></div>}
       <span className="fit-stage-footnote" data-human-status={humanStatus}>{humanStatus === 'loading' ? copyDictionary.c33fd0f98efe9b386 : humanStatus === 'fallback' ? copyDictionary.cfce6d5c3748be368 : copyDictionary.c2560cc7edddabbd3}</span>
     </div>
+    <button type="button" className="fit-pose-switch" onClick={() => onTogglePose(!seated || !wheelchair)}>{seated && wheelchair ? copyDictionary.fittingSwitchToStanding : copyDictionary.fittingSwitchToWheelchair}</button>
     <div className="fit-view-buttons" role="group" aria-label={copyDictionary.c7c41c9531bfcfcba}>{[[copyDictionary.c740f5e8102e08ac4, 0, 1.35], [copyDictionary.c3a8dda67461c4cd7, Math.PI / 2, 1.35], [copyDictionary.c2d270b6ce44abc13, Math.PI, 1.35], [copyDictionary.c6bed5124a74b2db3, 0, .15]].map(([label, a, p]) => <button key={label} disabled={!ready} onClick={() => { changeView(Number(a), Number(p)); setMessage(copyDictionary.c3df4294a9bed4927 + label + copyDictionary.c89c3e9d8bd813948); }}>{label}</button>)}</div>
     <div className="fit-camera-tools"><button disabled={!ready} aria-label={copyDictionary.cbb5a023c87ccf0b6} onClick={() => changeView(undefined, undefined, 1.15)}>−</button><p id="fit-scene-instructions">{copyDictionary.cfaba3bd2ac4526de}<br /><small>{copyDictionary.cb83e3e5ca59b089a}</small></p><button disabled={!ready} aria-label={copyDictionary.c47ad98450ff8191f} onClick={() => changeView(undefined, undefined, .87)}>＋</button><button disabled={!ready} onClick={() => { changeView(.65, 1.28, 3.15 / (runtime.current?.camera.position.distanceTo(runtime.current.controls.target) ?? 3.15)); setMessage(copyDictionary.cbd92b9497cf7e912); }}>{copyDictionary.c95ac0ce3b08bf57c}</button></div>
     <details className="fit-scene-details"><summary>{copyDictionary.c5dfc189fa48e4ab3}</summary><p>{copyDictionary.c1b529dbff6682e00}{labels}。{filledMeasurements(draft.body)}{copyDictionary.c5a0c00f04f5a59a2}</p><label className="switch-line"><input type="checkbox" checked={draft.showDimensions} onChange={onDimensions}/>{copyDictionary.c147f26f7ec288a37}</label><div className="fit-inline-actions"><button disabled={!ready || humanStatus === 'loading'} onClick={exportModel}>{copyDictionary.c74d0dea901273931}</button><button disabled={!ready} onClick={() => { const rt = runtime.current; if (!rt)

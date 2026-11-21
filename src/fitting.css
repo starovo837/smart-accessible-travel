@@ -19,6 +19,7 @@
 .fit-stage canvas:active { cursor:grabbing; }
 .fit-stage-label { position:absolute; top:18px; left:18px; right:18px; pointer-events:none; display:flex; flex-direction:column; gap:4px; font-size:.82rem; }
 .fit-stage-label strong { font-weight:700; }.fit-stage-label span { color:#506c7e; max-width:80%; }
+.fit-pose-switch { margin-top:10px; }
 .fit-stage-footnote { position:absolute; right:14px; bottom:14px; font-size:.76rem; color:#486a80; pointer-events:none; }
 .fit-dimension-label { position:absolute; bottom:45px; left:15px; padding:6px 10px; background:#fafffc; color:#17665e; border-radius:6px; font-size:.85rem; pointer-events:none; }
 .fit-view-buttons { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:10px; }

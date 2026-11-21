@@ -48,12 +48,14 @@ export function createFittingModel(draft: FittingDraft) {
         size: Point;
     }[] = [];
     for (const side of [-1, 1]) {
-        const x = side * hip * .29, hipPoint: Point = [x, pelvisY - .035, bodyZ], knee: Point = seated ? [x, pelvisY - .06, bodyZ + thigh] : [x * .93, pelvisY - thigh, bodyZ + .015];
+        const x = side * hip * .29, hipPoint: Point = [x, pelvisY - .035, bodyZ];
+        const kneeDrop = Math.min(.025, thigh * Math.tan(THREE.MathUtils.degToRad(4)));
+        const knee: Point = seated ? [x, hipPoint[1] - kneeDrop, bodyZ + thigh] : [x, pelvisY - thigh, bodyZ];
         // lowerLegCm is measured from the knee crease to the sole, not to the
         // ankle. Share that sole plane with the footrest rather than fixing the
         // footrest at a height unrelated to the seated person's measurements.
-        const ankleAboveSole = .071, soleY = Math.max(.055, knee[1] - shin), ankleY = soleY + ankleAboveSole, calfLength = Math.max(.025, shin - ankleAboveSole);
-        const ankle: Point = seated ? [x, ankleY, knee[2] + Math.sqrt(Math.max(0, calfLength ** 2 - (knee[1] - ankleY) ** 2))] : [x * .94, .10, bodyZ];
+        const ankleAboveSole = .071, soleY = Math.max(.055, knee[1] - shin);
+        const ankle: Point = seated ? [x, soleY + ankleAboveSole, knee[2]] : [x, ankleAboveSole, bodyZ];
         const legRadius = Math.min(.085, Math.max(.045, hip * .19));
         limb(hipPoint, knee, legRadius, copyDictionary.cc71861762dcaf0bf);
         limb(knee, ankle, legRadius * .67, copyDictionary.ce097251fbf7345a7);

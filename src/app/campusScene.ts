@@ -9,7 +9,7 @@ export type FountainCalibration = {
 }
 // 按原图 4320×3240 标定。顺序为主水柱底部、左侧低喷口、右侧低喷口；基线落在池面。
 export const heroWindow: FountainCalibration = {
-  height: 'clamp(320px, 56svh, 540px)',
+  height: 'clamp(260px, 40svh, 400px)',
   positionY: .5,
   jets: [{ x: .450, y: .609 }, { x: .238, y: .794 }, { x: .766, y: .806 }],
   basinY: .859,

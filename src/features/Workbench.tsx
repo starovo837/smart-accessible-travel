@@ -36,7 +36,7 @@ export function Workbench({ onAction, modules, settings, playWater, encouragemen
         </button>
       </li>)}</ul>
       </section>
-      {group.id === 'equipment-travel' && encouragement && <div className="workbench-encouragement">{encouragement}</div>}
+      {group.id === 'reading-communication' && encouragement && <div className="workbench-encouragement">{encouragement}</div>}
     </Fragment>)}</div>
     <button type="button" className="workbench-about-link" onClick={() => onAction('about')}><strong>{copyDictionary.c0ed77920b1cd8737}</strong><span>{copyDictionary.cee5eb5a598931a07}</span></button>
   </section>;

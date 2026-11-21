@@ -32,42 +32,127 @@ export interface HumanAnchors {
 }
 // Pose a generic, licensed rig. Measurements guide proportions; no body scan or
 // inferred medical data is produced. Bake the skin so ordinary GLB export works.
-export async function realisticHuman(draft: FittingDraft, anchors: HumanAnchors, seated: boolean) {
-    return poseRealisticHuman(await loadHuman(), draft, anchors, seated);
+export async function realisticHuman(draft: FittingDraft, anchors: HumanAnchors, seated: boolean, onDiagnostics?: (legs: LegDiagnostics[]) => void) {
+    return poseRealisticHuman(await loadHuman(), draft, anchors, seated, onDiagnostics);
 }
+
+const legSides = ['r', 'l'] as const;
+export type LegDiagnostics = {
+    side: typeof legSides[number];
+    kneeDegrees: number;
+    calfFromVerticalDegrees: number;
+    calfSkinAxisErrorDegrees: number;
+    soleTiltDegrees: number | null;
+    lowestSoleY: number | null;
+    supportY: number | null;
+};
+
+function shoeVertices(mesh: THREE.SkinnedMesh) {
+    const indices = mesh.geometry.getAttribute('skinIndex'), weights = mesh.geometry.getAttribute('skinWeight');
+    const right: number[] = [], left: number[] = [];
+    for (let i = 0; i < weights.count; i++) {
+        let r = 0, l = 0;
+        for (let j = 0; j < 4; j++) {
+            const name = mesh.skeleton.bones[indices.getComponent(i, j)]?.name;
+            if (name === 'foot_r' || name === 'ball_r') r += weights.getComponent(i, j);
+            if (name === 'foot_l' || name === 'ball_l') l += weights.getComponent(i, j);
+        }
+        if (r >= .7) right.push(i);
+        if (l >= .7) left.push(i);
+    }
+    return [right, left];
+}
+
+function measureSole(mesh: THREE.SkinnedMesh, indices: number[]) {
+    if (!indices.length) return;
+    mesh.skeleton.update();
+    const position = mesh.geometry.getAttribute('position');
+    const points = indices.map(i => mesh.applyBoneTransform(i, new THREE.Vector3().fromBufferAttribute(position, i)).applyMatrix4(mesh.matrixWorld));
+    const lowestY = points.reduce((lowest, point) => Math.min(lowest, point.y), Infinity);
+    // The binding orientation is already near level. Fit the contact band,
+    // excluding the uppers and the raised tread around the sides of the shoe.
+    const contact = points.filter(point => point.y <= lowestY + .005);
+    const center = contact.reduce((sum, point) => sum.add(point), new THREE.Vector3()).divideScalar(contact.length);
+    let xx = 0, zz = 0, xz = 0, xy = 0, zy = 0;
+    for (const point of contact) {
+        const x = point.x - center.x, y = point.y - center.y, z = point.z - center.z;
+        xx += x * x;
+        zz += z * z;
+        xz += x * z;
+        xy += x * y;
+        zy += z * y;
+    }
+    const determinant = xx * zz - xz * xz;
+    const normal = determinant > 1e-12
+        ? new THREE.Vector3((xz * zy - zz * xy) / determinant, 1, (xz * xy - xx * zy) / determinant).normalize()
+        : undefined;
+    return { lowestY, normal };
+}
+
 export function poseRealisticHuman(asset: {
     scene: THREE.Group;
     animations: THREE.AnimationClip[];
-}, draft: FittingDraft, anchors: HumanAnchors, seated: boolean) {
+}, draft: FittingDraft, anchors: HumanAnchors, seated: boolean, onDiagnostics?: (legs: LegDiagnostics[]) => void) {
     const rig = clone(asset.scene);
-    const mixer = new THREE.AnimationMixer(rig);
-    if (asset.animations[0]) {
-        mixer.clipAction(asset.animations[0]).play();
-        mixer.setTime(seated ? 3 : 0);
-    }
     rig.updateMatrixWorld(true);
     const bone = (name: string) => rig.getObjectByName(name) as THREE.Bone | undefined;
     const pelvis = bone('pelvis');
     if (!pelvis)
         throw Error(copyDictionary.c90650653886d16b4);
+    const binding = new Map<string, { position: THREE.Vector3; rotation: THREE.Quaternion }>();
+    rig.traverse(node => {
+        if (node instanceof THREE.Bone) binding.set(node.name, { position: node.position.clone(), rotation: node.quaternion.clone() });
+    });
+    const feet = legSides.map(side => bone('foot_' + side)!.getWorldQuaternion(new THREE.Quaternion()));
+    // The GLB parents each foot outside the leg chain. Cache the direction
+    // in calf space before moving either joint so the skin follows the aim.
+    const calfDirections = legSides.map(side => {
+        const calf = bone('calf_' + side)!, foot = bone('foot_' + side)!;
+        return calf.worldToLocal(foot.getWorldPosition(new THREE.Vector3()));
+    });
+    const mixer = seated && asset.animations[0] ? new THREE.AnimationMixer(rig) : undefined;
+    if (mixer) {
+        mixer.clipAction(asset.animations[0]).play();
+        mixer.setTime(3);
+        rig.updateMatrixWorld(true);
+    }
     // Fit the world-space rig to the same anchors used by assistive geometry.
     const move = (name: string, target: Point) => { const node = bone(name); if (!node?.parent)
         return; node.position.copy(node.parent.worldToLocal(new THREE.Vector3(...target))); rig.updateMatrixWorld(true); };
-    const aim = (name: string, childName: string, target: Point) => { const node = bone(name), child = bone(childName); if (!node?.parent || !child)
-        return; const start = node.getWorldPosition(new THREE.Vector3()), from = child.getWorldPosition(new THREE.Vector3()).sub(start).normalize(), to = new THREE.Vector3(...target).sub(start).normalize(), rotation = new THREE.Quaternion().setFromUnitVectors(from, to).multiply(node.getWorldQuaternion(new THREE.Quaternion())); node.quaternion.copy(node.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(rotation)); rig.updateMatrixWorld(true); };
+    const setWorldRotation = (node: THREE.Bone, rotation: THREE.Quaternion) => {
+        node.quaternion.copy(node.parent!.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(rotation));
+    };
+    const aim = (name: string, childName: string, target: Point, localDirection?: THREE.Vector3) => {
+        const node = bone(name), child = bone(childName);
+        if (!node?.parent || !child) return;
+        const start = node.getWorldPosition(new THREE.Vector3());
+        const end = localDirection ? node.localToWorld(localDirection.clone()) : child.getWorldPosition(new THREE.Vector3());
+        const from = end.sub(start).normalize(), to = new THREE.Vector3(...target).sub(start).normalize();
+        const rotation = new THREE.Quaternion().setFromUnitVectors(from, to).multiply(node.getWorldQuaternion(new THREE.Quaternion()));
+        setWorldRotation(node, rotation);
+        rig.updateMatrixWorld(true);
+    };
     const originalPelvis = pelvis.getWorldPosition(new THREE.Vector3()), originalShoulder = bone('upperarm_r')!.getWorldPosition(new THREE.Vector3());
-    const feet = ['r', 'l'].map(side => ({ side, rotation: bone('foot_' + side)!.getWorldQuaternion(new THREE.Quaternion()) }));
     const desiredShoulder = new THREE.Vector3(...anchors.shoulders[0]), torsoScale = (desiredShoulder.y - anchors.pelvis[1]) / (originalShoulder.y - originalPelvis.y);
     const torsoBones = ['spine_01', 'spine_02', 'spine_03', 'clavicle_r', 'clavicle_l', 'neck_01', 'head'];
     const torsoTargets = torsoBones.map(name => { const point = bone(name)!.getWorldPosition(new THREE.Vector3()).sub(originalPelvis); point.y *= torsoScale; point.x *= Math.abs(anchors.shoulders[0][0] / originalShoulder.x); point.add(new THREE.Vector3(...anchors.pelvis)); return { name, point }; });
     move('pelvis', anchors.pelvis);
     for (const { name, point } of torsoTargets)
         move(name, point.toArray() as Point);
-    for (const [index, side] of ['r', 'l'].entries()) {
+    for (const [index, side] of legSides.entries()) {
+        if (!seated) {
+            for (const joint of ['thigh', 'calf', 'foot', 'ball']) {
+                const node = bone(joint + '_' + side), rest = binding.get(joint + '_' + side);
+                if (node && rest) {
+                    node.position.copy(rest.position);
+                    node.quaternion.copy(rest.rotation);
+                }
+            }
+        }
         move('thigh_' + side, anchors.hips[index]);
         aim('thigh_' + side, 'calf_' + side, anchors.knees[index]);
         move('calf_' + side, anchors.knees[index]);
-        aim('calf_' + side, 'foot_' + side, anchors.ankles[index]);
+        aim('calf_' + side, 'foot_' + side, anchors.ankles[index], calfDirections[index]);
         move('foot_' + side, anchors.ankles[index]);
         move('upperarm_' + side, anchors.shoulders[index]);
         aim('upperarm_' + side, 'lowerarm_' + side, anchors.elbows[index]);
@@ -75,44 +160,54 @@ export function poseRealisticHuman(asset: {
         aim('lowerarm_' + side, 'hand_' + side, anchors.wrists[index]);
         move('hand_' + side, anchors.wrists[index]);
     }
-    for (const { side, rotation } of feet) {
-        const node = bone('foot_' + side)!;
-        node.quaternion.copy(node.parent!.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(rotation));
+    for (const [index, side] of legSides.entries()) {
+        setWorldRotation(bone('foot_' + side)!, feet[index]);
+        const toe = bone('ball_' + side), rest = binding.get('ball_' + side);
+        if (toe && rest) {
+            toe.position.copy(rest.position);
+            toe.quaternion.copy(rest.rotation);
+        }
     }
     rig.updateMatrixWorld(true);
-    // Calibrate against the actual shoe mesh after retargeting. Its sole is not
-    // the foot bone's origin; otherwise a changed seat height makes shoes hover
-    // above, or penetrate, the plate even when the joint anchors look correct.
-    if (seated && anchors.footSupports?.length === 2) {
-        const soleHeights = [Infinity, Infinity];
-        rig.traverse(object => {
-            if (!(object instanceof THREE.SkinnedMesh) || !object.name.toLowerCase().includes('shoe'))
-                return;
-            object.skeleton.update();
-            const positions = object.geometry.getAttribute('position'), indices = object.geometry.getAttribute('skinIndex'), weights = object.geometry.getAttribute('skinWeight'), vertex = new THREE.Vector3();
-            for (let i = 0; i < positions.count; i++) {
-                const sideWeights = [0, 0];
-                for (let j = 0; j < 4; j++) {
-                    const name = object.skeleton.bones[indices.getComponent(i, j)]?.name ?? '';
-                    if (/^(foot|ball)_/.test(name))
-                        sideWeights[name.endsWith('_r') ? 0 : 1] += weights.getComponent(i, j);
-                }
-                const index = sideWeights[0] >= .7 ? 0 : sideWeights[1] >= .7 ? 1 : -1;
-                if (index < 0)
-                    continue;
-                vertex.fromBufferAttribute(positions, i);
-                object.applyBoneTransform(i, vertex);
-                vertex.applyMatrix4(object.matrixWorld);
-                soleHeights[index] = Math.min(soleHeights[index], vertex.y);
+    const shoe = rig.getObjectByName('shoes01');
+    const diagnostics: LegDiagnostics[] = [];
+    if (shoe instanceof THREE.SkinnedMesh) {
+        const soleIndices = shoeVertices(shoe), up = new THREE.Vector3(0, 1, 0);
+        for (const [index, side] of legSides.entries()) {
+            const foot = bone('foot_' + side)!;
+            const support = anchors.footSupports?.[index];
+            const supportY = seated ? support ? support.center[1] + support.size[1] / 2 : null : 0;
+            let sole = measureSole(shoe, soleIndices[index]);
+            if (sole?.normal) {
+                const correction = new THREE.Quaternion().setFromUnitVectors(sole.normal, up);
+                setWorldRotation(foot, correction.multiply(foot.getWorldQuaternion(new THREE.Quaternion())));
+                rig.updateMatrixWorld(true);
+                sole = measureSole(shoe, soleIndices[index]);
             }
-        });
-        for (const [index, side] of ['r', 'l'].entries())
-            if (Number.isFinite(soleHeights[index])) {
-                const support = anchors.footSupports[index], node = bone('foot_' + side)!, target = node.getWorldPosition(new THREE.Vector3());
-                target.y += support.center[1] + support.size[1] / 2 - soleHeights[index];
-                move('foot_' + side, target.toArray() as Point);
+            if (sole && supportY !== null) {
+                const target = foot.getWorldPosition(new THREE.Vector3());
+                target.y += supportY - sole.lowestY;
+                move(foot.name, target.toArray() as Point);
             }
+            if (onDiagnostics) {
+                const hip = bone('thigh_' + side)!.getWorldPosition(new THREE.Vector3());
+                const calfBone = bone('calf_' + side)!;
+                const knee = calfBone.getWorldPosition(new THREE.Vector3());
+                const calf = foot.getWorldPosition(new THREE.Vector3()).sub(knee);
+                const skinDirection = calfBone.localToWorld(calfDirections[index].clone()).sub(knee);
+                const thigh = knee.sub(hip);
+                sole = measureSole(shoe, soleIndices[index]);
+                diagnostics.push({
+                    side, kneeDegrees: THREE.MathUtils.radToDeg(thigh.angleTo(calf)),
+                    calfSkinAxisErrorDegrees: THREE.MathUtils.radToDeg(skinDirection.angleTo(calf)),
+                    calfFromVerticalDegrees: THREE.MathUtils.radToDeg(up.angleTo(calf.negate())),
+                    soleTiltDegrees: sole?.normal ? THREE.MathUtils.radToDeg(sole.normal.angleTo(up)) : null,
+                    lowestSoleY: sole?.lowestY ?? null, supportY,
+                });
+            }
+        }
     }
+    onDiagnostics?.(diagnostics);
     const result = new THREE.Group(), appearance = bodyAppearance(draft.body);
     result.name = copyDictionary.c5853b87ab11bee07;
     const shape = (vertex: THREE.Vector3, name: string) => {
@@ -170,8 +265,8 @@ export function poseRealisticHuman(asset: {
         mesh.receiveShadow = true;
         result.add(mesh);
     });
-    mixer.stopAllAction();
-    mixer.uncacheRoot(rig);
+    mixer?.stopAllAction();
+    mixer?.uncacheRoot(rig);
     result.userData = { source: '/models/person-license.json', genericHuman: true, clinicalFitVerified: false, weightAppearance: appearance.approximate ? 'approximate visual volume only' : 'reference volume', measuredBodyDimensionsUnchanged: true };
     return result;
 }
