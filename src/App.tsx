@@ -21,18 +21,20 @@ import { FitShopping } from './features/fitting/FitShopping';
 import { FeatureNav } from './components/FeatureNav';
 import { BottomNav } from './components/BottomNav';
 import { useFittingDraft } from './app/useFittingDraft';
+import { usePageNavigation } from './app/usePageNavigation';
+import { lifeMenu, type TravelStep } from './app/navigation';
 import { Equipment } from './features/Equipment';
 import { FeedbackDialog } from './features/Feedback';
 import { LifeTools } from './features/LifeWorkspace';
 import { SupportHub } from './features/SupportHub';
 import { SupportToolPage } from './features/SupportToolPage';
-import { supportTools, type SupportToolId } from './app/supportCatalog';
+import type { SupportToolId } from './app/supportCatalog';
 import { ReminderNotice } from './features/support/Reminders';
 import { LivingHub, ScenePage } from './features/living/LivingHub';
 import { LivingServicesPage } from './features/living/LivingServicesPage';
 import { FacilityMap } from './features/living/FacilityMap';
 import { LiveHelp } from './features/living/LiveHelp';
-import { livingEntries, livingScenes, type SceneId, type ServiceToolId } from './app/livingCatalog';
+import { livingEntries, type SceneId, type ServiceToolId } from './app/livingCatalog';
 import { initialLivingServices, type LivingServicesData } from './app/livingServices';
 import { PageHeader } from './components/UI';
 import { Encouragement, type EncouragementContext } from './components/Encouragement';
@@ -57,11 +59,8 @@ import { ProductInsightView } from './features/ProductInsight';
 import { analyzeSources } from './app/product-api';
 import { initialNeeds, localAnalysis, preserveConfirmations, type ProductSource } from './app/product';
 import { readText, stopReading, downloadText } from './app/accessibility';
-import type { AppSettings, ChecklistItem, ConsentState, CustomTravelDevice, CustomTravelMode, Device, DeviceCard, Feedback, JourneyData, LifeData, ModuleId, PrivacyPreferences, ProductAnalysis, Screen, TravelCheckResult, TravelContext, TravelDeviceSpecs } from './app/types';
+import type { AppSettings, ChecklistItem, ConsentState, CustomTravelDevice, CustomTravelMode, Device, DeviceCard, Feedback, JourneyData, LifeData, ModuleId, PrivacyPreferences, ProductAnalysis, TravelCheckResult, TravelContext, TravelDeviceSpecs } from './app/types';
 const defaultSettings = (): AppSettings => ({ elderMode: false, stepMode: false, readAloud: false, largeText: false, textOnly: false, reducedMotion: false, fountainMotion: true, encouragement: true, travelSingleStep: false, travelDisplayVersion: 2 });
-const hashScreens: Record<string, Screen> = { '#fitting': 'fitting-workspace', '#home': 'home', '#welcome': 'welcome', '#shop': 'product-input', '#compare': 'fit-shopping', '#travel': 'travel-input', '#travel-plan': 'travel-result', '#daily': 'life-tools', '#assistant': 'assistant', '#profile': 'profile', '#about': 'about', '#devices': 'devices', '#device-cards': 'device-cards', '#offline': 'offline-pack', '#support': 'support', '#aid-voice': 'support', '#aid-captions': 'support', ...Object.fromEntries(supportTools.filter(tool => !['help', 'needs', 'life'].includes(tool.id)).map(tool => ['#aid-' + tool.id, 'support-tool'])), '#services': 'living-hub', ...Object.fromEntries(livingEntries.map(item => ['#aid-' + item.id, 'living-service'])), ...Object.fromEntries(livingScenes.map(scene => ['#scene-' + scene.id, 'living-scene'])) };
-hashScreens['#learning'] = 'learning';
-hashScreens['#aid-learning'] = 'learning';
 function load() { try {
     const portable = document.getElementById('portable-data');
     if (portable) {
@@ -91,33 +90,19 @@ export default function App() {
     const [travelChecked, setTravelChecked] = useState<Record<string, string>>(travelSaved?.checked ?? {});
     const [travelPersistence, setTravelPersistence] = useState(true), [travelSaveMessage, setTravelSaveMessage] = useState(''), [travelOnline, setTravelOnline] = useState(navigator.onLine);
     useEffect(() => { const update = () => setTravelOnline(navigator.onLine); window.addEventListener('online', update); window.addEventListener('offline', update); return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update); }; }, []);
-    const [serviceTool, setServiceTool] = useState<ServiceToolId>(() => livingEntries.find(item => '#aid-' + item.id === location.hash)?.id ?? 'places'), [livingScene, setLivingScene] = useState<SceneId>(() => livingScenes.find(scene => '#scene-' + scene.id === location.hash)?.id ?? 'hospital');
-    const [supportTool, setSupportTool] = useState<SupportToolId>(() => supportTools.find(tool => '#aid-' + tool.id === location.hash)?.id ?? 'vision');
     const [ruleDocuments, setRuleDocuments] = useState<RuleDocument[]>(ruleCatalog), [ruleMessage, setRuleMessage] = useState(''), [ruleLoading, setRuleLoading] = useState(false), [assistantContext, setAssistantContext] = useState<'product' | 'travel' | 'none'>('none'), [aiProgress, setAiProgress] = useState('');
     useEffect(() => { service<{
         documents: RuleDocument[];
     }>('rules').then(value => setRuleDocuments(ruleDocumentsFromResponse(value))).catch(() => setRuleMessage(copyDictionary.cf3b18ec47d1ceca2)); }, []);
     const requestVersion = useRef(0);
     const productRequest = useRef<AbortController | null>(null);
-    const [screen, setScreen] = useState<Screen>(() => hashScreens[location.hash] ?? 'home'), [modules, setModules] = useState<ModuleId[]>(disabilityProfile.selections.map(item => moduleForCategory[item.category]));
-    useEffect(() => { const navigate = () => { const next = hashScreens[location.hash]; if (next) {
-        if (next === 'living-service') {
-            const item = livingEntries.find(item => '#aid-' + item.id === location.hash);
-            if (item)
-                setServiceTool(item.id);
-        }
-        if (next === 'living-scene') {
-            const scene = livingScenes.find(item => '#scene-' + item.id === location.hash);
-            if (scene)
-                setLivingScene(scene.id);
-        }
-        if (next === 'support-tool') {
-            const tool = supportTools.find(tool => '#aid-' + tool.id === location.hash);
-            if (tool)
-                setSupportTool(tool.id);
-        }
-        setScreen(next);
-    } }; window.addEventListener('hashchange', navigate); return () => window.removeEventListener('hashchange', navigate); }, []);
+    const { page, open, openPage, back, replace, reset: resetNavigation, isCurrent } = usePageNavigation();
+    const { screen } = page;
+    const openTravel = (step: TravelStep = 1) => open({ screen: 'travel-input', step });
+    const serviceTool = page.screen === 'living-service' ? page.tool : undefined;
+    const supportTool = page.screen === 'support-tool' ? page.tool : undefined;
+    const livingScene = page.screen === 'living-scene' ? page.scene : undefined;
+    const [modules, setModules] = useState<ModuleId[]>(disabilityProfile.selections.map(item => moduleForCategory[item.category]));
     const [consent, setConsent] = useState<ConsentState>(saved?.consent ?? 'undecided'), [privacy, setPrivacy] = useState<PrivacyPreferences>(saved?.privacy ?? initialPrivacy);
     const profileAllowed=canSaveDisabilityProfile(consent,privacy);
     useEffect(()=>{
@@ -129,10 +114,10 @@ export default function App() {
     const [settings, setSettings] = useState<AppSettings>(() => { const stored = saved?.settings, migrated = stored?.travelDisplayVersion === 2 || travelSaved?.displayVersion === 2; return { ...defaultSettings(), ...(stored ?? {}), travelSingleStep: migrated ? (travelSaved?.onlyNext ?? stored?.travelSingleStep ?? false) : false, travelDisplayVersion: 2 }; }), [customModes, setCustomModes] = useState<CustomTravelMode[]>(travelSaved?.customModes ?? saved?.customModes ?? []), [customDevices, setCustomDevices] = useState<CustomTravelDevice[]>(travelSaved?.customDevices ?? saved?.customDevices ?? []);
     const [feedback, setFeedback] = useState<Feedback[]>(saved?.feedback ?? []), [storageError, setStorageError] = useState(''), [savedAt, setSavedAt] = useState<number | null>(saved?.savedAt ?? null);
     const [help, setHelp] = useState(false), [needs, setNeeds] = useState(false), [report, setReport] = useState<string | null>(null);
+    const [showAllSupportTools, setShowAllSupportTools] = useState(false);
     const [intakeDraft, setIntakeDraft] = useState<IntakeDraft | null>(null), [assistantDevice, setAssistantDevice] = useState('*');
     const [shoppingQuery, setShoppingQuery] = useState(copyDictionary.c4157eed714966bbc);
     const [product, setProduct] = useState<ProductAnalysis>(productAnalysis), [productInput, setProductInput] = useState<'link' | 'image'>('link'), [productValue, setProductValue] = useState(''), [productLoading, setProductLoading] = useState(false), [productError, setProductError] = useState('');
-    const [travelEntryStep, setTravelEntryStep] = useState<1 | 2 | 3>(1);
     const [travelMode, setTravelMode] = useState(travelSaved?.mode ?? 'rail'), [selected, setSelected] = useState<string[]>(travelSaved?.selected ?? []), [specs, setSpecs] = useState<Record<string, TravelDeviceSpecs>>(travelSaved?.specs ?? {}), [context, setContext] = useState<TravelContext>(travelSaved?.context ?? { carrier: 'unspecified' }), [results, setResults] = useState<TravelCheckResult[]>([]), [checklist, setChecklist] = useState<ChecklistItem[]>([]);
     const allDevices = useMemo(() => [...devices.map(device => journey.cards.find(card => card.id === device.id) ?? device), ...journey.cards.filter(card => !devices.some(device => device.id === card.id))], [devices, journey.cards]);
     const travelDevices = useMemo(() => [...allDevices, ...(travelSaved?.devices ?? []).filter(device => !allDevices.some(item => item.id === device.id))], [allDevices, travelSaved]);
@@ -207,8 +192,7 @@ export default function App() {
         setResults([]);
         setChecklist([]);
         setTravelSaveMessage(copyDictionary.cbc96bd7a42f9133a);
-        setTravelEntryStep(1);
-        setScreen('travel-input');
+        replace({ screen: 'travel-input', step: 1 });
     }
     catch {
         setTravelSaveMessage(copyDictionary.ca40bdbc1d09b2ca1);
@@ -239,10 +223,6 @@ export default function App() {
             stopReading();
     }, [settings]);
     useEffect(() => {
-        const route: Partial<Record<Screen, string>> = { home: 'home', profile: 'profile', about: 'about', devices: 'devices', 'device-cards': 'device-cards', 'offline-pack': 'offline', 'fitting-workspace': 'fitting', 'fit-shopping': 'compare', 'product-input': 'shop', 'product-result': 'shop', 'travel-input': 'travel', 'travel-result': 'travel-plan', 'life-tools': 'daily', assistant: 'assistant', welcome: 'welcome', support: 'support', 'support-tool': 'aid-' + supportTool, 'living-hub': 'services', 'living-service': 'aid-' + serviceTool, 'living-scene': 'scene-' + livingScene };
-        route.learning = 'learning';
-        if (route[screen])
-            history.replaceState(null, '', '#' + route[screen]);
         window.scrollTo({ top: 0, behavior: 'instant' });
         const pageHeading = document.querySelector<HTMLElement>('h1');
         if (pageHeading) {
@@ -267,7 +247,7 @@ export default function App() {
         setResults([]);
         setChecklist([]);
     };
-    const travelWithCard = (card: DeviceCard) => { setTravelPersistence(true); setSelected([card.id]); setSpecs(current => ({ ...current, [card.id]: storedDeviceSpecs(card) })); setTravelEntryStep(1); setScreen('travel-input'); };
+    const travelWithCard = (card: DeviceCard) => { setTravelPersistence(true); setSelected([card.id]); setSpecs(current => ({ ...current, [card.id]: storedDeviceSpecs(card) })); openTravel(); };
     const selectDevices = (ids: string[]) => { setTravelPersistence(true); setSelected(ids); setSpecs(current => ({ ...current, ...Object.fromEntries(ids.map(id => { const device = travelDevices.find(item => item.id === id); return [id, current[id] ?? (device ? storedDeviceSpecs(device) : {})]; })) })); };
     const removeDevice = async (id: string) => {
         try {
@@ -369,7 +349,8 @@ export default function App() {
             setSettings(defaultSettings());
             setConsent('undecided');
             setPrivacy(initialPrivacy());
-            setScreen('home');
+            resetNavigation();
+            setShowAllSupportTools(false);
             setHelp(false);
             setNeeds(false);
             setReport(null);
@@ -399,7 +380,7 @@ export default function App() {
                 setProduct(revisingProduct ? preserveConfirmations(product, next) : next);
                 setAssistantContext('product');
                 setAssistantDevice('*');
-                setScreen('product-result');
+                if (isCurrent(page)) openPage('product-result');
                 return true;
             }
         }
@@ -421,11 +402,11 @@ export default function App() {
         catch { setRuleMessage(copyDictionary.ruleRefreshFailed); }
         finally { setRuleLoading(false); }
     };
-    const runTravel = () => { setTravelCompletionUpdate(false); setTravelPersistence(true); setResults(buildTravelResults(travelMode, chosenTravelDevices, specs, context, ruleDocuments)); setAssistantContext('travel'); setAssistantDevice('*'); setScreen('travel-result'); };
-    const openService = (id: ServiceToolId) => { setServiceTool(id); setScreen('living-service'); };
-    const openScene = (id: SceneId) => { setLivingScene(id); setScreen('living-scene'); };
+    const runTravel = () => { setTravelCompletionUpdate(false); setTravelPersistence(true); setResults(buildTravelResults(travelMode, chosenTravelDevices, specs, context, ruleDocuments)); setAssistantContext('travel'); setAssistantDevice('*'); openPage('travel-result'); };
+    const openService = (tool: ServiceToolId) => open({ screen: 'living-service', tool });
+    const openScene = (scene: SceneId) => open({ screen: 'living-scene', scene });
     const updateServices = (update: LivingServicesData | ((current: LivingServicesData) => LivingServicesData)) => updateLife(current => ({ ...current, services: typeof update === 'function' ? update(current.services ?? initialLivingServices()) : update }));
-    const openSupportTool = (id: SupportToolId) => { if (id === 'learning') { setScreen('learning'); return; } if (livingEntries.some(item => item.id === id)) {
+    const openSupportTool = (id: SupportToolId) => { if (id === 'learning') { openPage('learning'); return; } if (livingEntries.some(item => item.id === id)) {
         openService(id as ServiceToolId);
         return;
     } if (id === 'help') {
@@ -435,16 +416,15 @@ export default function App() {
         setNeeds(true);
         return;
     } if (id === 'life') {
-        setScreen('life-tools');
+        open(lifeMenu);
         return;
-    } setSupportTool(id); setScreen('support-tool'); };
+    } open({ screen: 'support-tool', tool: id }); };
     const serviceAction = (id: SupportToolId | 'fitting' | 'shop' | 'travel') => { if (id === 'fitting')
-        setScreen('fitting-workspace');
+        openPage('fitting-workspace');
     else if (id === 'shop')
-        setScreen('product-input');
+        openPage('product-input');
     else if (id === 'travel') {
-        setTravelEntryStep(1);
-        setScreen('travel-input');
+        openTravel();
     }
     else
         openSupportTool(id); };
@@ -510,28 +490,29 @@ export default function App() {
     const systemMotionBlocked = useCampusMotionPreference();
     const allowWater = waterMotionAllowed({ enabled:settings.fountainMotion, reduced:settings.reducedMotion || systemMotionBlocked, elder:settings.elderMode });
     const allowPageMotion = !systemMotionBlocked && !settings.reducedMotion && !settings.elderMode;
-    return <main data-page-motion={allowPageMotion ? '' : undefined} className={`app-shell ${settings.elderMode ? 'elder-mode' : ''} ${screen === 'fitting-workspace' ? 'fit-wide-shell' : ''}`}><CampusScene/><a className="skip-content" href="#main-content">{copyDictionary.c006bef4da739a57b}</a><div className="app-frame" id="main-content">
-    {['fitting-workspace', 'fit-shopping', 'product-input', 'product-result', 'travel-input', 'travel-result'].includes(screen) && <FeatureNav active={screen === 'home' ? 'home' : screen === 'fitting-workspace' ? 'fitting' : screen.startsWith('travel') ? 'travel' : 'shop'} onHome={() => setScreen('home')} onFitting={() => setScreen('fitting-workspace')} onShop={() => setScreen('product-input')} onTravel={() => { setTravelEntryStep(1); setScreen('travel-input'); }}/>}
+    return <main data-page-motion={allowPageMotion ? '' : undefined} className={`app-shell ${settings.elderMode ? 'elder-mode' : ''} ${screen === 'fitting-workspace' ? 'fit-wide-shell' : ''}`}><CampusScene/><a className="skip-content" href="#main-content" onClick={event => { event.preventDefault(); document.getElementById('main-content')?.focus(); }}>{copyDictionary.c006bef4da739a57b}</a><div className="app-frame" id="main-content" tabIndex={-1}>
+    {['fitting-workspace', 'fit-shopping', 'product-input', 'product-result', 'travel-input', 'travel-result'].includes(screen) && <FeatureNav active={screen === 'home' ? 'home' : screen === 'fitting-workspace' ? 'fitting' : screen.startsWith('travel') ? 'travel' : 'shop'} onHome={() => openPage('home')} onFitting={() => openPage('fitting-workspace')} onShop={() => openPage('product-input')} onTravel={() => openTravel()}/>}
     {isStudio && screen !== 'home' && <aside className="prototype-note" aria-label={copyDictionary.cc4d85f9c3ddebc0f}><strong>{copyDictionary.ce2bdd89ad4a0a9c8}</strong><p>{copyDictionary.c39df7b0795734442}</p></aside>}
     <ReminderNotice rows={journey.life.assistance?.reminders ?? []} onOpen={() => openSupportTool('reminders')}/>
+    {(screen === 'select' || screen === 'switch-modules') && <PageHeader title={copyDictionary.c73e604f285c89e61} onBack={back}/>}
     {['select', 'switch-modules'].includes(screen) && <DisabilitySelector value={disabilityProfile} onChange={changeDisabilityProfile} devices={allDevices}/>}
     {document.getElementById('portable-data') && <p className="prototype-note">{copyDictionary.ca397d2dca2905ce7}</p>}
-    {screen === 'welcome' && <Welcome onSelect={() => setScreen('select')}/>}
-    {(screen === 'select' || screen === 'switch-modules') && <PrimaryButton onClick={() => setScreen(screen === 'switch-modules' ? 'profile' : 'consent')}>{copyDictionary.c7c9691192f1b7340}</PrimaryButton>}
-    {screen === 'consent' && <Consent modules={modules} privacy={privacy} setPrivacy={setPrivacy} onConsent={async () => { if(await changePrivacy(privacy))setScreen('devices'); }} onSkip={() => { try{eraseProfileData();if(profileAllowed)resetProfileMemory();setConsent('skipped');setPrivacy(initialPrivacy());setScreen('devices');}catch{/* The profile error remains visible. */} }} onBack={() => setScreen('select')}/>}
-    {(screen === 'devices' || screen === 'device-cards') && <Equipment devices={allDevices} cards={journey.cards} onSave={saveCard} onRemove={removeDevice} onTravel={travelWithCard} onBack={() => setScreen('home')}/>}
-    {screen === 'home' && <Home modules={modules} settings={settings} playWater={allowWater} encouragement={<Encouragement context='home' enabled={settings.encouragement !== false} onDismiss={() => setSettings(current => ({ ...current, encouragement: false }))}/>} onFitting={() => setScreen('fitting-workspace')} onProduct={() => setScreen('product-input')} onTravel={() => { setTravelEntryStep(1); setScreen('travel-input'); }} onAssistant={() => setScreen('assistant')} onProfile={() => setScreen('profile')} onDevices={() => setScreen('devices')} onOffline={() => setScreen('offline-pack')} onChoose={() => setScreen('profile')} onAbout={() => setScreen('about')} onTool={openSupportTool}/>}
-    {screen === 'learning' && <LearningCenter life={journey.life} setLife={updateLife} modules={modules} saved={consent === 'granted' && privacy.life} onBack={() => setScreen('home')} onPrivacy={() => setScreen('profile')} onTool={openSupportTool}/>}
-    {screen === 'living-hub' && <LivingHub onBack={() => setScreen('home')} onScene={openScene} onTool={openService}/>}
-    {screen === 'living-scene' && <ScenePage key={livingScene} scene={livingScene} checked={journey.life.sceneProgress?.[livingScene] ?? []} onChecked={checked => updateLife(current => ({ ...current, sceneProgress: { ...current.sceneProgress, [livingScene]: checked } }))} onAction={serviceAction} onBack={() => setScreen('home')} saved={consent === 'granted' && privacy.life}/>}
-    {screen === 'living-service' && (serviceTool === 'live-help' ? <section className="screen living-services-page support-tool-page"><PageHeader title={copyDictionary.cc1ec5e0e6d50e455} subtitle={copyDictionary.c2f6b821c4e957e12} onBack={() => setScreen('home')}/><LiveHelp records={journey.life.helpSessions ?? []} onRecordsChange={helpSessions => updateLife(current => ({ ...current, helpSessions }))}/></section> : <LivingServicesPage key={serviceTool} tool={serviceTool} data={journey.life.services ?? initialLivingServices()} onChange={updateServices} onTool={serviceAction} onBack={() => setScreen('home')} saved={consent === 'granted' && privacy.life} mapSlot={<FacilityMap facilities={journey.life.services?.facilities ?? []} onSave={record => updateServices(current => ({ ...current, facilities: current.facilities.some(item => item.id === record.id) ? current.facilities.map(item => item.id === record.id ? { ...item, source: record.source, notes: (item.notes + copyDictionary.c576321743e7376fc).slice(0, 1500) } : item) : [...current.facilities, record] }))}/>}/>)}
-    {screen === 'support' && <SupportHub modules={modules} onToggle={id => setModules(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id])} onChoose={() => setScreen('profile')} onTool={openSupportTool} onBack={() => setScreen('home')} saved={consent === 'granted' && privacy.profile}/>}
-    {screen === 'support-tool' && <SupportToolPage key={supportTool} tool={supportTool} life={journey.life} setLife={updateLife} saved={consent === 'granted' && privacy.life} onBack={() => setScreen('home')} onPrivacy={() => setScreen('profile')} onHelp={() => setHelp(true)}/>}
-    {screen === 'fitting-workspace' && <FittingWorkspace draft={fitting.draft} setDraft={fitting.setDraft} saveStatus={fitting.saveStatus} onClear={fitting.clear} onBack={() => setScreen('home')} onAssistant={() => setScreen('assistant')} onProfile={() => setScreen('profile')} onShop={() => setScreen('fit-shopping')} onTravel={() => { setTravelEntryStep(1); setScreen('travel-input'); }}/>}
-    {screen === 'fit-shopping' && <section className="screen fitting-workspace fit-shopping-page"><h1 tabIndex={-1}>{copyDictionary.cb1806088cde1f043}</h1><FitShopping draft={fitting.draft} setDraft={fitting.setDraft} products={[...journey.comparisons, ...(product.insight ? [product] : [])]} onFitting={() => setScreen('fitting-workspace')} onAnalyze={() => setScreen('product-input')}/><button onClick={() => setScreen('product-input')}>{copyDictionary.cf21ff1926176baf5}</button></section>}
-    {screen === 'product-input' && <div className="shopping-page"><div className="shopping-compare-entry"><button onClick={() => setScreen('fit-shopping')}>{copyDictionary.cc324a08328a55110}</button><p>{copyDictionary.c8a523f61083ed3a0}</p></div><ProductIntake progress={aiProgress} draft={intakeDraft} onDraftChange={setIntakeDraft} initialQuery={shoppingQuery} initialSources={product.insight?.sources} loading={productLoading} error={productError} onAnalyze={runProduct} onCancel={cancelProduct} onBack={() => setScreen('home')}/></div>}
-    {screen === 'product-result' && <ProductInsightView key={product.id} product={product} setProduct={setProduct} journey={journey} devices={allDevices} setJourney={setJourney} onSaveCard={saveCard} onAssistant={() => { setAssistantContext('product'); setScreen('assistant'); }} onReport={() => setReport(copyDictionary.c5bda2ea1877f8690 + product.title)} onBack={() => setScreen('product-input')} onCards={() => setScreen('device-cards')} onTravel={card => { saveCard(card); travelWithCard(card); }} onReanalyze={runProduct} onCancel={cancelProduct} loading={productLoading} error={productError} stepMode={settings.stepMode}/>}
-    {screen === 'travel-input' && <TravelQuery key={travelEntryStep} initialStep={travelEntryStep} livePreview={<section className="travel-live-preview" aria-label={copyDictionary.c9eb4aaf4d02c32f6}><h2>{taskPlan.readiness === 'preparation' ? copyDictionary.c604dad45b34f0c19 : copyDictionary.c5b076bb5b0f3c469}</h2><p role="status">{taskPlan.summary}</p>{lastViewedPlan && lastViewedPlan.id !== taskPlan.id ? <p>{copyDictionary.c99f168789c4ad007}{diffTravelPlans(lastViewedPlan, taskPlan).added.length}{copyDictionary.c9e0ed19b1e6e61f4}{diffTravelPlans(lastViewedPlan, taskPlan).removed.length}{copyDictionary.ccc9c006f62bfa8e5}{diffTravelPlans(lastViewedPlan, taskPlan).updated.length}{copyDictionary.cc8bf29372979066b}</p> : taskPlan.completion.locked > 0 ? <p>{copyDictionary.ccf0b94941acc04d4}{taskPlan.completion.estimatedAdditional}{copyDictionary.cfe73003825b5d6ed}</p> : null}<PrimaryButton onClick={runTravel}>{copyDictionary.cfe7da57aba8f3686}</PrimaryButton><p>{travelSaveMessage}</p></section>} coverage={<TravelCoverage mode={travelMode} context={context} documents={ruleDocuments} loading={ruleLoading} message={ruleMessage} onRefresh={async () => { setRuleLoading(true); try {
+    {screen === 'welcome' && <Welcome onSelect={() => openPage('select')}/>}
+    {(screen === 'select' || screen === 'switch-modules') && <PrimaryButton onClick={() => screen === 'switch-modules' ? back() : openPage('consent')}>{copyDictionary.c7c9691192f1b7340}</PrimaryButton>}
+    {screen === 'consent' && <Consent modules={modules} privacy={privacy} setPrivacy={setPrivacy} onConsent={async () => { if(await changePrivacy(privacy))openPage('devices'); }} onSkip={() => { try{eraseProfileData();if(profileAllowed)resetProfileMemory();setConsent('skipped');setPrivacy(initialPrivacy());openPage('devices');}catch{/* The profile error remains visible. */} }} onBack={back}/>}
+    {(screen === 'devices' || screen === 'device-cards') && <Equipment devices={allDevices} cards={journey.cards} onSave={saveCard} onRemove={removeDevice} onTravel={travelWithCard} onBack={back}/>}
+    {screen === 'home' && <Home modules={modules} settings={settings} playWater={allowWater} encouragement={<Encouragement context='home' enabled={settings.encouragement !== false} onDismiss={() => setSettings(current => ({ ...current, encouragement: false }))}/>} onFitting={() => openPage('fitting-workspace')} onProduct={() => openPage('product-input')} onTravel={() => openTravel()} onAssistant={() => openPage('assistant')} onProfile={() => openPage('profile')} onDevices={() => openPage('devices')} onOffline={() => openPage('offline-pack')} onChoose={() => openPage('profile')} onAbout={() => openPage('about')} onTool={openSupportTool}/>}
+    {screen === 'learning' && <LearningCenter life={journey.life} setLife={updateLife} modules={modules} saved={consent === 'granted' && privacy.life} onBack={back} onPrivacy={() => openPage('profile')} onTool={openSupportTool}/>}
+    {screen === 'living-hub' && <LivingHub onBack={back} onScene={openScene} onTool={openService}/>}
+    {page.screen === 'living-scene' && <ScenePage key={page.scene} scene={page.scene} checked={journey.life.sceneProgress?.[page.scene] ?? []} onChecked={checked => updateLife(current => ({ ...current, sceneProgress: { ...current.sceneProgress, [page.scene]: checked } }))} onAction={serviceAction} onBack={back} saved={consent === 'granted' && privacy.life}/>}
+    {page.screen === 'living-service' && (page.tool === 'live-help' ? <section className="screen living-services-page support-tool-page"><PageHeader title={copyDictionary.cc1ec5e0e6d50e455} subtitle={copyDictionary.c2f6b821c4e957e12} onBack={back}/><LiveHelp records={journey.life.helpSessions ?? []} onRecordsChange={helpSessions => updateLife(current => ({ ...current, helpSessions }))}/></section> : <LivingServicesPage key={page.tool} tool={page.tool} data={journey.life.services ?? initialLivingServices()} onChange={updateServices} onTool={serviceAction} onBack={back} saved={consent === 'granted' && privacy.life} mapSlot={<FacilityMap facilities={journey.life.services?.facilities ?? []} onSave={record => updateServices(current => ({ ...current, facilities: current.facilities.some(item => item.id === record.id) ? current.facilities.map(item => item.id === record.id ? { ...item, source: record.source, notes: (item.notes + copyDictionary.c576321743e7376fc).slice(0, 1500) } : item) : [...current.facilities, record] }))}/>}/>)}
+    {screen === 'support' && <SupportHub all={showAllSupportTools} setAll={setShowAllSupportTools} modules={modules} onToggle={id => setModules(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id])} onChoose={() => openPage('profile')} onTool={openSupportTool} onBack={back} saved={consent === 'granted' && privacy.profile}/>}
+    {page.screen === 'support-tool' && <SupportToolPage key={page.tool} tool={page.tool} life={journey.life} setLife={updateLife} saved={consent === 'granted' && privacy.life} onBack={back} onPrivacy={() => openPage('profile')} onHelp={() => setHelp(true)}/>}
+    {screen === 'fitting-workspace' && <FittingWorkspace draft={fitting.draft} setDraft={fitting.setDraft} saveStatus={fitting.saveStatus} onClear={fitting.clear} onBack={back} onAssistant={() => openPage('assistant')} onProfile={() => openPage('profile')} onShop={() => openPage('fit-shopping')} onTravel={() => openTravel()}/>}
+    {screen === 'fit-shopping' && <section className="screen fitting-workspace fit-shopping-page"><PageHeader title={copyDictionary.cb1806088cde1f043} onBack={back}/><FitShopping draft={fitting.draft} setDraft={fitting.setDraft} products={[...journey.comparisons, ...(product.insight ? [product] : [])]} onFitting={() => openPage('fitting-workspace')} onAnalyze={() => openPage('product-input')}/><button onClick={() => openPage('product-input')}>{copyDictionary.cf21ff1926176baf5}</button></section>}
+    {screen === 'product-input' && <div className="shopping-page"><div className="shopping-compare-entry"><button onClick={() => openPage('fit-shopping')}>{copyDictionary.cc324a08328a55110}</button><p>{copyDictionary.c8a523f61083ed3a0}</p></div><ProductIntake progress={aiProgress} draft={intakeDraft} onDraftChange={setIntakeDraft} initialQuery={shoppingQuery} initialSources={product.insight?.sources} loading={productLoading} error={productError} onAnalyze={runProduct} onCancel={cancelProduct} onBack={back}/></div>}
+    {screen === 'product-result' && <ProductInsightView key={product.id} product={product} setProduct={setProduct} journey={journey} devices={allDevices} setJourney={setJourney} onSaveCard={saveCard} onAssistant={() => { setAssistantContext('product'); openPage('assistant'); }} onReport={() => setReport(copyDictionary.c5bda2ea1877f8690 + product.title)} onBack={back} onCards={() => openPage('device-cards')} onTravel={card => { saveCard(card); travelWithCard(card); }} onReanalyze={runProduct} onCancel={cancelProduct} loading={productLoading} error={productError} stepMode={settings.stepMode}/>}
+    {page.screen === 'travel-input' && <TravelQuery step={page.step} onNextStep={openTravel} livePreview={<section className="travel-live-preview" aria-label={copyDictionary.c9eb4aaf4d02c32f6}><h2>{taskPlan.readiness === 'preparation' ? copyDictionary.c604dad45b34f0c19 : copyDictionary.c5b076bb5b0f3c469}</h2><p role="status">{taskPlan.summary}</p>{lastViewedPlan && lastViewedPlan.id !== taskPlan.id ? <p>{copyDictionary.c99f168789c4ad007}{diffTravelPlans(lastViewedPlan, taskPlan).added.length}{copyDictionary.c9e0ed19b1e6e61f4}{diffTravelPlans(lastViewedPlan, taskPlan).removed.length}{copyDictionary.ccc9c006f62bfa8e5}{diffTravelPlans(lastViewedPlan, taskPlan).updated.length}{copyDictionary.cc8bf29372979066b}</p> : taskPlan.completion.locked > 0 ? <p>{copyDictionary.ccf0b94941acc04d4}{taskPlan.completion.estimatedAdditional}{copyDictionary.cfe73003825b5d6ed}</p> : null}<PrimaryButton onClick={runTravel}>{copyDictionary.cfe7da57aba8f3686}</PrimaryButton><p>{travelSaveMessage}</p></section>} coverage={<TravelCoverage mode={travelMode} context={context} documents={ruleDocuments} loading={ruleLoading} message={ruleMessage} onRefresh={async () => { setRuleLoading(true); try {
         await prepareService();
         const data = await service<{
             documents: RuleDocument[];
@@ -544,17 +525,17 @@ export default function App() {
     }
     finally {
         setRuleLoading(false);
-    } }}/>} mode={travelMode} setMode={setTravelMode} devices={travelDevices} customModes={customModes} setCustomModes={setCustomModes} customDevices={customDevices} setCustomDevices={setCustomDevices} selected={selected} setSelected={selectDevices} specs={specs} setSpecs={setSpecs} context={context} setContext={setContext} stepMode={settings.stepMode} loading={false} onRemember={(device, value) => saveCard(rememberTravelSpecs(journey.cards.find(card => card.id === device.id) ?? deviceCard(device), value))} onStart={runTravel} onBack={() => setScreen('home')}/>}
-    {screen === 'travel-result' && <TravelTaskResult legacySpecs={travelSaved?.needsSpecReview} coverage={<TravelCoverage mode={travelMode} context={context} documents={ruleDocuments} loading={ruleLoading} message={ruleMessage} onRefresh={refreshRuleRecords}/>} plan={taskPlan} checked={travelChecked} onToggle={action => setTravelChecked(current => ({ ...current, [action.id]: current[action.id] === travelActionSignature(action, taskPlan) ? '' : travelActionSignature(action, taskPlan) }))} devices={chosenTravelDevices} specs={specs} onSpecChange={(id, field, value) => { setTravelCompletionUpdate(true); setTravelPersistence(true); setSpecs(current => ({ ...current, [id]: updateTravelSpec(current[id],field,value) })); }} storageMessage={travelSaveMessage} online={travelOnline} onBack={() => setScreen('home')} onEdit={() => { setTravelEntryStep(1); setScreen('travel-input'); }} onChooseDevice={() => { setTravelEntryStep(2); setScreen('travel-input'); }} changes={travelChanges} hasBaseline={travelHasBaseline} completionUpdate={travelCompletionUpdate} availableDevices={travelOptions(travelDevices, customDevices)} context={context} onCompleteGaps={completeTravelGaps} onlyNext={settings.travelSingleStep === true} onOnlyNextChange={value => setSettings(current => ({ ...current, travelSingleStep: value, travelDisplayVersion: 2 }))} onExport={() => downloadText(JSON.stringify(exportTravelTask(travelSnapshot), null, 2), copyDictionary.c04cc49dca6e24d76, 'application/json')} onClear={clearTravel} onHelp={() => setHelp(true)} onReport={() => setReport(copyDictionary.cfd277b9fe1ae7043 + taskPlan.route.from + '→' + taskPlan.route.to)} onAssistant={() => { setResults(buildTravelResults(travelMode, chosenTravelDevices, specs, context, ruleDocuments).map(result => ({ ...result, summary: taskPlan.summary, nextSteps: allTravelActions(taskPlan).map(action => action.title + '：' + action.detail) }))); setAssistantContext('travel'); setScreen('assistant'); }}/>}
-    {screen === 'assistant' && <AssistantPage onProduct={query => { setShoppingQuery(query); setScreen('product-input'); }} readAloud={settings.readAloud} preferBrowser={product.insight?.engine === 'webllm'} evidence={evidencePack.items} contextKey={assistantKey} contextLabel={contextLabel} omitted={evidencePack.omitted} evidenceTotal={evidencePack.total} requiresNarrowing={evidencePack.requiresNarrowing} contextControls={<section className="task-panel"><label>{copyDictionary.cfd6fb66978a90c0e}<select value={assistantContext} onChange={e => { setAssistantContext(e.target.value as typeof assistantContext); setAssistantDevice('*'); }}><option value="none">{copyDictionary.c7e2b699176c3f30a}</option>{product.insight && <option value="product">{copyDictionary.cd76bd260f588f7be}{product.title}</option>}{results.length > 0 && <option value="travel">{copyDictionary.ce00dda94f63f0330}</option>}</select></label>{assistantContext === 'travel' && results.length > 1 && <label>{copyDictionary.c0ab94185e5877cbb}<select value={assistantDevice} onChange={e => setAssistantDevice(e.target.value)}><option value="*">{evidencePack.requiresNarrowing ? copyDictionary.c0e8a6e4a4fd1d650 : copyDictionary.assistantAllDevices}</option>{results.map(item => <option key={item.deviceId} value={item.deviceId}>{item.deviceName}</option>)}</select></label>}</section>} onBack={() => setScreen('home')} onTravel={slots => { if (slots.mode)
-        setTravelMode(slots.mode); const option = travelOptions(allDevices, customDevices).find(item => slots.device && item.name.includes(slots.device)); selectDevices(option ? [option.id] : []); setTravelEntryStep(1); setScreen('travel-input'); }}/>}
-    {screen === 'profile' && <ProfilePage disabilityEditor={<DisabilitySelector value={disabilityProfile} onChange={changeDisabilityProfile} devices={allDevices}/>} onRemoveCorrection={removeCorrection} onImportManagement={(cases, shares) => { setFeedback(current => [...current, ...cases.filter(item => !current.some(row => row.serverId === item.serverId))]); setJourney(current => ({ ...current, shares: [...current.shares, ...shares.filter(item => !current.shares.some(row => row.serverId === item.serverId))] })); }} modules={modules} devices={allDevices} journey={journey} consent={consent} privacy={privacy} settings={settings} feedback={feedback} storageError={visibleStorageError} savedAt={savedAt} onBack={() => setScreen('home')} onModules={() => setScreen('switch-modules')} onDevices={() => setScreen('device-cards')} onCards={() => setScreen('device-cards')} onLife={() => setScreen('life-tools')} onOffline={() => setScreen('offline-pack')} onNeeds={() => setNeeds(true)} onAbout={() => setScreen('about')} onPrivacy={async value=>{await changePrivacy(value);}} onDelete={deleteScope}/>}
-    {screen === 'about' && <AboutPage onBack={() => setScreen('home')}/>}
-    {screen === 'life-tools' && <LifeTools saved={consent === 'granted' && privacy.life} onPrivacy={() => setScreen('profile')} life={journey.life} setLife={updateLife} journey={journey} setJourney={setJourney} devices={allDevices} onBack={() => setScreen('home')} onHelp={() => setHelp(true)} onOffline={() => setScreen('offline-pack')}/>}
-    {screen === 'offline-pack' && <OfflineWorkspace journey={journey} devices={allDevices} onBack={() => setScreen('home')}/>}
+    } }}/>} mode={travelMode} setMode={setTravelMode} devices={travelDevices} customModes={customModes} setCustomModes={setCustomModes} customDevices={customDevices} setCustomDevices={setCustomDevices} selected={selected} setSelected={selectDevices} specs={specs} setSpecs={setSpecs} context={context} setContext={setContext} stepMode={settings.stepMode} loading={false} onRemember={(device, value) => saveCard(rememberTravelSpecs(journey.cards.find(card => card.id === device.id) ?? deviceCard(device), value))} onStart={runTravel} onBack={back}/>}
+    {screen === 'travel-result' && <TravelTaskResult legacySpecs={travelSaved?.needsSpecReview} coverage={<TravelCoverage mode={travelMode} context={context} documents={ruleDocuments} loading={ruleLoading} message={ruleMessage} onRefresh={refreshRuleRecords}/>} plan={taskPlan} checked={travelChecked} onToggle={action => setTravelChecked(current => ({ ...current, [action.id]: current[action.id] === travelActionSignature(action, taskPlan) ? '' : travelActionSignature(action, taskPlan) }))} devices={chosenTravelDevices} specs={specs} onSpecChange={(id, field, value) => { setTravelCompletionUpdate(true); setTravelPersistence(true); setSpecs(current => ({ ...current, [id]: updateTravelSpec(current[id],field,value) })); }} storageMessage={travelSaveMessage} online={travelOnline} onBack={back} onEdit={() => openTravel()} onChooseDevice={() => openTravel(2)} changes={travelChanges} hasBaseline={travelHasBaseline} completionUpdate={travelCompletionUpdate} availableDevices={travelOptions(travelDevices, customDevices)} context={context} onCompleteGaps={completeTravelGaps} onlyNext={settings.travelSingleStep === true} onOnlyNextChange={value => setSettings(current => ({ ...current, travelSingleStep: value, travelDisplayVersion: 2 }))} onExport={() => downloadText(JSON.stringify(exportTravelTask(travelSnapshot), null, 2), copyDictionary.c04cc49dca6e24d76, 'application/json')} onClear={clearTravel} onHelp={() => setHelp(true)} onReport={() => setReport(copyDictionary.cfd277b9fe1ae7043 + taskPlan.route.from + '→' + taskPlan.route.to)} onAssistant={() => { setResults(buildTravelResults(travelMode, chosenTravelDevices, specs, context, ruleDocuments).map(result => ({ ...result, summary: taskPlan.summary, nextSteps: allTravelActions(taskPlan).map(action => action.title + '：' + action.detail) }))); setAssistantContext('travel'); openPage('assistant'); }}/>}
+    {screen === 'assistant' && <AssistantPage onProduct={query => { setShoppingQuery(query); openPage('product-input'); }} readAloud={settings.readAloud} preferBrowser={product.insight?.engine === 'webllm'} evidence={evidencePack.items} contextKey={assistantKey} contextLabel={contextLabel} omitted={evidencePack.omitted} evidenceTotal={evidencePack.total} requiresNarrowing={evidencePack.requiresNarrowing} contextControls={<section className="task-panel"><label>{copyDictionary.cfd6fb66978a90c0e}<select value={assistantContext} onChange={e => { setAssistantContext(e.target.value as typeof assistantContext); setAssistantDevice('*'); }}><option value="none">{copyDictionary.c7e2b699176c3f30a}</option>{product.insight && <option value="product">{copyDictionary.cd76bd260f588f7be}{product.title}</option>}{results.length > 0 && <option value="travel">{copyDictionary.ce00dda94f63f0330}</option>}</select></label>{assistantContext === 'travel' && results.length > 1 && <label>{copyDictionary.c0ab94185e5877cbb}<select value={assistantDevice} onChange={e => setAssistantDevice(e.target.value)}><option value="*">{evidencePack.requiresNarrowing ? copyDictionary.c0e8a6e4a4fd1d650 : copyDictionary.assistantAllDevices}</option>{results.map(item => <option key={item.deviceId} value={item.deviceId}>{item.deviceName}</option>)}</select></label>}</section>} onBack={back} onTravel={slots => { if (slots.mode)
+        setTravelMode(slots.mode); const option = travelOptions(allDevices, customDevices).find(item => slots.device && item.name.includes(slots.device)); selectDevices(option ? [option.id] : []); openTravel(); }}/>}
+    {screen === 'profile' && <ProfilePage disabilityEditor={<DisabilitySelector value={disabilityProfile} onChange={changeDisabilityProfile} devices={allDevices}/>} onRemoveCorrection={removeCorrection} onImportManagement={(cases, shares) => { setFeedback(current => [...current, ...cases.filter(item => !current.some(row => row.serverId === item.serverId))]); setJourney(current => ({ ...current, shares: [...current.shares, ...shares.filter(item => !current.shares.some(row => row.serverId === item.serverId))] })); }} modules={modules} devices={allDevices} journey={journey} consent={consent} privacy={privacy} settings={settings} feedback={feedback} storageError={visibleStorageError} savedAt={savedAt} onBack={back} onModules={() => openPage('switch-modules')} onDevices={() => openPage('device-cards')} onCards={() => openPage('device-cards')} onLife={() => open(lifeMenu)} onOffline={() => openPage('offline-pack')} onNeeds={() => setNeeds(true)} onAbout={() => openPage('about')} onPrivacy={async value=>{await changePrivacy(value);}} onDelete={deleteScope}/>}
+    {screen === 'about' && <AboutPage onBack={back}/>}
+    {page.screen === 'life-tools' && <LifeTools task={page.task} dailyTool={page.tool} onTask={task => open({ ...lifeMenu, task })} onDailyTool={tool => open({ ...lifeMenu, tool })} saved={consent === 'granted' && privacy.life} onPrivacy={() => openPage('profile')} life={journey.life} setLife={updateLife} journey={journey} setJourney={setJourney} devices={allDevices} onBack={back} onHelp={() => setHelp(true)} onOffline={() => openPage('offline-pack')}/>}
+    {screen === 'offline-pack' && <OfflineWorkspace journey={journey} devices={allDevices} onBack={back}/>}
     {encouragementContext && screen !== 'home' && <div className="page-encouragement"><Encouragement key={screen + ':' + supportTool + ':' + serviceTool} context={encouragementContext} enabled={settings.encouragement !== false} onDismiss={() => setSettings(current => ({ ...current, encouragement: false }))}/></div>}
     {productLoading && aiProgress && screen === 'product-result' && <p className="operation-status" role="status">{aiProgress}</p>}
-    {(screen === 'home' || screen === 'living-hub' || screen === 'support' || screen === 'profile') && <BottomNav active={screen} onNavigate={setScreen}/>}
+    {(screen === 'home' || screen === 'living-hub' || screen === 'support' || screen === 'profile') && <BottomNav active={screen} onNavigate={openPage}/>}
     {visibleStorageError && screen !== 'profile' && <p className="storage-error" role="alert">{visibleStorageError}</p>}
   </div>
     {help && <HelpCard life={journey.life} setLife={updateLife} devices={allDevices} onClose={() => setHelp(false)}/>}

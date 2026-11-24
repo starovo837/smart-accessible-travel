@@ -54,7 +54,7 @@ export function OfflineWorkspace({ journey, devices, onBack }: {
             setOfflineState(copyDictionary.cc7bed0dbab9ef464); });
         return () => { active = false; };
     }, []);
-    return <section className="screen"><button className="back-link" onClick={onBack}>{copyDictionary.cd66f4359dae37110}</button><h1>{copyDictionary.c93f004ab9ea94276}</h1><p className="prototype-note" role="status">{offlineState}</p><p>{copyDictionary.cc63562b4bd451335}</p>
+    return <section className="screen"><button className="back-link" onClick={onBack}>{copyDictionary.c572cf45ba43634b3}</button><h1>{copyDictionary.c93f004ab9ea94276}</h1><p className="prototype-note" role="status">{offlineState}</p><p>{copyDictionary.cc63562b4bd451335}</p>
     <label className="switch-line"><input type="checkbox" checked={includeDevices} onChange={event => setIncludeDevices(event.target.checked)}/>{copyDictionary.c6f82f7368c23184e}{devices.length}{copyDictionary.c2885f75d18ff9762}</label>
     <label className="switch-line"><input type="checkbox" checked={includeTrip} onChange={event => setIncludeTrip(event.target.checked)}/>{copyDictionary.c811937ab78cfdb1d}</label>
     <label className="switch-line"><input type="checkbox" checked={includeLife} onChange={event => setIncludeLife(event.target.checked)}/>{copyDictionary.c49e520727acf285e}</label>

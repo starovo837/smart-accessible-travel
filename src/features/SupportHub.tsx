@@ -17,14 +17,15 @@ export function SupportRows({ tools, onTool }: {
     tools: SupportTool[];
     onTool: (id: SupportToolId) => void;
 }) { return <div className="support-tool-list">{tools.map(tool => <button key={tool.id} onClick={() => onTool(tool.id)}><span className="support-tool-icon"><Icon name={tool.icon} size={27}/></span><span><strong>{tool.title}</strong><small>{tool.detail}</small></span><Icon name="chevron" size={19}/></button>)}</div>; }
-export function SupportHub({ modules, onToggle, onChoose, onTool, onBack, saved }: {
+export function SupportHub({ modules, onToggle, onChoose, onTool, onBack, saved, all, setAll }: {
     modules: ModuleId[];
     onToggle: (id: ModuleId) => void;
     onChoose: () => void;
     onTool: (id: SupportToolId) => void;
     onBack: () => void;
     saved: boolean;
+    all: boolean;
+    setAll: (all: boolean) => void;
 }) {
-    const [all, setAll] = useState(false);
     return <section className="screen support-hub"><PageHeader title={copyDictionary.c2513de5209c2a1a7} subtitle={copyDictionary.c6460fdf5e68b8557} onBack={onBack}/><button className="text-action" onClick={onChoose}>{copyDictionary.c069ac0e2b91bfeb3}</button><div className="support-tabs" role="group" aria-label={copyDictionary.ceed7e234873410a6}><button aria-pressed={!all} onClick={() => setAll(false)}>{copyDictionary.cdbf1c81979c6b41f}</button><button aria-pressed={all} onClick={() => setAll(true)}>{copyDictionary.c6c8f61c25046fd4e}</button></div><SupportRows tools={all ? supportTools : recommendedTools(modules)} onTool={onTool}/><p className="support-storage-note">{copyDictionary.c00342fabbec1b592}</p><button className="text-action" onClick={() => setAll(!all)}>{all ? copyDictionary.ca0f7520ae949f6c7 : copyDictionary.c90779d9a3f3e10d2}</button></section>;
 }

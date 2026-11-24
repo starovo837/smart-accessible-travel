@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 
 import { Modal, PageHeader } from '../components/UI';
 import { readText, stopReading, copyText } from '../app/accessibility';
 import { dailyTemplates, imageSummary } from '../app/dailyAssistance';
+import type { DailyTool } from '../app/navigation';
 import type { LifeData } from '../app/types';
 interface Props {
     life: LifeData;
@@ -10,11 +11,12 @@ interface Props {
     saved: boolean;
     onPrivacy: () => void;
     onHelp: () => void;
-    initialTool?: 'menu' | 'camera' | 'talk' | 'steps';
+    tool: DailyTool;
+    onToolChange?: (tool: DailyTool) => void;
     onExit?: () => void;
 }
-export function DailyAssistance({ life, setLife, saved, onPrivacy, onHelp, initialTool = 'menu', onExit }: Props) {
-    const [tool, setTool] = useState<string>(initialTool), [message, setMessage] = useState(''), [text, setText] = useState(''), [card, setCard] = useState(false), [slow, setSlow] = useState(false);
+export function DailyAssistance({ life, setLife, saved, onPrivacy, onHelp, tool, onToolChange, onExit }: Props) {
+    const [message, setMessage] = useState(''), [text, setText] = useState(''), [card, setCard] = useState(false), [slow, setSlow] = useState(false);
     const [camera, setCamera] = useState(false), [opening, setOpening] = useState(false);
     const [customTitle, setCustomTitle] = useState(''), [customSteps, setCustomSteps] = useState(''), [task, setTask] = useState<string | null>(null);
     const video = useRef<HTMLVideoElement>(null), photo = useRef<HTMLCanvasElement>(null), stream = useRef<MediaStream | null>(null), epoch = useRef(0);
@@ -25,7 +27,8 @@ export function DailyAssistance({ life, setLife, saved, onPrivacy, onHelp, initi
         stopCamera();
         stopReading();
     } }; document.addEventListener('visibilitychange', hidden); return () => { epoch.current++; stream.current?.getTracks().forEach(track => track.stop()); stopReading(); document.removeEventListener('visibilitychange', hidden); }; }, []);
-    const open = (id: string) => { stopCamera(); stopReading(); setTool(id); setTask(null); setMessage(''); };
+    const open = (id: DailyTool) => onToolChange?.(id);
+    const back = active ? () => { stopReading(); setTask(null); } : onExit;
     const savedPhrases = life.assistance?.phrases ?? [];
     const speak = async (value = text) => { if (await readText(value, slow ? .75 : 1)) setMessage(copyDictionary.speechCompleted); };
     const startCamera = async () => { if (opening || camera)
@@ -67,7 +70,7 @@ export function DailyAssistance({ life, setLife, saved, onPrivacy, onHelp, initi
     } const ctx = canvas.getContext('2d')!, result = imageSummary(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height), value = kind === 'color' ? copyDictionary.c9e6640d5e12bf39d + result.color + copyDictionary.ceb0d5884569b398e : copyDictionary.cf68e26558472982f + result.light + copyDictionary.ceb0d5884569b398e; setMessage(value); readText(value, slow ? .75 : 1); };
     const updateProgress = (step: number) => { if (!active)
         return; setLife(current => ({ ...current, assistance: { ...current.assistance, tasks: current.assistance?.tasks ?? [], progress: { ...current.assistance?.progress, [active.id]: step } } })); };
-    return <section className="daily-assistance" aria-label={copyDictionary.c114c5c04c005c985}><PageHeader level={2} title={tool === 'menu' ? copyDictionary.ce56fb8dc776b927f : tool === 'camera' ? copyDictionary.cda40a134e9c84886 : tool === 'talk' ? copyDictionary.cb46982e5abfcf11f : copyDictionary.c30db6518cc83b35c} subtitle={tool === 'menu' ? copyDictionary.cdbe98b566bb10dac : undefined} onBack={onExit ?? (tool === 'menu' ? undefined : () => open('menu'))}/>
+    return <section className="daily-assistance" aria-label={copyDictionary.c114c5c04c005c985}><PageHeader level={2} title={tool === 'menu' ? copyDictionary.ce56fb8dc776b927f : tool === 'camera' ? copyDictionary.cda40a134e9c84886 : tool === 'talk' ? copyDictionary.cb46982e5abfcf11f : copyDictionary.c30db6518cc83b35c} subtitle={tool === 'menu' ? copyDictionary.cdbe98b566bb10dac : undefined} onBack={back}/>
  {tool === 'menu' && <div className="daily-tool-menu"><button onClick={() => open('camera')}><strong>{copyDictionary.cda40a134e9c84886}</strong><span>{copyDictionary.c20ed1517eddcffe1}</span></button><button onClick={() => open('talk')}><strong>{copyDictionary.cb46982e5abfcf11f}</strong><span>{copyDictionary.c35b35201f60b1e6b}</span></button><button onClick={() => open('steps')}><strong>{copyDictionary.c30db6518cc83b35c}</strong><span>{copyDictionary.c99c1104ff6cc10ff}</span></button><button onClick={onHelp}><strong>{copyDictionary.c77fea22f2216bd42}</strong><span>{copyDictionary.cb69555eab55faaa7}</span></button></div>}
  {tool === 'camera' && <><p>{copyDictionary.c0cb91871b020fee6}</p><div className="daily-camera"><video ref={video} muted playsInline aria-label={copyDictionary.c0cad8bdbc53b2ca8} hidden={!camera}/><canvas ref={photo} aria-label={copyDictionary.cb69c1ccd00482ba4} hidden={camera}/>{!camera && <span>{copyDictionary.c2d5670ed4a734e9e}</span>}</div><div className="daily-actions"><button disabled={opening || camera} onClick={startCamera}>{opening ? copyDictionary.c821ffb8cd6a23594 : copyDictionary.cfe582aebd5e7f492}</button><button disabled={!camera} onClick={stopCamera}>{copyDictionary.c6941fa50f54bad84}</button><label className="daily-photo-input">{copyDictionary.ccae3ab4bfdb21193}<input type="file" accept="image/png,image/jpeg,image/webp" onChange={async (e) => { const file = e.target.files?.[0]; if (!file)
         return; stopCamera(); try {

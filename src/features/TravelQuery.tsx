@@ -9,6 +9,7 @@ import { largeDeviceTypes } from '../app/travelRules';
 import {sampleDeviceField,updateTravelSpec} from '../app/travelSpecEvidence';
 import {TravelSpecReview} from './travel/TravelSpecReview';
 import type { CustomTravelDevice, CustomTravelMode, Device, TravelContext, TravelDeviceSpecs, TravelMode } from '../app/types';
+import type { TravelStep } from '../app/navigation';
 export function travelOptions(devices: Device[], custom: CustomTravelDevice[]) {
     return [...devices.map(device => ({ ...device, icon: deviceMeta[device.type]?.icon ?? 'settings' as IconName })),
         ...Object.entries(deviceMeta).map(([type, meta]) => ({ ...catalogDevice(type, meta.label), id: `catalog-${type}`, icon: meta.icon })),
@@ -19,7 +20,8 @@ interface Props {
     embedded?: boolean;
     coverage?: ReactNode;
     livePreview?: ReactNode;
-    initialStep?: 1 | 2 | 3;
+    step: TravelStep;
+    onNextStep: (step: TravelStep) => void;
     mode: TravelMode;
     setMode: (mode: TravelMode) => void;
     devices: Device[];
@@ -40,8 +42,7 @@ interface Props {
     onRemember?: (device: Device, specs: TravelDeviceSpecs) => void;
 }
 export function TravelQuery(props: Props) {
-    const { mode, setMode, selected, setSelected, specs, setSpecs, context, setContext, stepMode } = props;
-    const [step, setStep] = useState<number>(props.initialStep ?? 1);
+    const { mode, setMode, selected, setSelected, specs, setSpecs, context, setContext, stepMode, step } = props;
     const [expandedModes, setExpandedModes] = useState(false), [expandedDevices, setExpandedDevices] = useState(false);
     const [modeSearch, setModeSearch] = useState('');
     const [deviceSearch, setDeviceSearch] = useState('');
@@ -131,8 +132,8 @@ export function TravelQuery(props: Props) {
       <p role="status">{saveStatus}</p>
     </section>}
     <div className="bottom-sticky"><p aria-live="polite">{getTravelMeta(mode).label}{copyDictionary.c85da02fc14ae50d7}{selected.length}{copyDictionary.c134d70d351ac0a41}</p>
-      {step > 1 && <PrimaryButton variant="ghost" onClick={() => setStep(step - 1)}>{copyDictionary.cda336fdc0dbd1818}</PrimaryButton>}
-      {step < 3 && <PrimaryButton onClick={() => setStep(step + 1)}>{copyDictionary.cacfc4e74a650e7df}</PrimaryButton>}
+      {step > 1 && <PrimaryButton variant="ghost" onClick={props.onBack}>{copyDictionary.cda336fdc0dbd1818}</PrimaryButton>}
+      {step < 3 && <PrimaryButton onClick={() => props.onNextStep(step === 1 ? 2 : 3)}>{copyDictionary.cacfc4e74a650e7df}</PrimaryButton>}
       <PrimaryButton onClick={props.onStart}>{copyDictionary.cd7f7eae5e488f230}</PrimaryButton>
     </div>
   </section>;

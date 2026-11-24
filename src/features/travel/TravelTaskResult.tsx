@@ -160,7 +160,7 @@ export function TravelTaskResult(props: Props) {
     <section className="travel-task-contacts" aria-label={copyDictionary.cec7a68a2ac4f62d5}><h2>{copyDictionary.cf97bbbbc2c41e888}</h2>{plan.contacts.map(contact => <p key={contact.name}><strong>{contact.name}</strong>{phoneLink(contact.phone) && <a href={phoneLink(contact.phone)}>{copyDictionary.cd92c3bb46b1083b8}{contact.phone}</a>}<a href={contact.url} target="_blank" rel="noopener noreferrer">{copyDictionary.c940a7bc830f68b0a}</a></p>)}</section>
     <TravelCarryCard plan={plan}/>
     <div className="travel-export-footer"><button type="button" className="button-primary" onClick={props.onExport}>{copyDictionary.ce9698c11696db611}</button><p>{copyDictionary.ca3c376f4d901133a}</p></div>
-    <div className="travel-task-toolbar"><PrimaryButton variant="secondary" onClick={props.onHelp}>{copyDictionary.cc75fb8984dc11046}</PrimaryButton><button onClick={props.onAssistant}>{copyDictionary.ccca8ffca6df158a0}</button><button onClick={props.onReport}>{copyDictionary.c0f7d68ecdcf65b2d}</button><button onClick={props.onBack}>{copyDictionary.cd66f4359dae37110}</button></div>
+    <div className="travel-task-toolbar"><PrimaryButton variant="secondary" onClick={props.onHelp}>{copyDictionary.cc75fb8984dc11046}</PrimaryButton><button onClick={props.onAssistant}>{copyDictionary.ccca8ffca6df158a0}</button><button onClick={props.onReport}>{copyDictionary.c0f7d68ecdcf65b2d}</button><button onClick={props.onBack}>{copyDictionary.c572cf45ba43634b3}</button></div>
     <p className="travel-task-disclaimer">{copyDictionary.c48ecb942a1cebf0a}</p>
     {plan.disabilityProfile && <p>{disabilityNotice}</p>}
   </section>;
