@@ -1,5 +1,7 @@
 import { copyDictionary } from "../app/copyDictionary.ts";
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import { isPages } from '../app/deployment';
+import { assetUrl } from '../app/assetUrl';
 import { LiveFamilyPanel } from './LiveSharing';
 import { RuntimeReadiness } from './RuntimeReadiness';
 import { InstallHelp } from './InstallHelp';
@@ -60,7 +62,7 @@ export function OfflineWorkspace({ journey, devices, onBack }: {
     <label className="switch-line"><input type="checkbox" checked={includeLife} onChange={event => setIncludeLife(event.target.checked)}/>{copyDictionary.c49e520727acf285e}</label>
     <PrimaryButton disabled={!includeDevices && !includeLife && !includeTrip} onClick={() => { const content: OfflinePacket = { ...packet, savedAt: localTime(), cards: includeDevices ? makePacket(journey, devices).cards : [], results: includeTrip ? packet.results : [], records: includeTrip ? journey.records : [], checklist: includeTrip ? packet.checklist : [], communication: includeLife ? journey.life.emergency.helpText : '', life: includeLife ? exportableLife(journey.life) : undefined }; downloadText(packetHtml(content), copyDictionary.c609646e0db3b5a93, 'text/html;charset=utf-8'); setStatus(copyDictionary.cd4f44ce731ce9cdb); }}>{copyDictionary.cb88ef4c4abe01bac}</PrimaryButton>
     <PrimaryButton disabled={!includeDevices && !includeLife && !includeTrip} onClick={async () => { try {
-        const response = await fetch('/offline-app.html');
+        const response = await fetch(assetUrl('offline-app.html'));
         if (!response.ok)
             throw Error(copyDictionary.cd18be9bd8fcf2585);
         const template = await response.text();
@@ -82,4 +84,4 @@ export function FamilyPanel({ journey, setJourney, devices, packet, onChecklist 
     devices: Device[];
     packet?: OfflinePacket;
     onChecklist?: (items: import('../app/types').ChecklistItem[]) => void;
-}) { const snapshot = packet ?? journey.packet ?? makePacket(journey, devices); return <><LiveFamilyPanel snapshot={snapshot} shares={journey.shares} onShares={shares => setJourney(current => ({ ...current, shares }))} onChecklist={items => { onChecklist?.(items); setJourney(current => ({ ...current, packet: { ...snapshot, checklist: items } })); }}/><details><summary>{copyDictionary.c9e672120869409e5}</summary><LocalFamilyPanel journey={journey} setJourney={setJourney} devices={devices} packet={snapshot}/></details></>; }
+}) { const snapshot = packet ?? journey.packet ?? makePacket(journey, devices); return <>{isPages ? <p className="prototype-note">{copyDictionary.pagesFamilyUnavailable}</p> : <LiveFamilyPanel snapshot={snapshot} shares={journey.shares} onShares={shares => setJourney(current => ({ ...current, shares }))} onChecklist={items => { onChecklist?.(items); setJourney(current => ({ ...current, packet: { ...snapshot, checklist: items } })); }}/>}<details open={isPages || undefined}><summary>{copyDictionary.c9e672120869409e5}</summary><LocalFamilyPanel journey={journey} setJourney={setJourney} devices={devices} packet={snapshot}/></details></>; }

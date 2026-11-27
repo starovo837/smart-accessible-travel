@@ -1,4 +1,5 @@
 import { copyDictionary } from "../../app/copyDictionary.ts";
+import { assetUrl } from '../../app/assetUrl.ts';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
@@ -8,7 +9,7 @@ let source: Promise<{
     animations: THREE.AnimationClip[];
 }> | undefined;
 export function loadHuman() {
-    source ??= new GLTFLoader().loadAsync('/models/person.glb').catch(error => { source = undefined; throw error; });
+    source ??= new GLTFLoader().loadAsync(assetUrl('models/person.glb')).catch(error => { source = undefined; throw error; });
     return source;
 }
 type Point = [
@@ -267,6 +268,6 @@ export function poseRealisticHuman(asset: {
     });
     mixer?.stopAllAction();
     mixer?.uncacheRoot(rig);
-    result.userData = { source: '/models/person-license.json', genericHuman: true, clinicalFitVerified: false, weightAppearance: appearance.approximate ? 'approximate visual volume only' : 'reference volume', measuredBodyDimensionsUnchanged: true };
+    result.userData = { source: assetUrl('models/person-license.json'), genericHuman: true, clinicalFitVerified: false, weightAppearance: appearance.approximate ? 'approximate visual volume only' : 'reference volume', measuredBodyDimensionsUnchanged: true };
     return result;
 }

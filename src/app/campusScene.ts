@@ -1,4 +1,6 @@
-export const campusPhoto = '/images/seu-sipailou-fountain.jpg'
+import { assetUrl } from './assetUrl.ts';
+
+export const campusPhoto = assetUrl('images/seu-sipailou-fountain.jpg')
 export const campusPhotoSize = { width: 4320, height: 3240 }
 export type FountainPoint = { x: number; y: number }
 export type FountainCalibration = {

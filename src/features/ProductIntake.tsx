@@ -4,7 +4,7 @@ import { Icon } from '../components/Icons';
 import { PageHeader, PrimaryButton } from '../components/UI';
 import { sampleBundles, sourceNames, type ProductSource, type SourceKind } from '../app/product';
 import { apiFetch } from '../app/transport';
-import { isStudio, processingNotice, processingLocation } from '../app/deployment';
+import { isPages, isStudio, processingNotice, processingLocation } from '../app/deployment';
 import { browserAIAvailable, clearBrowserAI } from '../app/browserAI';
 import { shoppingPlatforms, shoppingUrl } from '../app/catalog';
 export interface AIStatus {
@@ -61,12 +61,13 @@ export function ProductIntake({ onBack, onAnalyze, loading, error, onCancel, ini
 }) {
     const [cloudConsent, setCloudConsent] = useState(!isStudio);
     const [sources, setSources] = useState<ProductSource[]>(initialSources), [text, setText] = useState(''), [name, setName] = useState(''), [kind, setKind] = useState<SourceKind>('merchant');
-    const [mode, setMode] = useState<'ai' | 'browser' | 'local'>('ai'), [status, setStatus] = useState<AIStatus | null>(null), [notice, setNotice] = useState(''), [link, setLink] = useState('');
+    const [mode, setMode] = useState<'ai' | 'browser' | 'local'>(isPages ? 'local' : 'ai'), [status, setStatus] = useState<AIStatus | null>(null), [notice, setNotice] = useState(''), [link, setLink] = useState('');
     const [pair, setPair] = useState(''), [pairCode, setPairCode] = useState(''), [query, setQuery] = useState(initialQuery), [platform, setPlatform] = useState('jd'), [fileLoading, setFileLoading] = useState(false);
     useEffect(() => { onDraftChange?.({ sources, text }); }, [sources, text, onDraftChange]);
     const mounted = useRef(true);
     const [sourceModel, setSourceModel] = useState('');
     useEffect(() => {
+        if (isPages) return;
         mounted.current = true;
         let timer: ReturnType<typeof setTimeout> | undefined, attempts = 0;
         const check = async () => { try {
@@ -146,13 +147,13 @@ export function ProductIntake({ onBack, onAnalyze, loading, error, onCancel, ini
       <label>{copyDictionary.c2cc1b0e878c1f63a}<input value={sourceModel} onChange={event => setSourceModel(event.target.value)} maxLength={60} placeholder={copyDictionary.ca90bc03743068f06}/></label>
       <label>{copyDictionary.c7e60f7a5ccb07bc4}<textarea value={text} onChange={event => setText(event.target.value)} placeholder={copyDictionary.c6d60202d58b1dc93} maxLength={6000}/></label>
       <PrimaryButton variant="secondary" disabled={!text.trim() || loading || fileLoading} onClick={addText}>{copyDictionary.c622178dc30114645}</PrimaryButton>
-      <label className="image-input"><Icon name="upload" size={22}/><span>{copyDictionary.ca2c883a4f97f73a9}</span><small>{copyDictionary.cf035be56e607a751}</small><input type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={loading || fileLoading} onChange={event => { void addFiles(event.target.files); event.target.value = ''; }}/></label>
+      {isPages ? <p className="prototype-note">{copyDictionary.pagesOnlyText}</p> : <label className="image-input"><Icon name="upload" size={22}/><span>{copyDictionary.ca2c883a4f97f73a9}</span><small>{copyDictionary.cf035be56e607a751}</small><input type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={loading || fileLoading} onChange={event => { void addFiles(event.target.files); event.target.value = ''; }}/></label>}
       <p className="prototype-note">{copyDictionary.c480c024c36474ede}</p>
       <details><summary>{copyDictionary.c9b7c689a8b966e7f}</summary><label>{copyDictionary.c282bbc888126f1b0}<input type="url" value={link} onChange={event => setLink(event.target.value)} placeholder="https://…"/></label><p>{copyDictionary.c0337a67108a362ff}</p></details>
     </section>
     <section aria-label={copyDictionary.c7961d416b0421b19} className="source-list"><h2>{copyDictionary.c4fbaacef960a8357}{sources.length} / 5</h2>{sources.length ? sources.map((source, index) => <article className="source-preview" key={source.id}><div><strong>{index + 1}．{source.name}</strong><small>{sourceNames[source.kind]} · {source.image ? copyDictionary.c9fe026070a131c82 : copyDictionary.ce3b0c44298fc1c14 + source.text.length + copyDictionary.cc55038b272b109b8}</small></div><button disabled={loading} onClick={() => setSources(current => current.filter(item => item.id !== source.id))} aria-label={copyDictionary.c6135d4159e892541 + source.name}>{copyDictionary.c6135d4159e892541}</button>{source.image ? <img src={source.image} alt={copyDictionary.ce3b0c44298fc1c14 + source.name + copyDictionary.ca65aa64a1e7f72d3}/> : <p>{source.text.slice(0, 220)}{source.text.length > 220 ? '……' : ''}</p>}</article>) : <p className="muted-copy">{copyDictionary.c9d8924ae795df43e}</p>}</section>
     <fieldset className="analysis-mode"><legend>{copyDictionary.caa6fbdd259989078}</legend>
-      <label className="switch-line"><input type="radio" name="analysis-mode" checked={mode === 'ai'} onChange={() => setMode('ai')} disabled={loading}/>{isStudio ? copyDictionary.c9bb179dc6e26f894 : copyDictionary.c4f62d518a44b2669}</label>
+      {!isPages && <label className="switch-line"><input type="radio" name="analysis-mode" checked={mode === 'ai'} onChange={() => setMode('ai')} disabled={loading}/>{isStudio ? copyDictionary.c9bb179dc6e26f894 : copyDictionary.c4f62d518a44b2669}</label>}
       <label className="switch-line"><input type="radio" name="analysis-mode" checked={mode === 'browser'} onChange={() => setMode('browser')} disabled={loading}/>{copyDictionary.c9bf958687d11c087}</label>
       <label className="switch-line"><input type="radio" name="analysis-mode" checked={mode === 'local'} onChange={() => setMode('local')} disabled={loading}/>{copyDictionary.c2cd568b2627d4349}</label>
       {mode === 'ai' ? <><p role="status">{modelStatus(status)}</p><p className="prototype-note">{processingNotice}{copyDictionary.c35fb7bb7aac8d7c5}</p><p>{isStudio ? copyDictionary.cf5410900f95ccc32 : copyDictionary.c04ce81ea246c108b}</p><button disabled={loading} onClick={() => void refresh()}>{copyDictionary.c072e4203d39d4ad8}</button>

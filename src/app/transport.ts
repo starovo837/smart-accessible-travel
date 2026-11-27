@@ -1,6 +1,10 @@
+import { copyDictionary } from './copyDictionary';
+import { isPages } from './deployment';
+
 // Session credentials stay in memory. Capability credentials are separate per record.
 let studioSession=''
 export async function apiFetch(path:string,options:RequestInit={}){
+  if (isPages) throw Error(copyDictionary.pagesBackendUnavailable);
   const headers=new Headers(options.headers)
   if(studioSession)headers.set('X-Sai-Session',studioSession)
   // The Studio gateway accepts GET/POST but rejects DELETE before it reaches us.

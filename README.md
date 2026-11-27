@@ -4,7 +4,11 @@ React 19 + TypeScript + Vite 无障碍生活与出行 Web App，含商品解读�
 
 ## 体验与启动
 
-在线体验可打开[魔搭创空间](https://www.modelscope.cn/studios/starovo/smart-accessible-travel?mode=full)。
+[打开 GitHub 在线版](https://starovo837.github.io/smart-accessible-travel-web/)
+
+在线版在浏览器中运行。三维试配、出行清单、学习计划、辅具文字提取、日常辅助和离线随身包可直接使用。支持 WebGPU 的设备可下载模型，在浏览器中使用文字 AI。图像模型识别、跨设备实时协作和站内服务器地图查询需要另行部署。医院查找提供地图入口，限时求助页面提供大字沟通卡入口。
+
+使用 `pnpm build:pages` 构建在线版，结果在 `dist-pages/`。构建命令可接受站点路径，例如 `pnpm build:pages /smart-accessible-travel-web/`。
 
 本地需要 Node.js 24 和 pnpm。进入仓库后运行：
 

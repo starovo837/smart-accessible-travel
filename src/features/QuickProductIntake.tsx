@@ -2,7 +2,7 @@ import { copyDictionary } from "../app/copyDictionary.ts";
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal, PageHeader, PrimaryButton } from '../components/UI';
 import { ProductIntake as AdvancedIntake, readAIStatus, SessionRateLimitError } from './ProductIntake';
-import { isStudio, processingNotice } from '../app/deployment';
+import { isPages, isStudio, processingNotice } from '../app/deployment';
 import { RuntimeReadiness } from './RuntimeReadiness';
 import { browserAIAvailable } from '../app/browserAI';
 import { inferSource, intakeSources, type IntakeDraft } from '../app/intake';
@@ -55,7 +55,7 @@ export function QuickProductIntake(props: Props) {
                 setChecking(false);
         }
     };
-    const start = async () => {
+    const start = async (useBrowser = false) => {
         if (busy)
             return;
         if (!cloudConsent) {
@@ -70,6 +70,20 @@ export function QuickProductIntake(props: Props) {
         }
         catch (error) {
             setNotice((error as Error).message);
+            return;
+        }
+        if (isPages) {
+            if (next.some(source => source.image)) {
+                setNotice(copyDictionary.pagesOnlyText);
+            } else if (!useBrowser) {
+                await props.onAnalyze(next, 'local');
+            } else if (!browserAIAvailable()) {
+                setNotice(copyDictionary.pagesProductBrowserUnavailable);
+            } else if (next.reduce((total, source) => total + source.text.length, 0) > 3500) {
+                setNotice(copyDictionary.c3468aba11217f549);
+            } else {
+                setBrowserConsent(next);
+            }
             return;
         }
         setChecking(true);
@@ -112,10 +126,10 @@ export function QuickProductIntake(props: Props) {
     }
     catch (error) {
         setNotice((error as Error).message);
-    } }}>{copyDictionary.c5d41e9a049bfcd8e}</button><label className="image-input">{copyDictionary.ca2c883a4f97f73a9}<input type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={busy} onChange={e => { void addFiles(e.target.files); e.target.value = ''; }}/></label><p>{copyDictionary.cdbca681a9f193d22}{processingNotice}{copyDictionary.c09a905fbc8a6f40e}</p></section>
+    } }}>{copyDictionary.c5d41e9a049bfcd8e}</button>{isPages ? <p>{copyDictionary.pagesOnlyText}</p> : <label className="image-input">{copyDictionary.ca2c883a4f97f73a9}<input type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={busy} onChange={e => { void addFiles(e.target.files); e.target.value = ''; }}/></label>}<p>{isPages ? processingNotice : copyDictionary.cdbca681a9f193d22 + processingNotice + copyDictionary.c09a905fbc8a6f40e}</p></section>
   {sources.map(source => <article className="source-preview" key={source.id}><strong>{source.name}</strong><p>{sourceNames[source.kind]}{copyDictionary.c992c5b8e4e7bfd3a}</p><button disabled={busy} aria-label={copyDictionary.c6135d4159e892541 + source.name} onClick={() => setSources(current => current.filter(item => item.id !== source.id))}>{copyDictionary.c6135d4159e892541}</button><details><summary>{copyDictionary.ca2cf0672eb259a1f}</summary><label>{copyDictionary.c36ca458a92bd722f}<select disabled={busy} value={source.kind} onChange={e => setSources(current => current.map(item => item.id === source.id ? { ...item, kind: e.target.value as ProductSource['kind'] } : item))}>{Object.entries(sourceNames).map(([id, label]) => <option value={id} key={id}>{label}</option>)}</select></label><label>{copyDictionary.c8018c96013e2271d}<input disabled={busy} maxLength={60} value={source.modelKey ?? ''} onChange={e => setSources(current => current.map(item => item.id === source.id ? { ...item, modelKey: e.target.value.trim().toUpperCase() } : item))}/></label></details></article>)}
   {isStudio && <label className="switch-line"><input type="checkbox" checked={cloudConsent} disabled={busy} onChange={e => setCloudConsent(e.target.checked)}/>{copyDictionary.cb2babf422d7bf8cb}</label>}
-  <p role="status">{props.loading && props.progress ? props.progress : notice}</p>{props.error && <p role="alert" className="form-error">{props.error}</p>}<PrimaryButton disabled={busy || !cloudConsent || (!sources.length && !text.trim())} onClick={() => void start()}>{props.loading ? copyDictionary.cc98fe4fb01aac840 : checking ? copyDictionary.cd888ad993f785857 : copyDictionary.ca35bf3d0941627aa}</PrimaryButton>{props.loading && <PrimaryButton variant="ghost" onClick={props.onCancel}>{copyDictionary.ca15c68d61100c9ff}</PrimaryButton>}
+  <p role="status">{props.loading && props.progress ? props.progress : notice}</p>{props.error && <p role="alert" className="form-error">{props.error}</p>}<PrimaryButton disabled={busy || !cloudConsent || (!sources.length && !text.trim())} onClick={() => void start()}>{props.loading ? copyDictionary.cc98fe4fb01aac840 : checking ? copyDictionary.cd888ad993f785857 : isPages ? copyDictionary.pagesExtractText : copyDictionary.ca35bf3d0941627aa}</PrimaryButton>{isPages && <button disabled={busy || (!sources.length && !text.trim())} onClick={() => void start(true)}>{copyDictionary.pagesAnalyzeInBrowser}</button>}{props.loading && <PrimaryButton variant="ghost" onClick={props.onCancel}>{copyDictionary.ca15c68d61100c9ff}</PrimaryButton>}
   <details><summary>{isStudio ? copyDictionary.c0e29b626b39943db : copyDictionary.c22601ac215c61d1a}</summary><button disabled={busy || !text.trim()} onClick={() => { try {
         setSources(intakeSources(sources, text).map(source => source.id === 'draft-text' ? { ...source, id: 'text-' + Date.now() } : source));
         setText('');

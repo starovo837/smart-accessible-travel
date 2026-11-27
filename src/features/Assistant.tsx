@@ -4,7 +4,7 @@ import { Modal, PageHeader, PrimaryButton, ResultDisclaimer } from '../component
 import { Icon } from '../components/Icons';
 import { assistantReply, type AssistantSlots } from '../app/logic';
 import { readText, stopReading } from '../app/accessibility';
-import { isStudio, processingLocation } from '../app/deployment';
+import { isPages, isStudio, processingLocation } from '../app/deployment';
 import { service } from '../app/service';
 import { runInference } from '../app/inference';
 import { answerInBrowser, browserAIAvailable, browserAIReady } from '../app/browserAI';
@@ -25,7 +25,7 @@ export function AssistantPage({ readAloud, evidence, preferBrowser, contextKey, 
     onProduct: (query: string) => void;
 }) {
     const [turns, setTurns] = useState<AssistantTurn[]>([{ speaker: 'assistant', text: copyDictionary.c815734fff77cd9a8 }]);
-    const [grounded, setGrounded] = useState(evidence.length > 0), [agreed, setAgreed] = useState(false), [busy, setBusy] = useState(false), [engineChoice, setEngineChoice] = useState<'auto' | 'computer' | 'device'>('auto'), [pendingBrowser, setPendingBrowser] = useState<string | null>(null);
+    const [grounded, setGrounded] = useState(evidence.length > 0), [agreed, setAgreed] = useState(false), [busy, setBusy] = useState(false), [engineChoice, setEngineChoice] = useState<'auto' | 'computer' | 'device'>(isPages ? 'device' : 'auto'), [pendingBrowser, setPendingBrowser] = useState<string | null>(null);
     const request = useRef<AbortController | null>(null), epoch = useRef(0);
     const [draft, setDraft] = useState('');
     const [slots, setSlots] = useState<AssistantSlots>({});
@@ -98,7 +98,7 @@ export function AssistantPage({ readAloud, evidence, preferBrowser, contextKey, 
                 }
                 if (useDevice && !browserAIReady() && !forceDevice) {
                     if (!browserAIAvailable())
-                        throw Error(copyDictionary.cc79a0109161dbd1a);
+                        throw Error(isPages ? copyDictionary.pagesBrowserUnavailable : copyDictionary.cc79a0109161dbd1a);
                     setPendingBrowser(text);
                     setStatus(copyDictionary.c80d1c7155315e5b9);
                     return;
@@ -157,7 +157,7 @@ export function AssistantPage({ readAloud, evidence, preferBrowser, contextKey, 
     <button className="text-action" onClick={() => { interrupt(); setSlots({}); setComplete(false); setStatus(copyDictionary.c30088b0d3eae4e41); setTurns([{ speaker: 'assistant', text: copyDictionary.c9c8643b3a37e8ee3 }]); }}>{copyDictionary.c077f54de5ae01d29}</button>
     <details className="assistant-settings"><summary>{copyDictionary.c8e3a82dcdcba16af}</summary>{contextControls}<p>{copyDictionary.c5ae158045e573344}{evidence.length} / {evidenceTotal}{copyDictionary.c55d491c0458c41e7}</p>{omitted.length > 0 && <details><summary>{copyDictionary.ce76cf9ce3de92e76}{omitted.length}{copyDictionary.c6ad2faeaf7466290}</summary><p>{copyDictionary.c08a4bb6876ec17bd}</p><ul>{[...new Set(omitted)].map(label => <li key={label}>{label}</li>)}</ul></details>}
       <label className="switch-line"><input type="checkbox" checked={grounded} disabled={busy} onChange={e => { interrupt(); setGrounded(e.target.checked); }}/>{copyDictionary.c643ee3a405a37bb4}</label>{!grounded && <p>{copyDictionary.c4fdabdbaeb0e03bb}</p>}
-      <label htmlFor="assistant-engine">{copyDictionary.c64921f10575ae6d8}</label><select id="assistant-engine" disabled={busy} value={engineChoice} onChange={e => setEngineChoice(e.target.value as typeof engineChoice)}><option value="auto">{isStudio ? copyDictionary.c04ce09e0e8ad6580 : copyDictionary.c266feadbd4b10161}</option><option value="computer">{isStudio ? copyDictionary.c62a379384eaad192 : copyDictionary.ce8045bb251187fba}</option><option value="device">{copyDictionary.c25d90aa0049b3cc4}</option></select>
+      <label htmlFor="assistant-engine">{copyDictionary.c64921f10575ae6d8}</label><select id="assistant-engine" disabled={busy} value={engineChoice} onChange={e => setEngineChoice(e.target.value as typeof engineChoice)}>{!isPages && <><option value="auto">{isStudio ? copyDictionary.c04ce09e0e8ad6580 : copyDictionary.c266feadbd4b10161}</option><option value="computer">{isStudio ? copyDictionary.c62a379384eaad192 : copyDictionary.ce8045bb251187fba}</option></>}<option value="device">{copyDictionary.c25d90aa0049b3cc4}</option></select>
       <details><summary>{copyDictionary.c41327ffa9b6eac3e}</summary>{evidence.map(item => <article key={item.id}><h3>{item.label} · {item.source}</h3><p>{item.text}</p></article>)}<p>{copyDictionary.c97e5a7ee2c7727c0}</p></details>
     </details>
     {requiresNarrowing && grounded && <p role="alert">{copyDictionary.c7e9a39abfd1c38c3}</p>}

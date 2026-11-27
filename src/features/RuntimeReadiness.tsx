@@ -1,7 +1,7 @@
 import { copyDictionary } from "../app/copyDictionary.ts";
 import { useState } from 'react';
 import { service } from '../app/service';
-import { isStudio } from '../app/deployment';
+import { isPages, isStudio } from '../app/deployment';
 import { downloadText } from '../app/accessibility';
 interface Check {
     at: string;
@@ -31,7 +31,10 @@ export function RuntimeReadiness() {
         finally {
             clearTimeout(timer);
         }
-        if (!result.file)
+        if (isPages) {
+            result.server = copyDictionary.pagesHeader;
+            result.localAI = copyDictionary.pagesProcessingNotice;
+        } else if (!result.file)
             try {
                 const data = await service<{
                     configured: boolean;
@@ -46,5 +49,5 @@ export function RuntimeReadiness() {
         setCheck(result);
         setBusy(false);
     };
-    return <section className="task-panel"><h2>{copyDictionary.c50cdac496dd279ed}</h2><p>{copyDictionary.cb949d9149a97cd8f}</p><button disabled={busy} onClick={() => void inspect()}>{busy ? copyDictionary.c0232e8ddd5565c4f : copyDictionary.c7acc3362a506a918}</button>{check && <div role="status"><p>{copyDictionary.c7f6b4af200672996}{check.secure ? copyDictionary.cb5141d3d19e9a048 : copyDictionary.c0c70665b6eb65f1a}{copyDictionary.c86be8d7394faa60b}{check.file ? copyDictionary.cb5141d3d19e9a048 : copyDictionary.c0c70665b6eb65f1a}</p><p>{copyDictionary.c5e4acd8fead1c1a1}{check.gpu}；{check.file || !check.secure ? copyDictionary.cab1c58024a3acc53 : copyDictionary.cfe19e7bfa9092d67}</p><p>{check.server}；{check.localAI}。</p><button onClick={() => downloadText(JSON.stringify({ kind: 'technical-readiness', ...check, humanAcceptance: copyDictionary.cac991bcb53e3c261 }, null, 2), copyDictionary.c11945dd39b6141da, 'application/json')}>{copyDictionary.c9bf1cdc897840cf4}</button></div>}<p>{isStudio ? copyDictionary.c58bc0c24bf26b322 : copyDictionary.c0719971a8f3d32d7}{copyDictionary.cc0ff95dd61ca7d9b}</p><p>{copyDictionary.ca88f0e55003aafd5}</p></section>;
+    return <section className="task-panel"><h2>{copyDictionary.c50cdac496dd279ed}</h2><p>{copyDictionary.cb949d9149a97cd8f}</p><button disabled={busy} onClick={() => void inspect()}>{busy ? copyDictionary.c0232e8ddd5565c4f : copyDictionary.c7acc3362a506a918}</button>{check && <div role="status"><p>{copyDictionary.c7f6b4af200672996}{check.secure ? copyDictionary.cb5141d3d19e9a048 : copyDictionary.c0c70665b6eb65f1a}{copyDictionary.c86be8d7394faa60b}{check.file ? copyDictionary.cb5141d3d19e9a048 : copyDictionary.c0c70665b6eb65f1a}</p><p>{copyDictionary.c5e4acd8fead1c1a1}{check.gpu}；{check.file || !check.secure ? copyDictionary.cab1c58024a3acc53 : copyDictionary.cfe19e7bfa9092d67}</p><p>{check.server}；{check.localAI}。</p><button onClick={() => downloadText(JSON.stringify({ kind: 'technical-readiness', ...check, humanAcceptance: copyDictionary.cac991bcb53e3c261 }, null, 2), copyDictionary.c11945dd39b6141da, 'application/json')}>{copyDictionary.c9bf1cdc897840cf4}</button></div>}<p>{isPages ? copyDictionary.pagesRuntime : (isStudio ? copyDictionary.c58bc0c24bf26b322 : copyDictionary.c0719971a8f3d32d7) + copyDictionary.cc0ff95dd61ca7d9b}</p><p>{copyDictionary.ca88f0e55003aafd5}</p></section>;
 }

@@ -1,4 +1,5 @@
 import { copyDictionary } from "../app/copyDictionary.ts";
+import { isPages } from '../app/deployment';
 import { getTravelMeta } from '../app/catalog';
 import { ruleCurrent, rulesFor, safeRuleUrl, type RuleDocument } from '../app/ruleCatalog';
 import type { TravelContext } from '../app/types';
@@ -28,7 +29,7 @@ export function TravelCoverage({ mode, context, documents, loading, message, onR
       <p>{copyDictionary.c83abd2a5765ec269}{getTravelMeta(mode).label}{copyDictionary.caf1c693f94450d80}{Object.keys(travelPlanSources).length}{copyDictionary.cadec0be3c63b5109}</p>
       {official && <p><a href={official.href} target="_blank" rel="noopener noreferrer">{copyDictionary.ruleViewOfficialAgain} · {official.title}</a></p>}
       <details><summary>{copyDictionary.ruleOfficialEntries}</summary><ul>{officialLinks.map(rule => <li key={rule.id}><a href={rule.href} target="_blank" rel="noopener noreferrer">{rule.title}</a></li>)}</ul></details>
-      <p>{copyDictionary.ruleRefreshNotice}</p>{message && <p role="status">{message}</p>}
-      <button disabled={loading} onClick={onRefresh}>{loading ? copyDictionary.c21efcf4705af076e : copyDictionary.ruleRefreshRecords}</button>
+      {isPages ? <p>{copyDictionary.pagesRuleCatalog}</p> : <><p>{copyDictionary.ruleRefreshNotice}</p>{message && <p role="status">{message}</p>}
+      <button disabled={loading} onClick={onRefresh}>{loading ? copyDictionary.c21efcf4705af076e : copyDictionary.ruleRefreshRecords}</button></>}
     </section>;
 }

@@ -7,6 +7,7 @@ import { Magnifier } from './support/Magnifier';
 import { VisionReader } from './support/VisionReader';
 import { Reminders } from './support/Reminders';
 import type { LifeData } from '../app/types';
+import { isPages } from '../app/deployment';
 const Gestures = lazy(() => import('./support/Gestures'));
 export function SupportToolPage({ tool, life, setLife, saved, onBack, onPrivacy, onHelp }: {
     tool: SupportToolId;
@@ -18,5 +19,5 @@ export function SupportToolPage({ tool, life, setLife, saved, onBack, onPrivacy,
     onHelp: () => void;
 }) {
     const item = supportTools.find(item => item.id === tool)!;
-    return <section className="screen support-tool-page"><PageHeader title={item.title} subtitle={item.detail} onBack={onBack}/>{['color', 'communication', 'steps'].includes(tool) && <DailyAssistance key={tool} life={life} setLife={setLife} saved={saved} onPrivacy={onPrivacy} onHelp={onHelp} tool={tool === 'color' ? 'camera' : tool === 'steps' ? 'steps' : 'talk'} onExit={onBack}/>} {tool === 'vision' && <VisionReader />}{tool === 'magnifier' && <Magnifier />}{tool === 'reminders' && <Reminders life={life} setLife={setLife} saved={saved}/>} {tool === 'gestures' && <Suspense fallback={<p role="status">{copyDictionary.ce92efd6a36300ba8}</p>}><Gestures life={life} setLife={setLife}/></Suspense>}</section>;
+    return <section className="screen support-tool-page"><PageHeader title={item.title} subtitle={item.detail} onBack={onBack}/>{['color', 'communication', 'steps'].includes(tool) && <DailyAssistance key={tool} life={life} setLife={setLife} saved={saved} onPrivacy={onPrivacy} onHelp={onHelp} tool={tool === 'color' ? 'camera' : tool === 'steps' ? 'steps' : 'talk'} onExit={onBack}/>} {tool === 'vision' && (isPages ? <><p className="prototype-note">{copyDictionary.pagesImageUnavailable}</p><Magnifier /></> : <VisionReader />)}{tool === 'magnifier' && <Magnifier />}{tool === 'reminders' && <Reminders life={life} setLife={setLife} saved={saved}/>} {tool === 'gestures' && <Suspense fallback={<p role="status">{copyDictionary.ce92efd6a36300ba8}</p>}><Gestures life={life} setLife={setLife}/></Suspense>}</section>;
 }

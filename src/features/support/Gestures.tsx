@@ -1,4 +1,5 @@
 import { copyDictionary } from "../../app/copyDictionary.ts";
+import { assetUrl } from '../../app/assetUrl';
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import type { GestureRecognizer } from '@mediapipe/tasks-vision';
 import { gestureOptions, confirmedGesture } from '../../app/supportCatalog';
@@ -14,7 +15,7 @@ export default function Gestures({ life, setLife }: {
     const stop = () => { epoch.current++; cancelAnimationFrame(frame.current); stream.current?.getTracks().forEach(t => t.stop()); stream.current = null; recognizer.current?.close(); recognizer.current = null; setCamera(false); setBusy(false); stable.current = { id: '', count: 0 }; };
     useEffect(() => { const hidden = () => { if (document.hidden)
         stop(); }; document.addEventListener('visibilitychange', hidden); return () => { epoch.current++; cancelAnimationFrame(frame.current); stream.current?.getTracks().forEach(t => t.stop()); recognizer.current?.close(); stopReading(); document.removeEventListener('visibilitychange', hidden); }; }, []);
-    const initialize = async (version: number) => { const { FilesetResolver, GestureRecognizer } = await import('@mediapipe/tasks-vision'), files = await FilesetResolver.forVisionTasks('/mediapipe'); const model = await GestureRecognizer.createFromOptions(files, { baseOptions: { modelAssetPath: '/mediapipe/gesture_recognizer.task', delegate: 'CPU' }, runningMode: 'IMAGE', numHands: 1, minHandDetectionConfidence: .6, minHandPresenceConfidence: .6, cannedGesturesClassifierOptions: { scoreThreshold: .7 } }); if (version !== epoch.current) {
+    const initialize = async (version: number) => { const { FilesetResolver, GestureRecognizer } = await import('@mediapipe/tasks-vision'), files = await FilesetResolver.forVisionTasks(assetUrl('mediapipe')); const model = await GestureRecognizer.createFromOptions(files, { baseOptions: { modelAssetPath: assetUrl('mediapipe/gesture_recognizer.task'), delegate: 'CPU' }, runningMode: 'IMAGE', numHands: 1, minHandDetectionConfidence: .6, minHandPresenceConfidence: .6, cannedGesturesClassifierOptions: { scoreThreshold: .7 } }); if (version !== epoch.current) {
         model.close();
         return null;
     } recognizer.current = model; return model; };
